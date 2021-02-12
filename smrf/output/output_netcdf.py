@@ -16,7 +16,7 @@ class OutputNetcdf():
 
     type = 'netcdf'
     fmt = '%Y-%m-%d %H:%M:%S'
-    cs = (6, 10, 10)
+    cs = None
 
     def __init__(self, variable_dict, topo, time, outConfig):
         """
