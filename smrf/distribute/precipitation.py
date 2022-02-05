@@ -142,19 +142,27 @@ class ppt(image_data.image_data):
                     t[:],
                     t.getncattr('units'),
                     t.getncattr('calendar'),
-                    only_use_cftime_datetimes=False)
-                time = np.array(
-                    [ti.replace(tzinfo=self.start_date.tzinfo) for ti in time])
-                time_ind = np.where(time == self.start_date.to_pydatetime())[0]
+                    only_use_cftime_datetimes=False,
+                    only_use_python_datetimes=True
+                )
+                # Check whether the last storm day entry and the start
+                # of this run is an hour apart (3600 seconds)
+                max_time = time.max().replace(tzinfo=self.start_date.tzinfo)
+                from dateutil.parser import parse
+                from datetime import timedelta
+                delta_seconds = (
+                    self.start_date.to_pydatetime() - parse(str(max_time))
+                )
 
-                if time_ind.size == 0:
+                # Python timedelta are handled in seconds and days
+                if delta_seconds > timedelta(seconds=(self.time_step*60)):
                     self._logger.warning(
                         'Invalid storm_days input! Setting to 0.0')
                     self.storm_days = np.zeros((topo.ny, topo.nx))
 
                 else:
                     # start at index of storm_days - 1
-                    self.storm_days = f.variables['storm_days'][time_ind - 1, :, :][0]  # noqa
+                    self.storm_days = f.variables['storm_days'][- 1]
             else:
                 self._logger.error(
                     'Variable storm_days not in {}'.format(
