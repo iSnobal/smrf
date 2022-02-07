@@ -157,8 +157,9 @@ class ppt(image_data.image_data):
 
             if 'storm_days' in f.variables:
                 t = f.variables['time']
+                t_max = t[:].max()
                 time = nc.num2date(
-                    t[:],
+                    t_max,
                     t.getncattr('units'),
                     t.getncattr('calendar'),
                     only_use_cftime_datetimes=False,
@@ -166,9 +167,7 @@ class ppt(image_data.image_data):
                 )
                 # Check whether the last storm day entry and the start
                 # of this run is an hour apart (3600 seconds)
-                max_time = time.max().replace(tzinfo=self.start_date.tzinfo)
-                from dateutil.parser import parse
-                from datetime import timedelta
+                max_time = time.replace(tzinfo=self.start_date.tzinfo)
                 delta_seconds = (
                     self.start_date.to_pydatetime() - parse(str(max_time))
                 )
@@ -181,7 +180,7 @@ class ppt(image_data.image_data):
 
                 else:
                     # start at index of storm_days - 1
-                    self.storm_days = f.variables['storm_days'][- 1]
+                    self.storm_days = f.variables['storm_days'][t_max]
             else:
                 self._logger.error(
                     'Variable storm_days not in {}'.format(
