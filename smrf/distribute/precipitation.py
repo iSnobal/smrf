@@ -131,10 +131,29 @@ class ppt(image_data.image_data):
 
         # Assign storm_days array if given
         if self.config["storm_days_restart"] is not None:
+            from dateutil.parser import parse
+            from datetime import timedelta
+            import re
+
+            ## Hack - UofU - Fix path to previous day ##
+            # This ignores the path given to SMRF by the config day
+            # and replaces the given day to the previous day based of the
+            # start_date
+            previous_day = (
+                self.start_date.to_pydatetime() - timedelta(days=1)
+            ).strftime('%Y%m%d')
+            storm_day_file_name = re.sub(
+                r'run\d{8}',
+                f'run{previous_day}',
+                self.config['storm_days_restart']
+            )
+
             self._logger.debug('Reading {} from {}'.format(
-                'storm_days', self.config['storm_days_restart']))
-            f = nc.Dataset(self.config['storm_days_restart'], 'r')
+                'storm_days', storm_day_file_name)
+            )
+            f = nc.Dataset(storm_day_file_name, 'r')
             f.set_always_mask(False)
+            ## End of hack; needs a better fix if that solves albedo issues ##
 
             if 'storm_days' in f.variables:
                 t = f.variables['time']
