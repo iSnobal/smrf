@@ -126,7 +126,6 @@ class ppt(image_data.image_data):
         self.snow_density = np.zeros((topo.ny, topo.nx))
         self.storm_days = np.zeros((topo.ny, topo.nx))
         self.storm_total = np.zeros((topo.ny, topo.nx))
-        self.last_storm_day = np.zeros((topo.ny, topo.nx))
         self.dem = topo.dem
 
         # Assign storm_days array if given
@@ -427,10 +426,6 @@ class ppt(image_data.image_data):
         self.percent_snow = perc_snow
         self.snow_density = snow_den
 
-        # day of last storm, this will be used in albedo
-        self.last_storm_day = utils.water_day(data.name)[0] - \
-            self.storm_days - 0.001
-
     def distribute_for_susong1999(self, data, ppt_temp, time):
         """Susong 1999 estimates percent snow and snow density based on
         Susong et al, (1999) :cite:`Susong&al:1999`.
@@ -476,10 +471,6 @@ class ppt(image_data.image_data):
             self.precip = np.zeros(self.storm_days.shape)
             self.percent_snow = np.zeros(self.storm_days.shape)
             self.snow_density = np.zeros(self.storm_days.shape)
-
-        # day of last storm, this will be used in albedo
-        self.last_storm_day = utils.water_day(data.name)[0] - \
-            self.storm_days - 0.001
 
     def distribute_thread(self, smrf_queue, data_queue):
         """
