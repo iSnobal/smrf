@@ -2,8 +2,15 @@ import numpy as np
 import pandas as pd
 
 
-def time_since_storm(precipitation, perc_snow, time_step=1/24, mass=1.0,
-                     time=4, stormDays=None, stormPrecip=None, ps_thresh=0.5):
+def time_since_storm(
+    precipitation,
+    perc_snow,
+    storm_days,
+    storm_precip,
+    time_step=1 / 24,
+    mass=1.0,
+    ps_thresh=0.5
+):
     """
     Calculate the decimal days since the last storm given a precip time series,
     percent snow, mass threshold, and time threshold
@@ -15,12 +22,11 @@ def time_since_storm(precipitation, perc_snow, time_step=1/24, mass=1.0,
     Args:
         precipitation: Precipitation values
         perc_snow: Percent of precipitation that was snow
+        storm_days: Storm days to keep track of
+        storm_precip: Keeps track of the total storm precip
         time_step: Step in days of the model run
         mass: Threshold for the mass to start a new storm
-        time: Threshold for the time to start a new storm
-        stormDays: If specified, this is the output from a previous run of
-            storms else it will be set to the date_time value
-        stormPrecip: Keeps track of the total storm precip
+        ps_thresh: Minimum percent snow within a pixel
 
     Returns:
         tuple:
@@ -29,42 +35,25 @@ def time_since_storm(precipitation, perc_snow, time_step=1/24, mass=1.0,
         - **stormPrecip** - Array representing the precip accumulated during
             the most recent storm
 
-    Created Janurary 5, 2016
+    Created January 5, 2016
     @author: Scott Havens
+
+    Updated: February 07, 2022
+    @author: Joachim Meyer
     """
-    # either preallocate or use the input
-    if stormDays is None:
-        stormDays = np.zeros(precipitation.shape)
-
-    if stormPrecip is None:
-        stormPrecip = np.zeros(precipitation.shape)
-
-    # if there is no snow, don't reset the counter
-    # This ensures that the albedo won't be reset
-    stormDays += 1
+    #
     if np.sum(perc_snow) == 0:
-        #         stormDays = np.add(stormDays, 1)
-        stormPrecip = np.zeros(precipitation.shape)
-        return stormDays, stormPrecip
+        storm_days += time_step
+    else:
+        # Determine locations where it has snowed and add to storm total
+        idx_location = perc_snow >= ps_thresh
+        storm_precip[idx_location] = + precipitation[idx_location]
 
-    # determine locations where it has snowed
-    idx = perc_snow >= ps_thresh
+        # Filter the locations where the mass is enough to reset albedo later
+        idx_mass = storm_precip >= mass
+        storm_days[idx_mass] = 0
 
-    # determine locations where the time threshold has passed
-    # these areas, the stormPrecip will be set back to zero
-    idx_time = stormDays >= time
-    stormPrecip[idx_time] = 0
-
-    # add the values to the stormPrecip
-    stormPrecip[idx] = + precipitation[idx]
-
-    # see if the mass threshold has been passed
-    idx_mass = stormPrecip >= mass
-
-    # reset the stormDays to zero where the storm is present
-    stormDays[idx_mass] = 0
-
-    return stormDays, stormPrecip
+    return storm_days, storm_precip
 
 
 def time_since_storm_pixel(precipitation, dpt, perc_snow, storming,

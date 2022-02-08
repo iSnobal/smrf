@@ -456,11 +456,11 @@ class ppt(image_data.image_data):
             stormDays, stormPrecip = storms.time_since_storm(
                 self.precip,
                 perc_snow,
+                storm_days=self.storm_days,
+                storm_precip=self.storm_total,
                 time_step=self.time_step/60/24,
                 mass=self.ppt_threshold,
-                time=self.time_to_end_storm,
-                stormDays=self.storm_days,
-                stormPrecip=self.storm_total)
+            )
 
             # save the model state
             self.percent_snow = perc_snow
