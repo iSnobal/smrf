@@ -41,17 +41,18 @@ def time_since_storm(
     Updated: February 07, 2022
     @author: Joachim Meyer
     """
-    #
-    if np.sum(perc_snow) == 0:
-        storm_days += time_step
-    else:
-        # Determine locations where it has snowed and add to storm total
-        idx_location = perc_snow >= ps_thresh
-        storm_precip[idx_location] = + precipitation[idx_location]
+    
+    # Determine locations where it has snowed and add to storm total
+    idx_location = perc_snow >= ps_thresh
+    storm_precip[idx_location] += precipitation[idx_location]
 
-        # Filter the locations where the mass is enough to reset albedo later
-        idx_mass = storm_precip >= mass
-        storm_days[idx_mass] = 0
+    # Filter the locations where the mass is enough to reset albedo later
+    idx_mass = storm_precip >= mass
+    storm_days[idx_mass] = 0
+
+    storm_precip[~idx_mass] = 0
+    # Continue incrementing storm days for locations without storm precip
+    storm_days[~idx_mass] += time_step
 
     return storm_days, storm_precip
 
