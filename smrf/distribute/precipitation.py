@@ -454,7 +454,7 @@ class ppt(image_data.image_data):
                 storm_days=self.storm_days,
                 storm_precip=self.storm_total,
                 time_step=self.time_step/60/24,
-                mass=self.ppt_threshold,
+                mass_threshold=self.ppt_threshold,
             )
 
             # save the model state
