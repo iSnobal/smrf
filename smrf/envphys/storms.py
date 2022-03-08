@@ -57,10 +57,10 @@ def time_since_storm(
     # below
     location_index = (storm_precip >= mass_threshold)
     storm_days[location_index] = 0
-    storm_precip[~location_index] = 0
+    storm_days[~location_index] += time_step
 
     # Step 3: Increase the storm precipitation total for the day
-    storm_days[~location_index] += time_step
+    storm_precip[~location_index] = 0
 
     return storm_days, storm_precip
 
