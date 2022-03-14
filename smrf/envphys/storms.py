@@ -34,8 +34,9 @@ def time_since_storm(
         (Optional)
         mass_threshold: Minimum amount of precipitation required to be a storm
                         (snow mass). Default: 0.5
-        percent_snow_threshold: Minimum percent snow within a pixel in
-                                fractional amount. Default: 0.5 (50 %)
+        percent_snow_threshold: Minimum fraction for values in 
+                                `percent_snow_precipitation` to be considered 
+                                a snow event. Default: 0.5 (50%)
 
     Returns:
         tuple:
