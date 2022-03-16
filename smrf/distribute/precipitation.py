@@ -1,7 +1,8 @@
+from datetime import timedelta
 
 import netCDF4 as nc
 import numpy as np
-
+from dateutil.parser import parse
 from smrf.distribute import image_data
 from smrf.envphys import precip, Snow, storms
 from smrf.utils import utils
@@ -126,35 +127,42 @@ class ppt(image_data.image_data):
         self.snow_density = np.zeros((topo.ny, topo.nx))
         self.storm_days = np.zeros((topo.ny, topo.nx))
         self.storm_total = np.zeros((topo.ny, topo.nx))
-        self.last_storm_day = np.zeros((topo.ny, topo.nx))
         self.dem = topo.dem
 
         # Assign storm_days array if given
         if self.config["storm_days_restart"] is not None:
             self._logger.debug('Reading {} from {}'.format(
-                'storm_days', self.config['storm_days_restart']))
-            f = nc.Dataset(self.config['storm_days_restart'], 'r')
+                'storm_days', self.config["storm_days_restart"])
+            )
+            f = nc.Dataset(self.config["storm_days_restart"])
             f.set_always_mask(False)
 
             if 'storm_days' in f.variables:
                 t = f.variables['time']
+                t_max = t[:].max()
                 time = nc.num2date(
-                    t[:],
+                    t_max,
                     t.getncattr('units'),
                     t.getncattr('calendar'),
-                    only_use_cftime_datetimes=False)
-                time = np.array(
-                    [ti.replace(tzinfo=self.start_date.tzinfo) for ti in time])
-                time_ind = np.where(time == self.start_date.to_pydatetime())[0]
+                    only_use_cftime_datetimes=False,
+                    only_use_python_datetimes=True
+                )
+                # Check whether the last storm day entry and the start
+                # of this run is an hour apart (3600 seconds)
+                max_time = time.replace(tzinfo=self.start_date.tzinfo)
+                delta_seconds = (
+                    self.start_date.to_pydatetime() - parse(str(max_time))
+                )
 
-                if time_ind.size == 0:
+                # Python timedelta are handled in seconds and days
+                if delta_seconds > timedelta(seconds=(self.time_step*60)):
                     self._logger.warning(
                         'Invalid storm_days input! Setting to 0.0')
                     self.storm_days = np.zeros((topo.ny, topo.nx))
 
                 else:
                     # start at index of storm_days - 1
-                    self.storm_days = f.variables['storm_days'][time_ind - 1, :, :][0]  # noqa
+                    self.storm_days = f.variables['storm_days'][t_max]
             else:
                 self._logger.error(
                     'Variable storm_days not in {}'.format(
@@ -401,10 +409,6 @@ class ppt(image_data.image_data):
         self.percent_snow = perc_snow
         self.snow_density = snow_den
 
-        # day of last storm, this will be used in albedo
-        self.last_storm_day = utils.water_day(data.name)[0] - \
-            self.storm_days - 0.001
-
     def distribute_for_susong1999(self, data, ppt_temp, time):
         """Susong 1999 estimates percent snow and snow density based on
         Susong et al, (1999) :cite:`Susong&al:1999`.
@@ -430,11 +434,11 @@ class ppt(image_data.image_data):
             stormDays, stormPrecip = storms.time_since_storm(
                 self.precip,
                 perc_snow,
+                storm_days=self.storm_days,
+                storm_precip=self.storm_total,
                 time_step=self.time_step/60/24,
-                mass=self.ppt_threshold,
-                time=self.time_to_end_storm,
-                stormDays=self.storm_days,
-                stormPrecip=self.storm_total)
+                mass_threshold=self.ppt_threshold,
+            )
 
             # save the model state
             self.percent_snow = perc_snow
@@ -450,10 +454,6 @@ class ppt(image_data.image_data):
             self.precip = np.zeros(self.storm_days.shape)
             self.percent_snow = np.zeros(self.storm_days.shape)
             self.snow_density = np.zeros(self.storm_days.shape)
-
-        # day of last storm, this will be used in albedo
-        self.last_storm_day = utils.water_day(data.name)[0] - \
-            self.storm_days - 0.001
 
     def distribute_thread(self, smrf_queue, data_queue):
         """

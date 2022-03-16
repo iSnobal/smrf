@@ -2,69 +2,68 @@ import numpy as np
 import pandas as pd
 
 
-def time_since_storm(precipitation, perc_snow, time_step=1/24, mass=1.0,
-                     time=4, stormDays=None, stormPrecip=None, ps_thresh=0.5):
+def time_since_storm(
+    precipitation,
+    percent_snow_precipitation,
+    storm_days,
+    storm_precip,
+    time_step,
+    mass_threshold=1.0,
+    percent_snow_threshold=0.5
+):
     """
-    Calculate the decimal days since the last storm given a precip time series,
-    percent snow, mass threshold, and time threshold
+    Increase or reset the given storm days and storm precipitation based of
+    given percent snow and mass threshold.
 
-     - Will look for pixels where perc_snow > 50% as storm locations
-     - A new storm will start if the mass at the pixel has exceeded the mass
-         limit, this ensures that the enough has accumulated
+    Steps:
+     - Look for pixels where percent snow precipitation is above the threshold.
+     - Reset storm days if the precipitation at the pixel is above the mass
+         threshold or increase the counter if it is below.
+     - Add the precipitation amount to the storm precipitation.
+
+    *NOTE*: Storm day precipitation is initialized and set to 0 with each
+        processed day. Hence, no cross-day storm tracking is possible if the
+        period between the days falls below the threshold.
 
     Args:
         precipitation: Precipitation values
-        perc_snow: Percent of precipitation that was snow
+        percent_snow_precipitation: Percent of precipitation that was snow
+        storm_days: Storm days to keep track of
+        storm_precip: Keeps track of the total storm precip
         time_step: Step in days of the model run
-        mass: Threshold for the mass to start a new storm
-        time: Threshold for the time to start a new storm
-        stormDays: If specified, this is the output from a previous run of
-            storms else it will be set to the date_time value
-        stormPrecip: Keeps track of the total storm precip
+        (Optional)
+        mass_threshold: Minimum amount of precipitation required to be a storm
+                        (snow mass). Default: 0.5
+        percent_snow_threshold: Minimum fraction for values in 
+                                `percent_snow_precipitation` to be considered 
+                                a snow event. Default: 0.5 (50%)
 
     Returns:
         tuple:
-        - **stormDays** - Array representing the days since the last storm at
-            a pixel
-        - **stormPrecip** - Array representing the precip accumulated during
-            the most recent storm
+        - **stormDays** - Updated storm days
+        - **stormPrecip** - Updated storm precipitation
 
-    Created Janurary 5, 2016
+    Created January 5, 2016
     @author: Scott Havens
+
+    Updated: February 07, 2022
+    @author: Joachim Meyer, Dillon Ragar
     """
-    # either preallocate or use the input
-    if stormDays is None:
-        stormDays = np.zeros(precipitation.shape)
 
-    if stormPrecip is None:
-        stormPrecip = np.zeros(precipitation.shape)
+    # Step 1: Pixels above snow percent threshold
+    location_index = (percent_snow_precipitation >= percent_snow_threshold)
+    storm_precip[location_index] += precipitation[location_index]
 
-    # if there is no snow, don't reset the counter
-    # This ensures that the albedo won't be reset
-    stormDays += 1
-    if np.sum(perc_snow) == 0:
-        #         stormDays = np.add(stormDays, 1)
-        stormPrecip = np.zeros(precipitation.shape)
-        return stormDays, stormPrecip
+    # Step 2: Reset locations above mass threshold or increase counter when
+    # below
+    location_index = (storm_precip >= mass_threshold)
+    storm_days[location_index] = 0
+    storm_days[~location_index] += time_step
 
-    # determine locations where it has snowed
-    idx = perc_snow >= ps_thresh
+    # Step 3: Increase the storm precipitation total for the day
+    storm_precip[~location_index] = 0
 
-    # determine locations where the time threshold has passed
-    # these areas, the stormPrecip will be set back to zero
-    idx_time = stormDays >= time
-    stormPrecip[idx_time] = 0
-
-    # add the values to the stormPrecip
-    stormPrecip[idx] = + precipitation[idx]
-
-    # see if the mass threshold has been passed
-    idx_mass = stormPrecip >= mass
-
-    # reset the stormDays to zero where the storm is present
-    stormDays[idx_mass] = 0
-
-    return stormDays, stormPrecip
+    return storm_days, storm_precip
 
 
 def time_since_storm_pixel(precipitation, dpt, perc_snow, storming,
