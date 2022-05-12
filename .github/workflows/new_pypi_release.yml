@@ -5,8 +5,11 @@ name: Release to Pypi
 # Run on a published release and push to Pypi
 on: 
   release: 
-    types: [published]
-
+    types: 
+      [published]
+    branches-ignore:    
+      - 'ERW**'
+    
 jobs:
 
   build_wheels_linux:
