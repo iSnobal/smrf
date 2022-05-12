@@ -1,5 +1,5 @@
 import math
-
+import pandas as pd
 import numpy as np
 
 from smrf.utils.io import isint
@@ -254,3 +254,431 @@ def decay_alb_hardy(litter, veg_type, storm_day, alb_v, alb_ir):
     alb_ir_d = alb_ir*sc + alb_litter*lc
 
     return alb_v_d, alb_ir_d
+
+
+
+
+# dr testing below
+
+
+
+
+def albedo_vis(telapsed, cosz, VFAC, gsize, maxgsz, dirt):
+    """
+    Calculate the abedo, adapted from IPW function albedo
+    Args:
+        telapsed - time since last snow storm (decimal days)
+        cosz - cosine local solar illumination angle matrix
+        gsize - gsize is effective grain radius of snow after last storm (mu m)
+        maxgsz - maxgsz is maximum grain radius expected from grain growth
+                  (mu m)
+        dirt - dirt is effective contamination for adjustment to visible
+               albedo (usually between 1.5-3.0)
+    Returns:
+        tuple:
+        Returns a tuple containing the visible and IR spectral albedo
+        - **alb_v** (*numpy.array*) - albedo for visible specturm
+        - **alb_ir** (*numpy.array*) -  albedo for ir spectrum
+    Created April 17, 2015
+    Modified July 23, 2015 - take image of cosz and calculate albedo for
+        one time step
+    Scott Havens
+    """
+
+    #VFAC = VFAC
+    # check inputs
+    if gsize <= 0 or gsize > 500:
+        raise Exception("unrealistic input: gsize=%i", gsize)
+
+    if (maxgsz <= gsize or maxgsz > 2000):
+        raise Exception("unrealistic input: maxgsz=%i", maxgsz)
+
+    if 1 >= dirt >= 10:
+        raise Exception("unrealistic input: dirt=%i", dirt)
+
+    # set initial grain radii for vis and ir
+    #radius_ir = math.sqrt(gsize)
+    #range_ir = math.sqrt(maxgsz) - radius_ir
+    radius_v = math.sqrt(dirt * gsize)
+    range_v = math.sqrt(dirt * maxgsz) - radius_v
+
+    # calc grain growth decay factor
+    growth_factor = growth(telapsed + 1.0)
+
+    # calc effective gsizes for vis & ir
+    gv = radius_v + (range_v * growth_factor)
+    #gir = radius_ir + (range_ir * growth_factor)
+
+    # calc albedos for cos(z)=1
+    alb_v_1 = MAXV - (gv / VFAC)
+    #alb_ir_1 = MAXIR * np.exp(IRFAC * gir)
+
+    # calculate effect of cos(z)<1
+
+    # adjust diurnal increase range
+    dzv = gv * VZRG
+    #dzir = (gir * IRZRG) + IRZ0
+
+    # calculate albedo
+    alb_v = alb_v_1
+    #alb_ir = alb_ir_1
+
+    # correct if the sun is up
+    ind = cosz > 0.0
+    alb_v[ind] += dzv[ind] * (1.0 - cosz[ind])
+    #alb_ir[ind] += dzir[ind] * (1.0 - cosz[ind])
+
+    return alb_v
+
+def albedo_ir(telapsed, cosz, IRFAC, gsize, maxgsz, dirt=2):
+    """
+    Calculate the abedo, adapted from IPW function albedo
+    Args:
+        telapsed - time since last snow storm (decimal days)
+        cosz - cosine local solar illumination angle matrix
+        gsize - gsize is effective grain radius of snow after last storm (mu m)
+        maxgsz - maxgsz is maximum grain radius expected from grain growth
+                  (mu m)
+        dirt - dirt is effective contamination for adjustment to visible
+               albedo (usually between 1.5-3.0)
+    Returns:
+        tuple:
+        Returns a tuple containing the visible and IR spectral albedo
+        - **alb_v** (*numpy.array*) - albedo for visible specturm
+        - **alb_ir** (*numpy.array*) -  albedo for ir spectrum
+    Created April 17, 2015
+    Modified July 23, 2015 - take image of cosz and calculate albedo for
+        one time step
+    Scott Havens
+    """
+
+    IRFAC = IRFAC
+#     telapsed = np.array(telapsed)
+    
+    # check inputs
+    #if gsize <= 0 or gsize > 500:
+    #    raise Exception("unrealistic input: gsize=%i", gsize)
+
+    #if (maxgsz <= gsize or maxgsz > 2000):
+    #    raise Exception("unrealistic input: maxgsz=%i", maxgsz)
+
+    if 1 >= dirt >= 10:
+        raise Exception("unrealistic input: dirt=%i", dirt)
+
+    # set initial grain radii for vis and ir
+    radius_ir = math.sqrt(gsize)
+    range_ir = math.sqrt(maxgsz) - radius_ir
+    #radius_v = math.sqrt(dirt * gsize)
+    #range_v = math.sqrt(dirt * maxgsz) - radius_v
+
+    # calc grain growth decay factor
+    growth_factor = growth(telapsed + 1.0)
+
+    # calc effective gsizes for vis & ir
+    #gv = radius_v + (range_v * growth_factor)
+    gir = radius_ir + (range_ir * growth_factor)
+
+    # calc albedos for cos(z)=1
+    #alb_v_1 = MAXV - (gv / VFAC)
+    alb_ir_1 = MAXIR * np.exp(IRFAC * gir)
+
+    # calculate effect of cos(z)<1
+
+    # adjust diurnal increase range
+    #dzv = gv * VZRG
+    dzir = (gir * IRZRG) + IRZ0
+
+    # calculate albedo
+    #alb_v = alb_v_1
+    alb_ir = alb_ir_1
+
+    # correct if the sun is up
+    ind = cosz > 0.0
+    #alb_v[ind] += dzv[ind] * (1.0 - cosz[ind])
+    alb_ir[ind] += dzir[ind] * (1.0 - cosz[ind])
+
+    return alb_ir
+
+
+def albedo_calibration(telapsed, cosz, t_curr, start_date=None):
+    """
+    run albedo function with calibrated seasonal parameters
+    
+    
+    added 2022-02-25
+    @dillon Ragar 
+    """
+    start_date = pd.Timestamp('2020-04-01', tz='UTC')
+    # run albeod with winter params
+    if t_curr <= start_date: 
+        #vis uses default values (need to clean up winter station data better)
+        alb_v = albedo_vis(telapsed, 
+                           cosz,
+                           VFAC = 500,
+                           gsize = 100, 
+                           maxgsz = 1000, 
+                           dirt = 1.5)
+        
+        alb_ir = albedo_ir(telapsed, 
+                           cosz,
+                           IRFAC = -0.01252,
+                           gsize = 158, 
+                           maxgsz = 897, 
+                           dirt = 1.5)
+    #run albedo with summer params
+    elif t_curr > start_date: 
+        alb_v = albedo_vis(telapsed, 
+                           cosz,
+                           VFAC = 245,
+                           gsize = 170, 
+                           maxgsz = 1140, 
+                           dirt = 14)
+        
+        alb_ir = albedo_ir(telapsed, 
+                           cosz,
+                           IRFAC =  -0.02914,
+                           gsize = 233.47, 
+                           maxgsz = 829.12,
+                           dirt=2)
+    
+    return alb_v, alb_ir
+
+
+
+def albedo_modis(gs_image, cosz, maxgsz, dirt=1):
+    """
+    Calculate the abedo, adapted from IPW function albedo
+    Args:
+        telapsed - time since last snow storm (decimal days)
+        cosz - cosine local solar illumination angle matrix
+        gsize - gsize is effective grain radius of snow after last storm (mu m)
+        maxgsz - maxgsz is maximum grain radius expected from grain growth
+                  (mu m)
+        dirt - dirt is effective contamination for adjustment to visible
+               albedo (usually between 1.5-3.0)
+    Returns:
+        tuple:
+        Returns a tuple containing the visible and IR spectral albedo
+        - **alb_v** (*numpy.array*) - albedo for visible specturm
+        - **alb_ir** (*numpy.array*) -  albedo for ir spectrum
+    Created April 17, 2015
+    Modified July 23, 2015 - take image of cosz and calculate albedo for
+        one time step
+    Scott Havens
+    """
+
+    #VFAC = VFAC
+#     telapsed = np.array(telapsed)
+    
+    # check inputs
+    #if gsize <= 0 or gsize > 500:
+    #    raise Exception("unrealistic input: gsize=%i", gsize)
+
+    #if (maxgsz <= gsize or maxgsz > 2000):
+    #    raise Exception("unrealistic input: maxgsz=%i", maxgsz)
+
+    if 1 >= dirt >= 10:
+        raise Exception("unrealistic input: dirt=%i", dirt)
+
+    # set initial grain radii for vis and ir
+    #radius_ir = math.sqrt(gs_image)
+    #range_ir = math.sqrt(maxgsz) - radius_ir
+    
+    #radius_v = math.sqrt(dirt * gs_image)
+    #range_v = math.sqrt(dirt * maxgsz) - radius_v
+
+    # calc grain growth decay factor
+    #growth_factor = growth(telapsed + 1.0)
+
+    # calc effective gsizes for vis & ir
+    gv = radius_v #+ (range_v * growth_factor)
+    gir = radius_ir #+ (range_ir * growth_factor)
+    
+    #gv = gs_image
+    #gir = gs_image
+    
+    
+    # calc albedos for cos(z)=1
+    alb_v_1 = MAXV - (gv / VFAC)
+    alb_ir_1 = MAXIR * np.exp(IRFAC * gir)
+
+    # calculate effect of cos(z)<1
+
+    # adjust diurnal increase range
+    dzv = gv * VZRG
+    dzir = (gir * IRZRG) + IRZ0
+
+    # calculate albedo
+    alb_v = alb_v_1
+    alb_ir = alb_ir_1
+
+    # correct if the sun is up
+    ind = cosz > 0.0
+    alb_v[ind] += dzv[ind] * (1.0 - cosz[ind])
+    alb_ir[ind] += dzir[ind] * (1.0 - cosz[ind])
+    
+    #correct for deltavis
+
+    return alb_v, alb_ir
+
+
+def optical_thickness(thickness, surface_alb, t_curr):
+    """
+    weigh albedo by thickness of snowpack during ablation
+    """
+    # if any location in array in optically thin
+    if thickness.any() < 0.25:
+        
+        ind = thickness < 0.25
+        # visible
+        weight = thickness / 25
+        alb_v_w = (weight*alb_v[ind]) + ((1-weight)*alb_veg[ind])
+        # ir 
+        alb_v_w = (weight*alb_ir[ind]) + ((1-weight)*alb_veg[ind])
+        
+        
+    return alb_v_w, alb_ir_w
+
+
+def albedo_modpix_calibration(telapsed, cosz, VFAC_image, VFAC_image_spring, IRFAC_image,
+                            IRFAC_image_spring, vis_gsmin_image, vis_gsmin_image_spring,  
+                            vis_gsmax_image, vis_gsmax_image_spring, dirt_image, 
+                            dirt_image_spring, ir_gsmin_image, ir_gsmin_image_spring, 
+                            ir_gsmax_image, ir_gsmax_image_spring, t_curr):
+    """
+    Calculate the abedo, adapted from IPW function albedo
+
+    Args:
+        telapsed - time since last snow storm (decimal days)
+        cosz - cosine local solar illumination angle matrix
+        gsize - gsize is effective grain radius of snow after last storm (mu m)
+        maxgsz - maxgsz is maximum grain radius expected from grain growth
+                  (mu m)
+        dirt - dirt is effective contamination for adjustment to visible
+               albedo (usually between 1.5-3.0)
+
+    Returns:
+        tuple:
+        Returns a tuple containing the visible and IR spectral albedo
+
+        - **alb_v** (*numpy.array*) - albedo for visible specturm
+
+        - **alb_ir** (*numpy.array*) -  albedo for ir spectrum
+
+    Created April 17, 2015
+    Modified July 23, 2015 - take image of cosz and calculate albedo for
+        one time step
+    Scott Havens
+
+    """
+    # threshold for spring albedo
+    start_date = pd.Timestamp('2020-04-01', tz='UTC')
+
+    
+    if t_curr <= start_date:
+
+        # check inputs
+        #if gsize <= 0 or gsize > 500:
+        #    raise Exception("unrealistic input: gsize=%i", gsize)
+
+        #if (maxgsz <= gsize or maxgsz > 2000):
+        #    raise Exception("unrealistic input: maxgsz=%i", maxgsz)
+
+        #if 1 >= dirt >= 10:
+        #    raise Exception("unrealistic input: dirt=%i", dirt)
+
+        # set initial grain radii for vis and ir
+    
+
+        #radius_ir = math.sqrt(gsize)    
+        radius_ir = np.sqrt(ir_gsmin_image)
+        #range_ir = math.sqrt(maxgsz) - radius_ir
+        range_ir = np.sqrt(ir_gsmax_image) - radius_ir
+
+        radius_v = np.sqrt(dirt_image * vis_gsmin_image)
+        range_v = np.sqrt(dirt_image * vis_gsmax_image) - radius_v
+        
+
+        # calc grain growth decay factor
+        growth_factor = growth(telapsed + 1.0)
+
+        # calc effective gsizes for vis & ir
+        gv = radius_v + (range_v * growth_factor)
+        gir = radius_ir + (range_ir * growth_factor)
+
+        # calc albedos for cos(z)=1
+        alb_v_1 = MAXV - (gv / VFAC_image)
+        alb_ir_1 = MAXIR * np.exp(IRFAC_image * gir)
+
+        # calculate effect of cos(z)<1
+
+        # adjust diurnal increase range
+        dzv = gv * VZRG
+        dzir = (gir * IRZRG) + IRZ0
+
+        # calculate albedo
+        alb_v = alb_v_1
+        alb_ir = alb_ir_1
+
+        # correct if the sun is up
+        ind = cosz > 0.0
+        alb_v[ind] += dzv[ind] * (1.0 - cosz[ind])
+        alb_ir[ind] += dzir[ind] * (1.0 - cosz[ind])
+
+
+    #use spring params
+    elif t_curr > start_date:
+
+        # check inputs
+        #if gsize <= 0 or gsize > 500:
+        #    raise Exception("unrealistic input: gsize=%i", gsize)
+
+        #if (maxgsz <= gsize or maxgsz > 2000):
+        #    raise Exception("unrealistic input: maxgsz=%i", maxgsz)
+
+        #if 1 >= dirt >= 10:
+        #    raise Exception("unrealistic input: dirt=%i", dirt)
+
+        # set initial grain radii for vis and ir
+
+        # ad bias correction to spring vis param dirt
+    
+
+        #radius_ir = math.sqrt(gsize)    
+        radius_ir = np.sqrt(ir_gsmin_image_spring)
+        #range_ir = math.sqrt(maxgsz) - radius_ir
+        range_ir = np.sqrt(ir_gsmax_image_spring) - radius_ir
+
+        radius_v = np.sqrt(dirt_image_spring * vis_gsmin_image_spring)
+        range_v = np.sqrt(dirt_image_spring * vis_gsmax_image_spring) - radius_v
+        
+
+        # calc grain growth decay factor
+        growth_factor = growth(telapsed + 1.0)
+
+        # calc effective gsizes for vis & ir
+        gv = radius_v + (range_v * growth_factor)
+        gir = radius_ir + (range_ir * growth_factor)
+
+        # calc albedos for cos(z)=1
+        alb_v_1 = MAXV - (gv / VFAC_image_spring)
+        alb_ir_1 = MAXIR * np.exp(IRFAC_image_spring * gir)
+
+        # calculate effect of cos(z)<1
+
+        # adjust diurnal increase range
+        dzv = gv * VZRG
+        dzir = (gir * IRZRG) + IRZ0
+
+        # calculate albedo
+        alb_v = alb_v_1
+        alb_ir = alb_ir_1
+
+        # correct if the sun is up
+        ind = cosz > 0.0
+        alb_v[ind] += dzv[ind] * (1.0 - cosz[ind])
+        alb_ir[ind] += dzir[ind] * (1.0 - cosz[ind])
+
+    return alb_v, alb_ir
+
+

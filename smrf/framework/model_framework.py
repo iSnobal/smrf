@@ -272,7 +272,9 @@ class SMRF():
 
         # 5. Albedo
         self.distribute['albedo'] = distribute.albedo.Albedo(
-            self.config['albedo'])
+            self.config['albedo'],
+            self.config['output']['out_location'],
+            self.start_date)
 
         # 6. cloud_factor
         self.distribute['cloud_factor'] = distribute.cloud_factor.cf(
