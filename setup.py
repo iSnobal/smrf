@@ -90,7 +90,7 @@ ext_modules += [
 with open('requirements.txt') as requirements_file:
     requirements = requirements_file.read()
 
-with open('README.md') as readme_file:
+with open('README_smrf.md') as readme_file:
     readme = readme_file.read()
 
 setup(
