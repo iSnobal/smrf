@@ -32,9 +32,8 @@ class Topo:
 
         self.readNetCDF()
 
-        # calculate the gradient and the sky view factor
+        # calculate the gradient
         self.gradient()
-        self.viewf()
 
     def readNetCDF(self):
         """
@@ -91,7 +90,14 @@ class Topo:
         self._logger.info('Domain center as Latitude/Longitude = {:0.5f}, '
                           '{:0.5f}'.format(self.basin_lat, self.basin_long))
 
-        f.close()
+        # Load or calculate the sky view factor
+        if 'sky_view_factor' in f.variables:
+            self.sky_view_factor = f['sky_view_factor'][:]
+            self.terrain_config_factor = f['terrain_config_factor'][:]
+            f.close()
+        else:
+            f.close()
+            self.calculate_sky_view_factor()
 
     def readImages(self, f):
         """Read images from the netcdf and set as attributes in the Topo class
@@ -161,16 +167,49 @@ class Topo:
         self.sin_slope = np.sin(g)
         self.aspect = a
 
-    def viewf(self):
-        """Calculate the sky view factor
+    def calculate_sky_view_factor(self):
         """
+        Calculate the sky_view_factor and terrain_config_factor and store
+        with the topo config file. Saves time when running through a water
+        year.
+        """
+        self.gradient()
 
         svf, tcf = viewf(
             self.dem,
             self.dx,
             nangles=self.topoConfig['sky_view_factor_angles'],
             sin_slope=self.sin_slope,
-            aspect=self.aspect)
+            aspect=self.aspect
+        )
 
-        self.sky_view_factor = svf
-        self.terrain_config_factor = tcf
+        topo = Dataset(self.topoConfig['filename'], 'r+')
+
+        sky_view_factor = topo.createVariable(
+            'sky_view_factor', 'f8', ('y', 'x',), zlib=True
+        )
+        sky_view_factor.setncattr(
+            'long_name',
+            f"Sky view factor for "
+            f"{self.topoConfig['sky_view_factor_angles']} angles"
+        )
+
+        terrain_config_factor = topo.createVariable(
+            'terrain_config_factor', 'f8', ('y', 'x',), zlib=True
+        )
+        terrain_config_factor.setncattr(
+            'long_name',
+            f"Terrain config factor for "
+            f"{self.topoConfig['sky_view_factor_angles']} angles"
+        )
+
+        slope = topo.createVariable(
+            'slope', 'f8', ('y', 'x',), zlib=True
+        )
+        slope.setncattr('long_name', f"Slope angle (degrees)")
+
+        sky_view_factor[:, :] = svf
+        terrain_config_factor[:, :] = tcf
+        slope[:, :] = np.degrees(self.slope_radians)
+
+        topo.close()
