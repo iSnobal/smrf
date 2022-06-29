@@ -38,9 +38,6 @@ class InputGribHRRR(GriddedInput):
             kwargs['config'], WindNinjaModel.MODEL_TYPE
         )
 
-        self._calculate_tcdc = 'cloud_factor' in kwargs['config']['output']['variables']
-        self._load_dswrf = 'net_solar' in kwargs['config']['output']['variables']
-
     @property
     def variables(self):
         if self._load_wind:

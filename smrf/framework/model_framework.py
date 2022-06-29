@@ -511,17 +511,9 @@ class SMRF():
             with netCDF4.Dataset(
                 self.config['output']['out_location'] + '/cloud_factor.nc'
             ) as cloud_data:
-                try:
-                    time_index = self._cloud_dates.index(t.timestamp())
-                except ValueError:
-                    # Note the missing timestamp
-                    Path(
-                        self.config['output']['out_location'] +
-                        f'/cloud_factor_miss_{t.timestamp()}.txt'
-                    ).touch()
-                    # Use the previous hour
-                    time_index = self._cloud_dates.index(t.timestamp() - 3600)
-                cloud_factor = cloud_data['TCDC'][time_index]
+                cloud_factor = cloud_data['TCDC'][
+                    self._cloud_dates.index(t.timestamp())
+                ]
 
         self.distribute['thermal'].distribute(
             t,
