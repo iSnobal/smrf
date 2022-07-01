@@ -28,6 +28,7 @@ import os
 import sys
 from datetime import datetime
 from os.path import abspath, join
+from pathlib import Path
 from threading import Thread
 
 import numpy as np
@@ -510,9 +511,17 @@ class SMRF():
             with netCDF4.Dataset(
                 self.config['output']['out_location'] + '/cloud_factor.nc'
             ) as cloud_data:
-                cloud_factor = cloud_data['TCDC'][
-                    self._cloud_dates.index(t.timestamp())
-                ]
+                try:
+                    time_index = self._cloud_dates.index(t.timestamp())
+                except ValueError:
+                    # Note the missing timestamp
+                    Path(
+                        self.config['output']['out_location'] +
+                        f'/cloud_factor_miss_{t.timestamp()}.txt'
+                    ).touch()
+                    # Use the previous hour
+                    time_index = self._cloud_dates.index(t.timestamp() - 3600)
+                cloud_factor = cloud_data['TCDC'][time_index]
 
         self.distribute['thermal'].distribute(
             t,
