@@ -293,7 +293,7 @@ class Solar(image_data.image_data):
             # calculate clear sky radiation
 
             # Not all the clean but it will work for now
-            val_beam, val_diffuse = self.calc_stoporad(
+            val_beam, val_diffuse, horizon_angles = self.calc_stoporad(
                 date_time, illum_ang, cosz, azimuth,
                 albedo_ir, IR_WAVELENGTHS)
 
@@ -302,9 +302,11 @@ class Solar(image_data.image_data):
             self.ir_beam = val_beam.copy()
             self.ir_diffuse = val_diffuse.copy()
 
-            val_beam, val_diffuse = self.calc_stoporad(
+            val_beam, val_diffuse, horizon_angles = self.calc_stoporad(
                 date_time, illum_ang, cosz, azimuth,
-                albedo_vis, VISIBLE_WAVELENGTHS)
+                albedo_vis, VISIBLE_WAVELENGTHS,
+                horizon_angles
+            )
 
             setattr(self, 'clear_vis_beam', val_beam)
             setattr(self, 'clear_vis_diffuse', val_diffuse)
@@ -446,12 +448,14 @@ class Solar(image_data.image_data):
             self.vis_beam,
             self.veg_height,
             illum_ang,
-            self.veg_k)
+            self.veg_k
+        )
 
         # correct diffuse
         self.vis_diffuse = vegetation.solar_veg_diffuse(
             self.vis_diffuse,
-            self.veg_tau)
+            self.veg_tau
+        )
 
         # calculate for ir
         # correct beam
@@ -459,12 +463,14 @@ class Solar(image_data.image_data):
             self.ir_beam,
             self.veg_height,
             illum_ang,
-            self.veg_k)
+            self.veg_k
+        )
 
         # correct diffuse
         self.ir_diffuse = vegetation.solar_veg_diffuse(
             self.ir_diffuse,
-            self.veg_tau)
+            self.veg_tau
+        )
 
     def calc_net(self, albedo_vis, albedo_ir):
         """
@@ -492,8 +498,9 @@ class Solar(image_data.image_data):
         self.net_solar = vv_n + vir_n
         self.net_solar = utils.set_min_max(self.net_solar, self.min, self.max)
 
-    def calc_stoporad(self, date_time, illum_ang, cosz, azimuth,
-                      albedo_surface, wavelength_range=VISIBLE_WAVELENGTHS):
+    def calc_stoporad(
+        self, date_time, illum_ang, cosz, azimuth, albedo_surface,
+        wavelength_range=VISIBLE_WAVELENGTHS, horizon_angles=None):
         """Run stoporad for the given date_time and wavelength range
 
         Args:
@@ -506,12 +513,13 @@ class Solar(image_data.image_data):
                 specified
             wavelength_range (list, optional): wavelengths to integrate over.
                 Defaults to [0.28, 0.7].
+            horizon_angles (list, optional): Cached calculated angles.
 
         Returns:
             tuple: clear sky beam and diffuse radiation
         """
 
-        clear_beam, clear_diffuse = toporad.stoporad(
+        return toporad.stoporad(
             date_time,
             self.topo,
             cosz,
@@ -519,9 +527,9 @@ class Solar(image_data.image_data):
             illum_ang,
             albedo_surface,
             wavelength_range=wavelength_range,
+            horizon_angles=horizon_angles,
             tau_elevation=self.config['clear_opt_depth'],
             tau=self.config['clear_tau'],
             omega=self.config['clear_omega'],
-            scattering_factor=self.config['clear_gamma'])
-
-        return clear_beam, clear_diffuse
+            scattering_factor=self.config['clear_gamma']
+        )

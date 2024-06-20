@@ -25,7 +25,7 @@ def check_wavelengths(wavelength_range):
 
 def stoporad(date_time, topo, cosz, azimuth, illum_ang, albedo_surface,
              wavelength_range, tau_elevation=100, tau=0.2, omega=0.85,
-             scattering_factor=0.3):
+             scattering_factor=0.3, horizon_angles=None):
     """[summary]
 
     Args:
@@ -40,6 +40,7 @@ def stoporad(date_time, topo, cosz, azimuth, illum_ang, albedo_surface,
         tau (float, optional): [description]. Defaults to 0.2.
         omega (float, optional): [description]. Defaults to 0.85.
         scattering_factor (float, optional): [description]. Defaults to 0.3.
+        horizon_angles (list, optional): [description]. Defaults to None.
 
     Returns:
         [type]: [description]
@@ -53,10 +54,13 @@ def stoporad(date_time, topo, cosz, azimuth, illum_ang, albedo_surface,
 
     else:
         solar_irradiance = direct_solar_irradiance(
-            date_time, w=wavelength_range)
+            date_time, w=wavelength_range
+        )
 
         # Run horizon to get sun-below-horizon mask
-        horizon_angles = horizon(azimuth, topo.dem, topo.dx)
+        if horizon_angles is None:
+            horizon_angles = horizon(azimuth, topo.dem, topo.dx)
+
         thresh = np.tan(np.pi / 2 - np.arccos(cosz))
         no_sun_mask = np.tan(np.abs(horizon_angles)) > thresh
 
@@ -87,7 +91,7 @@ def stoporad(date_time, topo, cosz, azimuth, illum_ang, albedo_surface,
             cosz,
             surface_albedo=albedo_surface)
 
-    return trad_beam, trad_diff
+    return trad_beam, trad_diff, horizon_angles
 
 
 def toporad(beam, diffuse, illum_angle, sky_view_factor, terrain_config_factor,
