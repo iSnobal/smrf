@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
-import weather_forecast_retrieval as wfr
 
 from smrf.data.gridded_input import GriddedInput
+from smrf.data.hrrr.file_loader import FileLoader
 from smrf.distribute.wind import Wind
 from smrf.distribute.wind.wind_ninja import WindNinjaModel
 from smrf.envphys.solar.cloud import get_hrrr_cloud
@@ -77,22 +77,15 @@ class InputGribHRRR(GriddedInput):
             self.config['hrrr_directory']
         ))
 
-        var_keys = wfr.data.hrrr.GribFile.VARIABLES
-        if not self._load_wind:
-            var_keys = [v for v in var_keys if v not in ['wind_u', 'wind_v']]
-
-        if not self._load_dswrf:
-            var_keys.remove('short_wave')
-
-        metadata, data = wfr.data.hrrr.FileLoader(
+        metadata, data = FileLoader(
             file_dir=self.config['hrrr_directory'],
-            external_logger=self._logger
+            external_logger=self._logger,
+            load_wind = self._load_wind
         ).get_saved_data(
             self.start_date,
             self.end_date,
             self.bbox,
-            force_zone_number=self.topo.zone_number,
-            var_keys=var_keys
+            utm_zone_number=self.topo.zone_number,
         )
 
         self.parse_data(metadata, data)
