@@ -21,13 +21,15 @@ def c_name_from_path(location, name):
     return os.path.join(location, name).replace('/', '.')
 
 
+class GetNumpyInclude(object):
+    def __str__(self):
+        import numpy
+        return numpy.get_include()
+
+
 class build_ext(_build_ext):
     def finalize_options(self):
         _build_ext.finalize_options(self)
-        # Prevent numpy from thinking it is still in its setup process:
-        __builtins__.__NUMPY_SETUP__ = False
-        import numpy
-        self.include_dirs.append(numpy.get_include())
 
 
 # Give user option to specify local compiler name
@@ -39,6 +41,7 @@ print(os.environ["CC"])
 extension_params = dict(
     extra_compile_args=['-fopenmp', '-O3'],
     extra_link_args=['-fopenmp', '-O3'],
+    include_dirs=[GetNumpyInclude()]
 )
 
 ext_modules = []
@@ -121,14 +124,11 @@ setup(
         'Intended Audience :: Developers',
         'Natural Language :: English',
         'License :: CC0 1.0 Universal (CC0 1.0) Public Domain Dedication',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9'
     ],
     test_suite='smrf.tests',
-    # tests_require=test_requirements,
     cmdclass={
         'build_ext': build_ext
     },
@@ -154,6 +154,5 @@ setup(
     },
     setup_requires=[
         'setuptools_scm',
-        'numpy'
     ],
 )

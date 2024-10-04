@@ -1,4 +1,4 @@
-name: Unittest, flake8, coverage
+name: Unittest
 
 on:
   push
@@ -43,4 +43,4 @@ jobs:
 
       - name: Run unittests
         run: |
-          python3 setup.py test
+          python3 -m unittest
