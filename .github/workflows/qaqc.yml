@@ -1,7 +1,7 @@
 name: flake8 and coverage
 
 on:
-  push
+  pull_request
 
 jobs:
   flake8:
