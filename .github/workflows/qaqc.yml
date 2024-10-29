@@ -37,8 +37,7 @@ jobs:
           sudo apt-get install -y libeccodes-tools
           python3 -m pip install --upgrade pip
           python3 -m pip install coverage coveralls PyYAML
-          python3 -m pip install -r requirements.txt
-          python3 -m pip install .[tests]
+          python3 -m pip install .[dev]
 
       - name: Run coverage
         run: |
