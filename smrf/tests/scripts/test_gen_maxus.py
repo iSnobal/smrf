@@ -2,9 +2,7 @@ import unittest
 from io import StringIO
 from unittest.mock import patch
 
-from .script_test_helper import load_script_as_module
-
-script = load_script_as_module('gen_maxus')
+import smrf.cli.gen_maxus as script
 
 
 class TestGenMaxusArguments(unittest.TestCase):

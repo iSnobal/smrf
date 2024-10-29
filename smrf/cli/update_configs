@@ -2,7 +2,6 @@
 
 import argparse
 import os
-import sys
 
 from smrf.utils import io
 
@@ -60,5 +59,7 @@ def main():
     print fmt.format("Files Updated:",files_updated)
     print fmt.format("Failed to Update:",fails)
     print fmt.format("Files with Errors:",files_with_errors)
+
+
 if __name__ == '__main__':
     main()
