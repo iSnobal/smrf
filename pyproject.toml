@@ -1,0 +1,74 @@
+[build-system]
+requires = [
+    "setuptools",
+    "setuptools_scm>=8",
+    "wheel",
+    "numpy<1.20"
+]
+
+[project]
+name = "smrf-dev"
+description = "Distributed snow modeling for water resources"
+dynamic = [
+    "version"
+]
+requires-python = ">=3.7"
+readme = "README.md"
+keywords = [
+    'iSnobal',
+    'Snow',
+    'Modeling'
+]
+license = { text = "CCO 1.0" }
+classifiers = [
+    'Development Status :: 2 - Pre-Alpha',
+    'Intended Audience :: Developers',
+    'Natural Language :: English',
+    'License :: CC0 1.0 Universal (CC0 1.0) Public Domain Dedication',
+    'Programming Language :: Python :: 3.7',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+]
+dependencies = [
+    "coloredlogs",
+    "inicheck>=0.9.0,<0.10.0",
+    "netCDF4>=1.2.9",
+    "numpy<1.20",
+    "pandas>=0.23.0",
+    "pytz",
+    "scipy>=1.4.0,<1.7.0",
+    "utm==0.5",
+    "pykrige>=1.5.0",
+    "spatialnc>=0.2.12",
+    "topocalc>=0.5",
+    "xarray>=0.15,<0.16",
+
+]
+
+[project.scripts]
+run_smrf = 'smrf.cli.run_smrf:run'
+
+[project.optional-dependencies]
+dev = [
+    "mock",
+]
+docs = [
+    'Sphinx>=3.0,<=4.0',
+    'pydata-sphinx-theme',
+    'sphinxcontrib-bibtex>=1.0',
+    'sphinxcontrib-websupport>=1.0.1',
+]
+all = ["smrf-dev[dev,docs]"]
+
+[tool.setuptools.packages.find]
+where = [""]
+
+[tool.setuptools.package-data]
+smrf = [
+    'framework/CoreConfig.ini',
+    'framework/.qotw',
+    'framework/recipes.ini',
+    'framework/changelog.ini',
+]
+[tool.setuptools_scm]
+local_scheme = 'node-and-date'

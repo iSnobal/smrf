@@ -3,7 +3,8 @@
 
 import os
 
-from setuptools import Extension, find_packages, setup
+import numpy
+from setuptools import Extension, setup
 
 # Test if compiling with cython or using the C source
 try:
@@ -21,12 +22,6 @@ def c_name_from_path(location, name):
     return os.path.join(location, name).replace('/', '.')
 
 
-class GetNumpyInclude(object):
-    def __str__(self):
-        import numpy
-        return numpy.get_include()
-
-
 class build_ext(_build_ext):
     def finalize_options(self):
         _build_ext.finalize_options(self)
@@ -41,7 +36,7 @@ print(os.environ["CC"])
 extension_params = dict(
     extra_compile_args=['-fopenmp', '-O3'],
     extra_link_args=['-fopenmp', '-O3'],
-    include_dirs=[GetNumpyInclude()]
+    include_dirs=[numpy.get_include()],
 )
 
 ext_modules = []
@@ -90,69 +85,9 @@ ext_modules += [
     ),
 ]
 
-with open('requirements.txt') as requirements_file:
-    requirements = requirements_file.read()
-
-with open('README_smrf.md') as readme_file:
-    readme = readme_file.read()
-
 setup(
-    name='smrf-dev',
-    description="Distributed snow modeling for water resources",
-    author="USDA ARS NWRC",
-    author_email='snow@ars.usda.gov',
-    url='https://github.com/USDA-ARS-NWRC/smrf',
-    long_description=readme,
-    long_description_content_type="text/markdown",
-    packages=find_packages(include=['smrf', 'smrf.*']),
-    install_requires=requirements,
-    python_requires='>=3.6',
-    include_package_data=True,
-    package_data={
-        'smrf': [
-            './framework/CoreConfig.ini',
-            './framework/.qotw',
-            './framework/recipes.ini',
-            './framework/changelog.ini'
-        ]
-    },
-    license="CC0 1.0",
-    zip_safe=False,
-    keywords='smrf',
-    classifiers=[
-        'Development Status :: 2 - Pre-Alpha',
-        'Intended Audience :: Developers',
-        'Natural Language :: English',
-        'License :: CC0 1.0 Universal (CC0 1.0) Public Domain Dedication',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3.9'
-    ],
-    test_suite='smrf.tests',
     cmdclass={
         'build_ext': build_ext
     },
     ext_modules=ext_modules,
-    scripts=[
-        'scripts/update_configs',
-        'scripts/run_smrf',
-        'scripts/gen_maxus'
-    ],
-    extras_require={
-        'docs': [
-            'Sphinx>=3.0,<=4.0',
-            'pydata-sphinx-theme',
-            'sphinxcontrib-bibtex>=1.0',
-            'sphinxcontrib-websupport>=1.0.1',
-        ],
-        'tests': [
-            'mock',
-        ],
-    },
-    use_scm_version={
-        'local_scheme': 'node-and-date',
-    },
-    setup_requires=[
-        'setuptools_scm',
-    ],
 )
