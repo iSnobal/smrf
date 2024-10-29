@@ -33,6 +33,7 @@ clean-build:
 	rm -fr .eggs/
 	find . -name '*.egg-info' -exec rm -fr {} +
 	find . -name '*.egg' -exec rm -f {} +
+	find . -name '*.so' -type f -delete
 
 clean-pyc:
 	find . -name '*.pyc' -exec rm -f {} +
@@ -43,7 +44,7 @@ clean-pyc:
 clean-test:
 	rm -f .coverage
 	rm -fr htmlcov/
-	
+
 isort: ## using isort to sort imports
 	isort -rc -v .
 
