@@ -2,7 +2,8 @@ import logging
 
 import numpy as np
 
-from smrf.spatial import dk, grid, idw, kriging
+from smrf.spatial import grid, idw, kriging
+from smrf.spatial.dk import dk
 
 
 class image_data():

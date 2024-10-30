@@ -9,7 +9,7 @@ import logging
 import numpy as np
 import pandas as pd
 
-from . import detrended_kriging
+from smrf.spatial.dk import detrended_kriging
 
 
 class DK:
@@ -61,7 +61,7 @@ class DK:
 
     def calculate(self, data):
         """
-        Calcluate the deternded kriging for the data and config
+        Calculate the deternded kriging for the data and config
 
         Arg:
             data: numpy array same length as m*
@@ -87,7 +87,7 @@ class DK:
         # now calculate the trend and the residuals
         self.detrendData(data)
 
-        # distribute the risduals
+        # distribute the residuals
         r = np.nansum(self.weights * self.residuals, 2)
 
         # retrend the residuals
