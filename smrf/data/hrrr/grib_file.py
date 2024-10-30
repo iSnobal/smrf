@@ -138,6 +138,9 @@ class GribFile():
                 }
             )
 
+            if len(data) < 1:
+                raise Exception('Variable not found: {}'.format(params))
+
             if len(data) > 1:
                 raise Exception('More than one grib variable returned')
 
