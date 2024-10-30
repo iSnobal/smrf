@@ -3,7 +3,7 @@ import numpy as np
 
 class IDW:
     '''
-    Inverse distance weighting class for distributing input data. Availables
+    Inverse distance weighting class for distributing input data. Available
     options are:
 
     * Standard IDW
