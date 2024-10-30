@@ -1,5 +1,6 @@
-import xarray as xr
 import copy
+
+import xarray as xr
 
 
 class GribFile():
@@ -25,7 +26,7 @@ class GribFile():
         },
         'short_wave': {
             'stepType': 'instant',
-            'cfVarName': 'dswrf',
+            'cfVarName': 'sdswrf',
             **SURFACE,
         },
         'elevation': {
