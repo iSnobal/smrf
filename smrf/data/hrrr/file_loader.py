@@ -165,7 +165,9 @@ class FileLoader():
             date += self.NEXT_HOUR
 
         try:
-            self.data = xr.combine_by_coords(data)
+            # The attributes can be safely dropped since the data is converted into a pandas
+            # dataframe as a next step after this method.
+            self.data = xr.combine_by_coords(data, combine_attrs='drop')
         except Exception as e:
             self.log.debug(e)
             self.log.debug(
