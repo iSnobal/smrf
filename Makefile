@@ -26,7 +26,7 @@ help:
 	@echo "dist - package"
 	@echo "install - install the package to the active Python's site-packages"
 
-build_extensions:
+build_extensions: clean
 	python setup.py build_ext --inplace
 
 clean: clean-build clean-pyc clean-test
@@ -55,8 +55,8 @@ isort: ## using isort to sort imports
 lint:
 	flake8 smrf
 
-test:
-	python3 setup.py test
+tests:
+	python3 -m unittest discover -s smrf/tests/
 
 coverage: ## run coverage and submit
 	coverage run --source smrf setup.py test
@@ -90,4 +90,4 @@ dist: clean
 	ls -l dist
 
 install: clean
-	python setup.py install
+	python3 -m pip install -e .[dev]
