@@ -12,6 +12,7 @@ export BROWSER_PYSCRIPT
 BROWSER := python3 -c "$$BROWSER_PYSCRIPT"
 
 help:
+	@echo "build_extensions - Build Cython extensions"
 	@echo "clean - remove all build, test, coverage and Python artifacts"
 	@echo "clean-build - remove build artifacts"
 	@echo "clean-pyc - remove Python file artifacts"
@@ -24,6 +25,9 @@ help:
 	@echo "release - package and upload a release"
 	@echo "dist - package"
 	@echo "install - install the package to the active Python's site-packages"
+
+build_extensions:
+	python setup.py build_ext --inplace
 
 clean: clean-build clean-pyc clean-test
 
@@ -87,7 +91,3 @@ dist: clean
 
 install: clean
 	python setup.py install
-
-install_tests:
-	python setup.py build_ext --inplace
-
