@@ -7,7 +7,7 @@ requires = [
 ]
 
 [project]
-name = "smrf-dev"
+name = "smrf"
 description = "Distributed snow modeling for water resources"
 dynamic = [
     "version"
@@ -71,5 +71,9 @@ smrf = [
     'framework/recipes.ini',
     'framework/changelog.ini',
 ]
+
 [tool.setuptools_scm]
 local_scheme = 'node-and-date'
+
+[tool.hatch.build.targets.sdist]
+exclude = ["/smrf/tests"]
