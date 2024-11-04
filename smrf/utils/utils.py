@@ -14,7 +14,7 @@ from inicheck.output import generate_config
 from inicheck.utilities import mk_lst
 from scipy.interpolate.interpnd import (CloughTocher2DInterpolator,
                                         LinearNDInterpolator)
-from scipy.spatial import qhull as qhull
+from scipy.spatial import Delaunay
 
 from smrf import __core_config__
 
@@ -394,7 +394,7 @@ def interp_weights(xy, uv, d=2):
         wts:
 
     """
-    tri = qhull.Delaunay(xy)
+    tri = Delaunay(xy)
     simplex = tri.find_simplex(uv)
     vertices = np.take(tri.simplices, simplex, axis=0)
     temp = np.take(tri.transform, simplex, axis=0)
@@ -430,11 +430,11 @@ def grid_interpolate(values, vtx, wts, shp, fill_value=np.nan):
 def grid_interpolate_deconstructed(tri, values, grid_points, method='linear'):
     """
     Underlying methods from scipy grid_data broken out to pass in the tri
-    values returned from qhull.Delaunay. This is done to improve the speed
-    of using grid_data
+    values returned from scipy.spatial.Delaunay.
+    This is done to improve the speed of using grid_data.
 
     Args:
-        tri:            values returned from qhull.Delaunay
+        tri:            values returned from scipy.spatial.Delaunay
         values:         values at HRRR stations generally
         grid_points:    tuple of vectors for X,Y coords of grid stations
         method:         either linear or cubic
