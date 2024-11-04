@@ -36,8 +36,8 @@ jobs:
         # testing
         run: |
           python3 -m pip install --upgrade pip setuptools
-          python3 -m pip install -e .[dev]
+          make install
 
       - name: Run unittests
         run: |
-          python3 -m unittest discover -s ./smrf/tests
+          make tests
