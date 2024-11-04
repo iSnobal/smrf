@@ -26,6 +26,11 @@ help:
 	@echo "dist - package"
 	@echo "install - install the package to the active Python's site-packages"
 
+clean_cython:
+	find . -name detrended_kriging.c -type f -delete
+	find . -name envphys_c.c -type f -delete
+	find . -name wind_c.c -type f -delete
+
 build_extensions: clean
 	python setup.py build_ext --inplace
 
