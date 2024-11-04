@@ -39,7 +39,7 @@ dependencies = [
     "pykrige>=1.5.0",
     "pytz",
     "regex<2021",
-    "scipy>=1.4.0,<1.7.0",
+    "scipy<1.12",
     "spatialnc>=0.2.12",
     "topocalc>=0.5",
     "utm==0.5",
