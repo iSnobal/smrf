@@ -3,7 +3,7 @@ requires = [
     "setuptools",
     "setuptools_scm>=8",
     "wheel",
-    "numpy<1.21"
+    "numpy<1.23"
 ]
 
 [project]
@@ -34,7 +34,7 @@ dependencies = [
     "cfgrib",
     "inicheck>=0.9.0,<0.10.0",
     "netCDF4>=1.2.9",
-    "numpy<1.21",
+    "numpy<1.23",
     "pandas<1.4",
     "pykrige>=1.5.0",
     "pytz",
