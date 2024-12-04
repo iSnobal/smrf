@@ -80,7 +80,8 @@ class InputGribHRRR(GriddedInput):
         metadata, data = FileLoader(
             file_dir=self.config['hrrr_directory'],
             external_logger=self._logger,
-            load_wind = self._load_wind
+            load_wind = self._load_wind,
+            forecast_hour=self.config['hrrr_forecast_hour'],
         ).get_saved_data(
             self.start_date,
             self.end_date,
