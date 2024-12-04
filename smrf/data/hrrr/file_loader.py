@@ -18,22 +18,26 @@ class FileLoader:
 
     def __init__(self,
                  file_dir,
+                 forecast_hour,
                  file_type='grib2',
                  external_logger=None,
                  load_wind=False,
          ):
         """
         :param file_dir:        Base directory to location of files
+        :param forecast_hour:   HRRR forecast hour to load forcing data from
         :param file_type:       Determines how to read the files.
                                 Default: grib2
         :param external_logger: (Optional) Specify an existing logger instance
-        :load_wind:             Flag to load HRRR wind data (Default: False)
+        :param load_wind:        Flag to load HRRR wind data (Default: False)
         """
         self.log = external_logger
 
-        self.file_type = file_type
-        self._var_map = self.load_var_map(load_wind)
         self.file_dir = file_dir
+        self.file_type = file_type
+
+        self._var_map = self.load_var_map(load_wind)
+        self._forecast_hour = forecast_hour
 
     @property
     def file_dir(self):
@@ -123,7 +127,7 @@ class FileLoader:
             self.log.debug('Reading file for date: {}'.format(date))
             forecast_data = None
 
-            fx_hr = 1
+            fx_hr = self._forecast_hour
             file_time = date
             day_folder, file_name = FileHandler.folder_and_file(
                 file_time, fx_hr, self.file_type

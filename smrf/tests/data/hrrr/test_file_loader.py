@@ -16,7 +16,7 @@ LOGGER = mock.Mock(name='Logger')
 
 class TestFileLoader(unittest.TestCase):
     def setUp(self):
-        self.subject = FileLoader(FILE_DIR, external_logger=LOGGER)
+        self.subject = FileLoader(FILE_DIR, 1, external_logger=LOGGER)
 
     def test_file_dir_property(self):
         self.assertEqual(self.subject.file_dir, FILE_DIR)
@@ -24,6 +24,9 @@ class TestFileLoader(unittest.TestCase):
     def test_defaults_to_grib2(self):
         self.assertIsInstance(self.subject.file_loader, GribFile)
         self.assertEqual(GribFile.SUFFIX, self.subject.file_type)
+
+    def test_defaults_to_first_forecast_hour(self):
+        self.assertEqual(self.subject._forecast_hour, 1)
 
     def test_change_file_dir(self):
         NEW_DIR = 'somewhere/else'
@@ -38,7 +41,7 @@ class TestFileLoader(unittest.TestCase):
         self.assertTrue(GribFile.WIND_U not in self.subject._var_map)
 
     def test_can_load_wind_data(self):
-        self.subject = FileLoader(FILE_DIR, load_wind=True)
+        self.subject = FileLoader(FILE_DIR, 1, load_wind=True)
         self.assertTrue(GribFile.WIND_V in self.subject._var_map)
         self.assertTrue(GribFile.WIND_U in self.subject._var_map)
 
@@ -65,9 +68,9 @@ class TestFileLoaderGetSavedData(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         LOGGER.info = mock.Mock()
-        cls.subject = FileLoader(FILE_DIR, external_logger=LOGGER)
+        cls.subject = FileLoader(FILE_DIR, 1, external_logger=LOGGER)
 
-    def test_sets_bbox(self, get_data_patch, _df_patch):
+    def test_sets_bbox(self, _get_data_patch, _df_patch):
         self.subject.get_saved_data(*self.METHOD_ARGS)
 
         self.assertEqual(self.BBOX, self.subject.file_loader.bbox)
@@ -102,7 +105,9 @@ class TestFileLoaderGetData(unittest.TestCase):
         file_loader.name = 'Mock GRIB Loader'
         file_loader.SUFFIX = GribFile.SUFFIX
 
-        self.subject = FileLoader(file_dir=FILE_DIR, external_logger=LOGGER)
+        self.subject = FileLoader(
+            file_dir=FILE_DIR, forecast_hour=1, external_logger=LOGGER,
+        )
         self.subject._file_loader = file_loader
 
     def test_load_attempts_per_timestamp(self):
