@@ -1,9 +1,8 @@
-import logging
 import unittest
 
 import mock
-import xarray
 import pandas as pd
+import xarray
 
 from smrf.data.hrrr.file_loader import FileLoader
 from smrf.data.hrrr.grib_file import GribFile
@@ -13,6 +12,7 @@ START_DT = pd.to_datetime('2018-07-22 01:00')
 END_DT = pd.to_datetime('2018-07-22 06:00')
 
 LOGGER = mock.Mock(name='Logger')
+
 
 class TestFileLoader(unittest.TestCase):
     def setUp(self):
@@ -102,9 +102,7 @@ class TestFileLoaderGetData(unittest.TestCase):
         file_loader.name = 'Mock GRIB Loader'
         file_loader.SUFFIX = GribFile.SUFFIX
 
-        self.subject = FileLoader(
-            file_dir=FILE_DIR, external_logger=LOGGER
-        )
+        self.subject = FileLoader(file_dir=FILE_DIR, external_logger=LOGGER)
         self.subject._file_loader = file_loader
 
     def test_load_attempts_per_timestamp(self):
@@ -114,7 +112,7 @@ class TestFileLoaderGetData(unittest.TestCase):
         self.assertEqual(
             6,
             self.subject.file_loader.load.call_count,
-            msg='More data was loaded than requested forecast hours'
+            msg='More data was loaded than requested dates'
         )
         self.assertRegex(
             self.subject.file_loader.load.call_args.args[0],
@@ -127,16 +125,16 @@ class TestFileLoaderGetData(unittest.TestCase):
             msg='Var map not passed to file loader'
         )
 
-    def test_tries_six_forecast_hours(self):
+    def test_can_not_load_first_forecast_hour(self):
         self.subject.file_loader.load.side_effect = Exception('Data error')
         with mock.patch('os.path.exists', return_value=True):
             with self.assertRaisesRegex(IOError, 'Not able to find good file'):
                 self.subject.get_data(START_DT, END_DT)
 
             self.assertEqual(
-                6,
+                1,
                 self.subject.file_loader.load.call_count,
-                msg='Tried to load more than six forecast hours for a '
+                msg='Tried to load more than one forecast hours for a '
                     'single time step'
             )
 

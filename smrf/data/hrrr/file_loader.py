@@ -9,14 +9,11 @@ from .file_handler import FileHandler
 from .grib_file import GribFile
 
 
-class FileLoader():
+class FileLoader:
     """
     Load data from local HRRR files.
     Currently supports loading from Grib format.
     """
-    # Maximum hour that local files will be attempted to be read if a previous
-    # hour could not be found or successfully loaded.
-    MAX_FORECAST_HOUR = 6
     NEXT_HOUR = timedelta(hours=1)
 
     def __init__(self,
@@ -126,41 +123,36 @@ class FileLoader():
             self.log.debug('Reading file for date: {}'.format(date))
             forecast_data = None
 
-            # make sure we get a working file. This allows for six tries,
-            # accounting for the fact that we start at forecast hour 1
+            fx_hr = 1
             file_time = date
-            for fx_hr in range(1, self.MAX_FORECAST_HOUR + 1):
-                day_folder, file_name = FileHandler.folder_and_file(
-                    file_time, fx_hr, self.file_type
+            day_folder, file_name = FileHandler.folder_and_file(
+                file_time, fx_hr, self.file_type
+            )
+
+            try:
+                if self.file_type == GribFile.SUFFIX:
+                    base_path = os.path.abspath(self.file_dir)
+                    file = os.path.join(base_path, day_folder, file_name)
+                    if os.path.exists(file):
+                        forecast_data = self.file_loader.load(
+                            file, self._var_map
+                        )
+
+            except Exception as e:
+                self.log.debug(e)
+                self.log.debug(
+                    '  Could not load forecast hour {} for date {} '
+                    'successfully'.format(fx_hr, date)
                 )
 
-                try:
-                    if self.file_type == GribFile.SUFFIX:
-                        base_path = os.path.abspath(self.file_dir)
-                        file = os.path.join(base_path, day_folder, file_name)
-                        if os.path.exists(file):
-                            forecast_data = self.file_loader.load(
-                                file, self._var_map
-                            )
-                        else:
-                            self.log.error('  No file for {}'.format(file))
-
-                except Exception as e:
-                    self.log.debug(e)
-                    self.log.debug(
-                        '  Could not load forecast hour {} for date {} '
-                        'successfully'.format(fx_hr, date)
-                    )
-
-                if fx_hr == self.MAX_FORECAST_HOUR:
-                    raise IOError(
-                        'Not able to find good file for {}'
-                        .format(file_time.strftime('%Y-%m-%d %H:%M'))
-                    )
-
-                if forecast_data is not None:
-                    data += forecast_data
-                    break
+            if forecast_data is not None:
+                data += forecast_data
+            else:
+                self.log.error('  No file for {}'.format(file))
+                raise IOError(
+                    '  Not able to find good file for'
+                    .format(file_time.strftime('%Y-%m-%d %H:%M'))
+                )
 
             date += self.NEXT_HOUR
 
