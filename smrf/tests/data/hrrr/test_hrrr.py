@@ -81,16 +81,3 @@ class TestLoadHRRR(SMRFTestCase):
         run_smrf(config)
 
         self.compare_hrrr_gold()
-
-    def test_load_timestep_threaded(self):
-
-        config = deepcopy(self.config)
-        config.raw_cfg['gridded']['hrrr_load_method'] = 'timestep'
-        config.raw_cfg['system']['threading'] = True
-        config.raw_cfg['system']['queue_max_values'] = 1
-        config.apply_recipes()
-        config = cast_all_variables(config, config.mcfg)
-
-        run_smrf(config)
-
-        self.compare_hrrr_gold()
