@@ -41,7 +41,7 @@ dependencies = [
     "regex<2021",
     "scipy<1.12",
     "spatialnc>=0.2.12",
-    "topocalc>=0.5",
+    "topocalc",
     "utm==0.5",
     "xarray<2023",
 ]
