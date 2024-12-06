@@ -63,7 +63,7 @@ class TestModelFrameworkMST(SMRFTestCase):
 
     def test_timezone_error(self):
         base_config = self.base_config
-        base_config.cfg['time']['time_zone'] = 'mst'
+        base_config.cfg['time']['time_zone'] = 'unkown'
         with self.assertRaises(Exception):
             SMRF(base_config)
 
