@@ -1,78 +1,18 @@
-import copy
-
 import xarray as xr
 
+from .grib_file_variables import (FIRST_HOUR, HRRR_HAG_10, HRRR_HAG_2,
+                                  HRRR_SURFACE, SIXTH_HOUR)
 
-class GribFile():
+
+class GribFile:
     """
     Class to load a GRIB2 file from disk.
-
-    The VAR_MAP class constants holds a mapping for currently available
-    variables that are loadable from a file.
     """
     SUFFIX = 'grib2'
 
     CELL_SIZE = 3000  # in meters
 
-    SURFACE = {
-        'level': 0,
-        'typeOfLevel': 'surface',
-    }
-    SURFACE_VARIABLES = {
-        'precip_int': {
-            'name': 'Total Precipitation',
-            'shortName': 'tp',
-            **SURFACE,
-        },
-        'short_wave': {
-            'stepType': 'instant',
-            'cfVarName': 'sdswrf',
-            **SURFACE,
-        },
-        'elevation': {
-            'cfVarName': 'orog',
-            **SURFACE,
-        }
-    }
-    # HAG - Height Above Ground
-    HAG_2 = {
-        'level': 2,
-        'typeOfLevel': 'heightAboveGround',
-    }
-    HAG_2_VARIABLES = {
-        'air_temp': {
-            'cfName': 'air_temperature',
-            'cfVarName': 't2m',
-            **HAG_2,
-        },
-        'relative_humidity': {
-            'cfVarName': 'r2',
-            **HAG_2,
-        },
-    }
-    WIND_U = 'wind_u'
-    WIND_V = 'wind_v'
-    WIND_VARIABLES = [WIND_U, WIND_V]
-    HAG_10 = {
-        'level': 10,
-        'typeOfLevel': 'heightAboveGround',
-    }
-    HAG_10_VARIABLES = {
-        WIND_U: {
-            'cfVarName': 'u10',
-            **HAG_10,
-        },
-        WIND_V: {
-            'cfVarName': 'v10',
-            **HAG_10,
-        },
-    }
-    VAR_MAP = {
-        **SURFACE_VARIABLES,
-        **HAG_2_VARIABLES,
-        **HAG_10_VARIABLES,
-    }
-    VARIABLES = VAR_MAP.keys()
+    HRRR_VARIABLES = [HRRR_SURFACE, HRRR_HAG_2, HRRR_HAG_10]
 
     def __init__(self, external_logger=None):
         self._bbox = None
@@ -86,10 +26,6 @@ class GribFile():
     def bbox(self, value):
         self._bbox = value
 
-    @property
-    def variable_map(self):
-        return copy.deepcopy(self.VAR_MAP)
-
     @staticmethod
     def longitude_east(longitude):
         """
@@ -102,72 +38,173 @@ class GribFile():
         """
         return longitude % 360
 
-    def load(self, file, var_map):
+    @staticmethod
+    def _prepare_for_merge(dataset, new_names, level):
+        """
+        Remove some dimensions so all read variables can be combined into
+        one dataset later
+
+        :param dataset:   Dataset to remove information from
+        :param new_names: Dict - Map old to new variable names
+        :param level:     String - Level name attribute to remove
+
+        :return:
+          xr.Dataset - Prepared Dataset for merge
+        """
+        if len(dataset.variables) == 0:
+            return None
+
+        del dataset[level]
+        del dataset['step']
+
+        # rename the grib variable name to a SMRF recognized variable name
+        dataset = dataset.rename(new_names)
+
+        # Make the time an index coordinate
+        dataset = dataset.assign_coords(time=dataset['valid_time'])
+        dataset = dataset.expand_dims('time')
+        del dataset['valid_time']
+
+        return dataset
+
+    def _load_variable_level(
+        self, file, filter_by_keys, smrf_mapping, level_name=None
+    ):
+        """
+        Load HRRR variables with given arguments.
+        Uses variable_key value if a level value is not passed.
+
+        :param file:           String - File to load
+        :param filter_by_keys: Dict - Arguments to pass to xarray
+        :param smrf_mapping:   String - Dict key of mapped HRRR-SMRF variables
+        :param level_name:     String - HRRR level name
+
+        :return:
+            xr.Dataset
+        """
+        return (
+            # Prepare for merging of all variables in a successive step
+            self._prepare_for_merge(
+                # Read the file
+                xr.open_dataset(
+                    file,
+                    engine='cfgrib',
+                    backend_kwargs={
+                        'filter_by_keys': filter_by_keys,
+                        'indexpath': '',  # Don't create an .idx file when reading
+                    }
+                ),
+                smrf_mapping,
+                level_name,
+            )
+        )
+
+    @staticmethod
+    def _first_or_sixth_variable(smrf_map, sixth_hour_variables):
+        """
+        Split the HRRR variables by requested forecast hour
+
+        :param smrf_map: Dict - Mapping HRRR to SMRF keys
+        :param sixth_hour_variables: list - List of variables to load from the
+                                     sixth forecast hour
+        :return:
+            (List, List) - Variables to load for first, sixth hour
+        """
+        if sixth_hour_variables is not None:
+            first_hour_variables = [
+                hrrr_key for hrrr_key, smrf_key in smrf_map.items()
+                if smrf_key not in sixth_hour_variables
+            ]
+            sixth_hour_variables = [
+                hrrr_key for hrrr_key, smrf_key in smrf_map.items()
+                if smrf_key in sixth_hour_variables
+            ]
+            return first_hour_variables, sixth_hour_variables
+        else:
+            return list(smrf_map.keys()), None
+
+    def load(
+        self, file, sixth_hour_file, sixth_hour_variables=None, load_wind=False
+    ):
         """
         Get valid HRRR data using Xarray
 
-        Args:
-            file:    Path to grib2 file to open
-            var_map: Var map of variables to load from file
+        :param file:                 Path to grib2 file to open
+        :param sixth_hour_file:      Path to HRRR grib file of the sixth hour
+                                     forecast
+        :param sixth_hour_variables: List of variables that are loaded from the
+                                     sixth hour forecast. Default: None
+        :param load_wind:            Flag to indicate loading the wind fields
+                                     Default: False
 
         Returns:
             Array with Xarray Datasets for each variable and
             cropped to bounding box
         """
-
         variable_data = []
+        # For checking that we loaded all the variables we requested
+        loaded_variables = []
 
         self.log.debug('Reading {}'.format(file))
 
-        # open just one dataset at a time
-        for key, params in var_map.items():
+        for variable in self.HRRR_VARIABLES:
+            if variable == HRRR_HAG_10 and not load_wind:
+                continue
 
-            # TODO - Remove special casing and harden logic around 6th forecast
-            # hour
-            if key == 'precip_int':
-                file = file.replace(self.SUFFIX, 'apcp06.' + self.SUFFIX)
-            else:
-                file = file.replace('apcp06.', '')
-
-            data = xr.open_dataset(
-                file,
-                engine='cfgrib',
-                backend_kwargs={
-                    'filter_by_keys': params,
-                    'indexpath': '',  # Don't create an .idx file when reading
-                }
+            first_hour, sixth_hour = self._first_or_sixth_variable(
+                variable.smrf_map, sixth_hour_variables
             )
-
-            if len(data) < 1:
-                raise Exception('Variable not found: {}'.format(params))
-
-            if len(data) > 1:
-                raise Exception('More than one grib variable returned')
-
-            data = data.where(
-                (data.latitude >= self.bbox[1]) &
-                (data.latitude <= self.bbox[3]) &
-                (data.longitude >= self.longitude_east(self.bbox[0])) &
-                (data.longitude <= self.longitude_east(self.bbox[2])),
-                drop=True
+            variable_data.append(
+                self._load_variable_level(
+                    file,
+                    {
+                        variable.grib_identifier: first_hour,
+                        **variable.grib_keys,
+                        **FIRST_HOUR,
+                    },
+                    {key: value for key, value in variable.smrf_map.items()
+                     if key in first_hour},
+                    variable.level,
+                )
             )
+            loaded_variables += first_hour
 
-            # Remove some dimensions so all read variables can
-            # be combined into one dataset
-            del data[params['typeOfLevel']]
-            del data['step']
+            if sixth_hour is not None and sixth_hour:
+                variable_data.append(
+                    self._load_variable_level(
+                        sixth_hour_file,
+                        {
+                            variable.grib_identifier: sixth_hour,
+                            **variable.grib_keys,
+                            **SIXTH_HOUR,
+                        },
+                        {key: value for key, value in variable.smrf_map.items()
+                         if key in sixth_hour},
+                        variable.level,
+                    )
+                )
+                loaded_variables += sixth_hour
 
-            # rename the data variable
-            variable = params.get('cfVarName') or params.get('shortName')
-            data = data.rename({variable: key})
+        try:
+            variable_data = xr.combine_by_coords(
+                variable_data, combine_attrs='drop'
+            )
+        except TypeError:
+            self.log.error('Not all grib files were successfully read')
+            raise Exception()
 
-            # Make the time an index coordinate
-            data = data.assign_coords(time=data['valid_time'])
-            data = data.expand_dims('time')
-            del data['valid_time']
+        if len(variable_data.data_vars) is not len(loaded_variables):
+            self.log.error(
+                'Not all requested variables were found in the grib files'
+            )
+            raise Exception()
 
-            variable_data.append(data)
-
-            data.close()
+        variable_data = variable_data.where(
+            (variable_data.latitude >= self.bbox[1]) &
+            (variable_data.latitude <= self.bbox[3]) &
+            (variable_data.longitude >= self.longitude_east(self.bbox[0])) &
+            (variable_data.longitude <= self.longitude_east(self.bbox[2])),
+            drop=True
+        )
 
         return variable_data

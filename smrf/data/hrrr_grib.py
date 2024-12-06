@@ -79,6 +79,7 @@ class InputGribHRRR(GriddedInput):
             external_logger=self._logger,
             load_wind = self._load_wind,
             forecast_hour=self.config['hrrr_forecast_hour'],
+            sixth_hour_variables=self.config['hrrr_sixth_hour_variables'],
         ).get_saved_data(
             self.start_date,
             self.end_date,
