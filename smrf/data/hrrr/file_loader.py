@@ -15,17 +15,22 @@ class FileLoader:
     Currently supports loading from Grib format.
     """
     NEXT_HOUR = timedelta(hours=1)
+    SIXTH_HOUR = 6
 
-    def __init__(self,
-                 file_dir,
-                 forecast_hour,
-                 file_type='grib2',
-                 external_logger=None,
-                 load_wind=False,
-         ):
+    def __init__(
+        self,
+        file_dir,
+        forecast_hour,
+        sixth_hour_variables=None,
+        file_type='grib2',
+        external_logger=None,
+        load_wind=False,
+    ):
         """
         :param file_dir:        Base directory to location of files
         :param forecast_hour:   HRRR forecast hour to load forcing data from
+        :param sixth_hour_variables:   HRRR forecast hour to load data from
+                                the sixth forecast hour
         :param file_type:       Determines how to read the files.
                                 Default: grib2
         :param external_logger: (Optional) Specify an existing logger instance
@@ -36,8 +41,9 @@ class FileLoader:
         self.file_dir = file_dir
         self.file_type = file_type
 
-        self._var_map = self.load_var_map(load_wind)
+        self._load_wind = load_wind
         self._forecast_hour = forecast_hour
+        self._sixth_hour_variables = sixth_hour_variables
 
     @property
     def file_dir(self):
@@ -45,7 +51,7 @@ class FileLoader:
 
     @file_dir.setter
     def file_dir(self, value):
-        self._file_dir = value
+        self._file_dir = os.path.abspath(value)
 
     @property
     def file_type(self):
@@ -61,29 +67,6 @@ class FileLoader:
     @property
     def file_loader(self):
         return self._file_loader
-
-    def load_var_map(self, load_wind=False):
-        """
-        Filter and return the desired HRRR variables to read
-
-        Args:
-            load_wind: (Boolean) Whether to load HRRR wind data.
-                       (Default: False)
-
-        Returns:
-            Dict - HRRR variables with keys mapped to SMRF variable names.
-        """
-        if not load_wind:
-            variables = [
-                v for v in self.file_loader.VARIABLES
-                if v not in self.file_loader.WIND_VARIABLES
-            ]
-        else:
-            variables = self.file_loader.VARIABLES
-
-        return {
-            key: self.file_loader.VAR_MAP[key] for key in variables
-        }
 
     def get_saved_data(self, start_date, end_date, bbox, utm_zone_number):
         """
@@ -111,6 +94,38 @@ class FileLoader:
 
         return self.convert_to_dataframes(utm_zone_number)
 
+    def _get_file_path(self, file_time, forecast_hour):
+        """
+        Construct an absolute file path to a HRRR file
+
+        :param file_time:       Date and time of file to load
+        :param forecast_hour:   Forecast hour to load
+
+        :return: (String) Absolute file path
+        """
+        day_folder, file_name = FileHandler.folder_and_file(
+            file_time, forecast_hour, self.file_type
+        )
+        return os.path.join(self.file_dir, day_folder, file_name)
+
+    def _check_sixth_hour_presence(self, date):
+        """
+        Check that a sixth hour file is present when a variable is configured
+        to be loaded from there
+
+        :param date:        Date to load
+
+        :return: (Boolean) Whether the sixth hour file is present
+        """
+        if self._sixth_hour_variables:
+            file = self._get_file_path(date, self.SIXTH_HOUR)
+            if os.path.exists(file):
+                return file
+            else:
+                return False
+        else:
+            return True
+
     def get_data(self, start_date, end_date):
         """
         Get the HRRR data for given start and end date.
@@ -125,51 +140,50 @@ class FileLoader:
 
         while date <= end_date:
             self.log.debug('Reading file for date: {}'.format(date))
-            forecast_data = None
 
-            fx_hr = self._forecast_hour
-            file_time = date
-            day_folder, file_name = FileHandler.folder_and_file(
-                file_time, fx_hr, self.file_type
-            )
+            if self.file_type == GribFile.SUFFIX:
+                # Filename of the default configured forecast hour
+                default_file = self._get_file_path(date, self._forecast_hour)
+                # Filename for variables that are mapped to the sixth
+                # forecast hour
+                sixth_hour_file = self._check_sixth_hour_presence(date)
 
-            try:
-                if self.file_type == GribFile.SUFFIX:
-                    base_path = os.path.abspath(self.file_dir)
-                    file = os.path.join(base_path, day_folder, file_name)
-                    if os.path.exists(file):
-                        forecast_data = self.file_loader.load(
-                            file, self._var_map
+                try:
+                    if os.path.exists(default_file) and sixth_hour_file:
+                        data.append(self.file_loader.load(
+                            file=default_file,
+                            load_wind=self._load_wind,
+                            sixth_hour_file=sixth_hour_file,
+                            sixth_hour_variables=self._sixth_hour_variables,
+                        ))
+                    else:
+                        raise FileNotFoundError(
+                            '  Not able to find file for datetime: {}'.format(
+                                date.strftime('%Y-%m-%d %H:%M')
+                            )
                         )
-
-            except Exception as e:
-                self.log.debug(e)
-                self.log.debug(
-                    '  Could not load forecast hour {} for date {} '
-                    'successfully'.format(fx_hr, date)
-                )
-
-            if forecast_data is not None:
-                data += forecast_data
-            else:
-                self.log.error('  No file for {}'.format(file))
-                raise IOError(
-                    '  Not able to find good file for'
-                    .format(file_time.strftime('%Y-%m-%d %H:%M'))
-                )
+                except Exception as e:
+                    self.log.error(
+                        '  Could not load forecast for date {} '
+                        'successfully'.format(date)
+                    )
+                    raise e
 
             date += self.NEXT_HOUR
 
         try:
-            # The attributes can be safely dropped since the data is converted into a pandas
-            # dataframe as a next step after this method.
-            self.data = xr.combine_by_coords(data, combine_attrs='drop')
+            if len(data) > 0:
+                # The attributes can be safely dropped since the data is
+                # converted into a pandas dataframe as a next step after this method.
+                self.data = xr.combine_by_coords(data, combine_attrs='drop')
+            else:
+                raise Exception('No data HRRR data loaded')
         except Exception as e:
-            self.log.debug(e)
             self.log.debug(
                 '  Could not combine forecast data for given dates: {} - {}'
-                    .format(start_date, end_date)
+                .format(start_date, end_date)
             )
+            raise e
 
     def convert_to_dataframes(self, utm_zone_number):
         """
@@ -184,23 +198,18 @@ class FileLoader:
         metadata = None
         dataframe = {}
 
-        for key, value in self._var_map.items():
+        for variable in list(self.data.data_vars):
             if self.file_type == GribFile.SUFFIX:
-                df = self.data[key].to_dataframe()
-            else:
-                df = self.data[value].to_dataframe()
-                key = value
+                df = self.data[variable].to_dataframe()
 
             # convert from a row multi-index to a column multi-index
             df = df.unstack(level=[1, 2])
 
             # Get the metadata using the elevation variables
-            if key == 'elevation':
-                if self.file_type == GribFile.SUFFIX:
-                    value = key
+            if variable == 'elevation':
 
                 metadata = []
-                for mm in ['latitude', 'longitude', value]:
+                for mm in ['latitude', 'longitude', variable]:
                     dftmp = df[mm].copy()
                     dftmp.columns = self.format_column_names(dftmp)
                     dftmp = dftmp.iloc[0]
@@ -213,22 +222,20 @@ class FileLoader:
                     args=(utm_zone_number,),
                     axis=1
                 )
-                metadata.rename(columns={value: key}, inplace=True)
-
             else:
-                df = df.loc[:, key]
+                df = df.loc[:, variable]
 
                 df.columns = self.format_column_names(df)
                 df.index.rename('date_time', inplace=True)
 
                 df.dropna(axis=1, how='all', inplace=True)
                 df.sort_index(axis=0, inplace=True)
-                dataframe[key] = df
+                dataframe[variable] = df
 
                 # manipulate data in necessary ways
-                if key == 'air_temp':
+                if variable == 'air_temp':
                     dataframe['air_temp'] -= 273.15
-                if key == 'cloud_factor':
+                if variable == 'cloud_factor':
                     dataframe['cloud_factor'] = \
                         1 - dataframe['cloud_factor'] / 100
 
