@@ -80,7 +80,7 @@ class FileLoader:
             utm_zone_number: UTM zone number to convert datetime to
 
         Returns:
-            List containing dataframe for the metadata adn for each read
+            List containing dataframe for the metadata and for each read
             variable.
         """
 
