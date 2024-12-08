@@ -199,8 +199,7 @@ class FileLoader:
         dataframe = {}
 
         for variable in list(self.data.data_vars):
-            if self.file_type == GribFile.SUFFIX:
-                df = self.data[variable].to_dataframe()
+            df = self.data[variable].to_dataframe()
 
             # convert from a row multi-index to a column multi-index
             df = df.unstack(level=[1, 2])
