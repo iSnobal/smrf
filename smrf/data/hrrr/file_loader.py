@@ -238,13 +238,6 @@ class FileLoader:
                     dataframe['cloud_factor'] = \
                         1 - dataframe['cloud_factor'] / 100
 
-        # the metadata may have more columns than the dataframes
-        c = []
-        for key in dataframe.keys():
-            c.extend(list(dataframe[key].columns.values))
-
-        metadata = metadata[metadata.index.isin(list(set(c)))]
-
         return metadata, dataframe
 
     @staticmethod
