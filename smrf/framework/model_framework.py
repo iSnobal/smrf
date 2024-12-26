@@ -712,8 +712,11 @@ class SMRF():
         out_location = self.config['output']['out_location']
 
         # determine the variables to be output
-        s_var_list = ", ".join(self.config['output']['variables'])
-        self._logger.info('{} variables will be output'.format(s_var_list))
+        self._logger.info(
+            'Configured output variables: \n {}'.format(
+                ", ".join(self.config['output']['variables'])
+            )
+        )
 
         output_variables = self.config['output']['variables']
 
@@ -726,9 +729,11 @@ class SMRF():
         # determine what type of file to output
         if self.config['output']['file_type'].lower() == 'netcdf':
             self.out_func = output_netcdf.OutputNetcdf(
-                variable_dict, self.topo,
+                variable_dict,
+                self.topo,
                 self.config['time'],
-                self.config['output'])
+                self.config['output']
+            )
 
         elif self.config['output']['file_type'].lower() == 'hru':
             self.out_func = output_hru.output_hru(
