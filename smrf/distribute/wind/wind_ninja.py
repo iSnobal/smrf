@@ -3,25 +3,10 @@ import os
 
 import numpy as np
 import pytz
-from scipy import interpolate
+from scipy.interpolate import interp1d
 
 from smrf.distribute import image_data
 from smrf.utils import utils
-
-
-def interpx(yi, xi, x):
-    """Interpolate in on direction
-
-    Arguments:
-        yi {array} -- y data to fit
-        xi {array} -- x data to fit
-        x {array} -- x data to interpolate over
-
-    Returns:
-        array -- y values evaluated at x
-    """
-    s = interpolate.interp1d(xi, yi, fill_value='extrapolate')
-    return s(x)
 
 
 class WindNinjaModel(image_data.image_data):
@@ -242,47 +227,65 @@ class WindNinjaModel(image_data.image_data):
 
         return g_vel, g_ang
 
-    def fill_data(self, g_vel):
-        """Fill the WindNinja array that has NaN's.
-        This makes an assumption that all the NaN values are along
-        the left and bottom edge. This will be the case in the Northern
-        hemisphere. First fill the Y direction with 1d interpolation
-        exprapolated to the edges, then do the same in the X direction.
-        At the end, it will check to ensure that there are no NaN values
-        left.
-
-        Arguments:
-            g_vel {np.array} -- numpy array to fill
-
-        Raises:
-            ValueError: If there are still NaN values after filling
-
-        Returns:
-            np.array -- filled numpy array
+    def fill_data(self, grid_values):
         """
+        Fill missing values around the edges after the interpolation
+        from the WindNinja grid to the configured model grid.
 
-        ix = np.sum(np.isnan(g_vel[0, :]))
-        iy = np.sum(np.isnan(g_vel[:, ix+1]))
+        Parameters
+        ----------
+        grid_values : np.array
+            Interpolated grid data
 
-        #  first go in the Y direction
-        if ix > 0:
-            yi = g_vel[:, ix:ix+10]
-            xi = self.X[0, ix:ix+10]
-            x = self.X[0, :ix]
+        Returns
+        -------
+        np.array
+            Grid with filled out edges
 
-            o = np.apply_along_axis(interpx, axis=1, arr=yi, xi=xi, x=x)
-            g_vel[:, :ix] = o
+        Raises
+        ------
+        ValueError
+            Unsuccessful attempt to fill in the edges
+        """
+        # Fill in the Y-direction
+        grid_values = np.apply_along_axis(
+            self.fill_nan, arr=grid_values, axis=1, x=self.X[0, :]
+        )
+        # Fill in the X-direction
+        grid_values = np.apply_along_axis(
+            self.fill_nan, arr=grid_values, axis=0, x=self.Y[:, 0]
+        )
 
-        #  first go in the X direction
-        if iy > 0:
-            yi = g_vel[-iy-10:-iy, :]
-            xi = self.Y[-iy-10:-iy, 0]
-            x = self.Y[-iy:, 0]
-
-            o = np.apply_along_axis(interpx, axis=0, arr=yi, xi=xi, x=x)
-            g_vel[-iy:, :] = o
-
-        if np.any(np.isnan(g_vel)):
+        if np.any(np.isnan(grid_values)):
             raise ValueError('WindNinja data still has NaN values')
 
-        return g_vel
+        return grid_values
+
+    @staticmethod
+    def fill_nan(data, x):
+        """
+        Function to use with np.apply_along_axis to fill NaN values in a
+        1-d array. Uses scipy interp1d to fill the missing values.
+
+        Parameters
+        ----------
+        data : 1-d numpy array
+            Array passed by np.apply_along_axis
+        x : 1-d numpy array
+            Values along the x-Axis
+
+        Returns
+        -------
+        np.array
+            New array with NaN filled
+        """
+        nan_mask = np.isnan(data)
+
+        # Skip rows where all values are NaN
+        if np.sum(nan_mask) == data.shape[0]:
+            return data
+
+        values = data[~nan_mask]
+        x_values = x[~nan_mask]
+        func = interp1d(x_values, values, fill_value='extrapolate')
+        return func(x)
