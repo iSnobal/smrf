@@ -254,51 +254,44 @@ class SMRF():
             * :func:`Soil Temperature <smrf.distribute.soil_temp.ts>`
         """
 
-        # 1. Air temperature
-        self.distribute['air_temp'] = distribute.air_temp.ta(
-            self.config['air_temp'])
+        # Always process air temperature and vapor pressure together since
+        # both are related to each other.
+        if 'air_temp' in self.config['output']['variables'] or \
+                'vapor_pressure' in self.config['output']['variables']:
+            # Air temperature
+            self.distribute['air_temp'] = distribute.air_temp.ta(
+                self.config['air_temp']
+            )
 
-        # 2. Vapor pressure
-        self.distribute['vapor_pressure'] = distribute.vapor_pressure.vp(
-            self.config['vapor_pressure'],
-            self.config['precip']['precip_temp_method'])
+            # Vapor pressure
+            self.distribute['vapor_pressure'] = distribute.vapor_pressure.vp(
+                self.config['vapor_pressure'],
+                self.config['precip']['precip_temp_method']
+            )
 
         # 3. Wind
-        self.distribute['wind'] = distribute.wind.Wind(self.config)
+        if 'wind' in self.config['output']['variables']:
+            self.distribute['wind'] = distribute.wind.Wind(self.config)
 
         # 4. Precipitation
-        self.distribute['precipitation'] = distribute.precipitation.ppt(
-            self.config['precip'],
-            self.start_date,
-            self.config['time']['time_step'])
+        if 'precipitation' in self.config['output']['variables']:
+            self.distribute['precipitation'] = distribute.precipitation.ppt(
+                self.config['precip'],
+                self.start_date,
+                self.config['time']['time_step']
+            )
 
         # 5. Albedo
-        self.distribute['albedo'] = distribute.albedo.Albedo(
-            self.config['albedo'])
+        if 'albedo' in self.config['output']['variables']:
+            self.distribute['albedo'] = distribute.albedo.Albedo(
+                self.config['albedo']
+            )
 
         # 6. cloud_factor
         if 'cloud_factor' in self.config['output']['variables']:
             self.distribute['cloud_factor'] = distribute.cloud_factor.cf(
                 self.config['cloud_factor']
             )
-        else:
-            self._logger.info('Load HRRR cloud')
-            with netCDF4.Dataset(
-                self.config['output']['out_location'] + '/cloud_factor.nc'
-            ) as cloud_data:
-                from cftime import num2date
-
-                cloud_date_times = cloud_data['time']
-                self._cloud_dates = num2date(
-                    cloud_date_times[:],
-                    units=cloud_date_times.units,
-                    calendar=cloud_date_times.calendar,
-                    only_use_cftime_datetimes=False,
-                )
-                self._cloud_dates = [
-                    date.replace(tzinfo=self.time_zone).timestamp() for
-                    date in self._cloud_dates
-                ]
 
         # 7. Solar radiation
         if 'net_solar' in self.config['output']['variables']:
@@ -310,12 +303,16 @@ class SMRF():
             self._logger.info('Using HRRR solar in iSnobal')
 
         # 8. thermal radiation
-        self.distribute['thermal'] = distribute.thermal.th(
-            self.config['thermal'])
+        if 'thermal' in self.config['output']['variables']:
+            self.distribute['thermal'] = distribute.thermal.th(
+                self.config['thermal']
+            )
 
         # 9. soil temperature
-        self.distribute['soil_temp'] = distribute.soil_temp.ts(
-            self.config['soil_temp'])
+        if 'soil_temp' in self.config['output']['variables']:
+            self.distribute['soil_temp'] = distribute.soil_temp.ts(
+                self.config['soil_temp']
+            )
 
     def loadData(self):
         """
@@ -437,66 +434,97 @@ class SMRF():
             self.data.load_class.load_timestep(t)
             self.data.set_variables()
 
-        # 0.1 sun angle for time step
-        cosz, azimuth, rad_vec = sunang.sunang(
-            t.astimezone(pytz.utc),
-            self.topo.basin_lat,
-            self.topo.basin_long)
-
-        # 0.2 illumination angle
-        illum_ang = None
-        if cosz > 0:
-            illum_ang = shade(
-                self.topo.sin_slope,
-                self.topo.aspect,
-                azimuth,
-                cosz)
 
         # 1. Air temperature
-        self.distribute['air_temp'].distribute(self.data.air_temp.loc[t])
+        if 'air_temp' in self.config['output']['variables']:
+            self.distribute['air_temp'].distribute(self.data.air_temp.loc[t])
 
         # 2. Vapor pressure
-        self.distribute['vapor_pressure'].distribute(
-            self.data.vapor_pressure.loc[t],
-            self.distribute['air_temp'].air_temp)
+        if 'vapor_pressure' in self.config['output']['variables']:
+            self.distribute['Vapor_pressure'].distribute(
+                self.data.vapor_pressure.loc[t],
+                self.distribute['air_temp'].air_temp
+            )
 
         # 3. Wind_speed and wind_direction
-        self.distribute['wind'].distribute(
-            self.data.wind_speed.loc[t],
-            self.data.wind_direction.loc[t],
-            t)
+        if 'wind' in self.config['output']['variables']:
+            self.distribute['wind'].distribute(
+                self.data.wind_speed.loc[t],
+                self.data.wind_direction.loc[t],
+                t
+            )
 
         # 4. Precipitation
-        self.distribute['precipitation'].distribute(
-            self.data.precip.loc[t],
-            self.distribute['vapor_pressure'].dew_point,
-            self.distribute['vapor_pressure'].precip_temp,
-            self.distribute['air_temp'].air_temp,
-            t,
-            self.data.wind_speed.loc[t],
-            self.data.air_temp.loc[t],
-            self.distribute['wind'].wind_direction,
-            self.distribute['wind'].wind_model.dir_round_cell,
-            self.distribute['wind'].wind_speed,
-            self.distribute['wind'].wind_model.cellmaxus)
+        if 'precipitation' in self.config['output']['variables']:
+            self.distribute['precipitation'].distribute(
+                self.data.precip.loc[t],
+                self.distribute['vapor_pressure'].dew_point,
+                self.distribute['vapor_pressure'].precip_temp,
+                self.distribute['air_temp'].air_temp,
+                t,
+                self.data.wind_speed.loc[t],
+                self.data.air_temp.loc[t],
+                self.distribute['wind'].wind_direction,
+                self.distribute['wind'].wind_model.dir_round_cell,
+                self.distribute['wind'].wind_speed,
+                self.distribute['wind'].wind_model.cellmaxus
+            )
 
-        # 5. Albedo
-        self.distribute['albedo'].distribute(
-            t,
-            illum_ang,
-            self.distribute['precipitation'].storm_days)
 
         # 6. cloud_factor
         if 'cloud_factor' in self.config['output']['variables']:
-            self.distribute['cloud_factor'].distribute(
+            cloud_factor = self.distribute['cloud_factor'].distribute(
                 self.data.cloud_factor.loc[t]
-            )
+            ).cloud_factor
+        elif 'net_solar' in self.config['output']['variables'] or \
+                'thermal' in self.config['output']['variables']: 
+            with netCDF4.Dataset(
+                self.config['output']['out_location'] + '/cloud_factor.nc'
+            ) as cloud_data:
+                self._logger.info('Load HRRR cloud')
+                from cftime import num2date
+
+                cloud_date_times = cloud_data['time']
+                cloud_dates = num2date(
+                    cloud_date_times[:],
+                    units=cloud_date_times.units,
+                    calendar=cloud_date_times.calendar,
+                    only_use_cftime_datetimes=False,
+                )
+                cloud_dates = [
+                    date.replace(tzinfo=self.time_zone).timestamp() for
+                    date in self._cloud_dates
+                ]
+                cloud_factor = cloud_data['TCDC'][
+                    cloud_dates.index(t.timestamp())
+                ]
 
         # 7. Solar
         if 'net_solar' in self.config['output']['variables']:
+            # 7.1 sun angle for time step
+            cosz, azimuth, rad_vec = sunang.sunang(
+                t.astimezone(pytz.utc),
+                self.topo.basin_lat,
+                self.topo.basin_long)
+
+            # 7.2 illumination angle
+            illum_ang = None
+            if cosz > 0:
+                illum_ang = shade(
+                    self.topo.sin_slope,
+                    self.topo.aspect,
+                    azimuth,
+                    cosz)
+            # 7.3 Albedo
+            self.distribute['albedo'].distribute(
+                t,
+                illum_ang,
+                self.distribute['precipitation'].storm_days
+            )
+            # 7.4 Net Solar
             self.distribute['solar'].distribute(
                 t,
-                self.distribute["cloud_factor"].cloud_factor,
+                cloud_factor,
                 illum_ang,
                 cosz,
                 azimuth,
@@ -505,26 +533,18 @@ class SMRF():
             )
 
         # 8. thermal radiation
-        if 'cloud_factor' in self.distribute:
-            cloud_factor = self.distribute['cloud_factor'].cloud_factor
-        else:
-            with netCDF4.Dataset(
-                self.config['output']['out_location'] + '/cloud_factor.nc'
-            ) as cloud_data:
-                cloud_factor = cloud_data['TCDC'][
-                    self._cloud_dates.index(t.timestamp())
-                ]
-
-        self.distribute['thermal'].distribute(
-            t,
-            self.distribute['air_temp'].air_temp,
-            self.distribute['vapor_pressure'].vapor_pressure,
-            self.distribute['vapor_pressure'].dew_point,
-            cloud_factor
-        )
+        if 'thermal' in self.config['output']['variables']: 
+            self.distribute['thermal'].distribute(
+                t,
+                self.distribute['air_temp'].air_temp,
+                self.distribute['vapor_pressure'].vapor_pressure,
+                self.distribute['vapor_pressure'].dew_point,
+                cloud_factor
+            )
 
         # 9. Soil temperature
-        self.distribute['soil_temp'].distribute()
+        if 'soil_temp' in self.config['output']['variables']: 
+            self.distribute['soil_temp'].distribute()
 
     def disttribute_data_threaded(self):
         """
