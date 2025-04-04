@@ -356,6 +356,9 @@ class SMRF():
                 self.distribute['cloud_factor'] = distribute.cloud_factor.cf(
                     self.config['cloud_factor']
                 )
+            else:
+                self._logger.info('Using HRRR cloud file for thermal.')
+
             self.distribute['thermal'] = distribute.thermal.th(
                 self.config['thermal']
             )
@@ -546,7 +549,6 @@ class SMRF():
                 with netCDF4.Dataset(
                     self.config['output']['out_location'] + '/cloud_factor.nc'
                 ) as cloud_data:
-                    self._logger.info('Load cloud file')
                     from cftime import num2date
 
                     cloud_date_times = cloud_data['time']
@@ -768,6 +770,8 @@ class SMRF():
         # determine which variables belong where
         variable_dict = {}
         for output_variable in output_variables:
+            if output_variable in ['hrrr_cloud']:
+                continue
 
             if output_variable in self.possible_output_variables.keys():
                 fname = join(out_location, output_variable)
