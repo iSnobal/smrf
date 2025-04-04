@@ -267,10 +267,10 @@ class SMRF():
                 self.config['air_temp']
             )
 
-        # Vapor pressure
-        self.distribute['vapor_pressure'] = distribute.vapor_pressure.vp(
-            self.config['vapor_pressure'],
-            self.config['precip']['precip_temp_method'])
+            # Vapor pressure
+            self.distribute['vapor_pressure'] = distribute.vapor_pressure.vp(
+                self.config['vapor_pressure'],
+                self.config['precip']['precip_temp_method'])
 
         # Wind
         wants_wind = set(output_variables).intersection(
@@ -284,6 +284,19 @@ class SMRF():
             distribute.precipitation.ppt.OUTPUT_VARIABLES.keys()
         )
         if len(wants_precip) > 0:
+            # Need air temp and vapor pressure for precip phase
+            if 'air_temp' not in self.distribute:
+                self.distribute['air_temp'] = distribute.air_temp.ta(
+                    self.config['air_temp']
+                )
+
+            if 'vapor_pressure' not in self.distribute:
+                # Vapor pressure
+                self.distribute['vapor_pressure'] = distribute.vapor_pressure.vp(
+                    self.config['vapor_pressure'],
+                    self.config['precip']['precip_temp_method']
+                )
+
             if self.config['precip']['precip_rescaling_model'] == 'winstral' and \
                 'wind' not in self.distribute:
                 self.distribute['wind'] = distribute.wind.Wind(self.config)
