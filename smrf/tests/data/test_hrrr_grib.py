@@ -16,6 +16,9 @@ class TestInputGribHRRR(unittest.TestCase):
     SMRF_CONFIG = {
         'gridded': {
             'hrrr_load_method': 'timestep',
+        },
+        'output': {
+            'variables': []
         }
     }
 
