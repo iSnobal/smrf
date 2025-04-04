@@ -315,8 +315,9 @@ class SMRF():
                     self.start_date,
                     self.config['time']['time_step']
                 )
-            # Need clouds for solar
-            if 'cloud_factor' not in self.distribute:
+            # Need clouds for solar, either use external one or add to
+            # distributed list
+            if 'hrrr_cloud' not in output_variables:
                 self.distribute['cloud_factor'] = distribute.cloud_factor.cf(
                     self.config['cloud_factor']
                 )
@@ -349,8 +350,9 @@ class SMRF():
                     self.config['vapor_pressure'],
                     self.config['precip']['precip_temp_method']
                 )
-            # Need clouds
-            if 'cloud_factor' not in self.distribute:
+            # Need clouds for solar, either use external one or add to
+            # distributed list
+            if 'hrrr_cloud' not in output_variables:
                 self.distribute['cloud_factor'] = distribute.cloud_factor.cf(
                     self.config['cloud_factor']
                 )
@@ -539,8 +541,7 @@ class SMRF():
                 self.data.cloud_factor.loc[t]
             )
             cloud_factor = self.distribute['cloud_factor'].cloud_factor
-        elif 'solar' in self.distribute or \
-                'thermal' in self.distribute:
+        elif 'hrrr_cloud' in self.config['output']['variables']:
             try:
                 with netCDF4.Dataset(
                     self.config['output']['out_location'] + '/cloud_factor.nc'
@@ -569,6 +570,7 @@ class SMRF():
                     " cloud_factor.nc file has to be supplied in the output"
                     " folder location."
                 )
+                sys.exit()
 
         # Solar
         if 'solar' in self.distribute:
