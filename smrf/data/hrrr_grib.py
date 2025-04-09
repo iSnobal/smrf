@@ -38,6 +38,8 @@ class InputGribHRRR(GriddedInput):
             kwargs['config'], WindNinjaModel.MODEL_TYPE
         )
 
+        self._calculate_tcdc = 'hrrr_cloud' not in kwargs['config']['output']['variables']
+
     @property
     def variables(self):
         if self._load_wind:
