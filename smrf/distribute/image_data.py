@@ -118,7 +118,8 @@ class ImageData:
 
         # determine the stations that will be used, alphabetical order
         if "stations" in config.keys() and config["stations"] is not None:
-            stations = config['stations'].sort()
+            stations = config['stations']
+            stations.sort()
 
         self.stations = stations
 
