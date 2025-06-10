@@ -110,9 +110,10 @@ def Angstrom1918(ta, ea):
     :cite:`Niemela&al:2001` using the equation:
 
     .. math::
-        \\epsilon_{clear} = 0.83 - 0.18 * 10^{-0.067 e_a}
+        \\epsilon_{clear} = 0.83 - 0.18 * 10^{-0.67 e_a}
 
-    Where :math:`e_a` is the vapor pressure.
+    Where :math:`e_a` is the vapor pressure. Note the different factor compared
+    to Niemela et al (2001) because of the use of kPa vs hPa.
 
     Args:
         ta: distributed air temperature [degree C]
@@ -125,6 +126,6 @@ def Angstrom1918(ta, ea):
     """
 
     ta = ta + FREEZE                  # convert to K
-    e = 0.83 - 0.18 * np.power(10, -0.067*ea)
+    e = 0.83 - 0.18 * np.power(10, -0.67*ea)
 
     return calc_long_wave(e, ta)
