@@ -1,7 +1,7 @@
 import unittest
 from pathlib import Path
 
-import mock
+from unittest import mock
 import xarray
 
 import smrf

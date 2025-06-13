@@ -1,4 +1,4 @@
-import mock
+from unittest import mock
 
 import smrf.data as smrf_data
 from smrf.tests.smrf_test_case import SMRFTestCase

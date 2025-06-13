@@ -1,6 +1,6 @@
 import unittest
 
-import mock
+from unittest import mock
 
 from smrf.distribute.wind import Wind
 from smrf.distribute.wind.wind_ninja import WindNinjaModel
