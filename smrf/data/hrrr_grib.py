@@ -38,6 +38,9 @@ class InputGribHRRR(GriddedInput):
             kwargs['config'], WindNinjaModel.MODEL_TYPE
         )
 
+        self._calculate_tcdc = 'cloud_factor' in kwargs['config']['output']['variables']
+        self._load_dswrf = 'net_solar' in kwargs['config']['output']['variables']
+
     @property
     def variables(self):
         if self._load_wind:
@@ -77,6 +80,9 @@ class InputGribHRRR(GriddedInput):
         var_keys = wfr.data.hrrr.GribFile.VARIABLES
         if not self._load_wind:
             var_keys = [v for v in var_keys if v not in ['wind_u', 'wind_v']]
+
+        if not self._load_dswrf:
+            var_keys.remove('short_wave')
 
         metadata, data = wfr.data.hrrr.FileLoader(
             file_dir=self.config['hrrr_directory'],
@@ -157,12 +163,14 @@ class InputGribHRRR(GriddedInput):
         self.precip = pd.DataFrame(data['precip_int'], index=idx, columns=cols)
 
         # cloud factor
-        self._logger.debug('Loading solar')
-        solar = pd.DataFrame(data['short_wave'], index=idx, columns=cols)
-        self._logger.debug('Calculating cloud factor')
-        self.cloud_factor = get_hrrr_cloud(
-            solar, self.metadata,
-            self.topo.basin_lat, self.topo.basin_long)
+        if self._calculate_tcdc:
+            self._logger.debug('Loading solar')
+            solar = pd.DataFrame(data['short_wave'], index=idx, columns=cols)
+            self._logger.debug('Calculating cloud factor')
+            self.cloud_factor = get_hrrr_cloud(
+                solar, self.metadata,
+                self.topo.basin_lat, self.topo.basin_long
+            )
 
     def calculate_wind(self, data):
         """

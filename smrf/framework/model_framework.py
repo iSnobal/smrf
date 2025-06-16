@@ -28,9 +28,11 @@ import os
 import sys
 from datetime import datetime
 from os.path import abspath, join
+from pathlib import Path
 from threading import Thread
 
 import numpy as np
+import netCDF4
 import pandas as pd
 import pytz
 from inicheck.config import UserConfig
@@ -275,13 +277,37 @@ class SMRF():
             self.config['albedo'])
 
         # 6. cloud_factor
-        self.distribute['cloud_factor'] = distribute.cloud_factor.cf(
-            self.config['cloud_factor'])
+        if 'cloud_factor' in self.config['output']['variables']:
+            self.distribute['cloud_factor'] = distribute.cloud_factor.cf(
+                self.config['cloud_factor']
+            )
+        else:
+            self._logger.info('Load HRRR cloud')
+            with netCDF4.Dataset(
+                self.config['output']['out_location'] + '/cloud_factor.nc'
+            ) as cloud_data:
+                from cftime import num2date
+
+                cloud_date_times = cloud_data['time']
+                self._cloud_dates = num2date(
+                    cloud_date_times[:],
+                    units=cloud_date_times.units,
+                    calendar=cloud_date_times.calendar,
+                    only_use_cftime_datetimes=False,
+                )
+                self._cloud_dates = [
+                    date.replace(tzinfo=self.time_zone).timestamp() for
+                    date in self._cloud_dates
+                ]
 
         # 7. Solar radiation
-        self.distribute['solar'] = distribute.solar.Solar(
-            self.config,
-            self.topo)
+        if 'net_solar' in self.config['output']['variables']:
+            self.distribute['solar'] = distribute.solar.Solar(
+                self.config,
+                self.topo
+            )
+        else:
+            self._logger.info('Using HRRR solar in iSnobal')
 
         # 8. thermal radiation
         self.distribute['thermal'] = distribute.thermal.th(
@@ -317,6 +343,8 @@ class SMRF():
         self._logger.debug(
             'Filter data to those specified in each variable section')
         for variable, module in self.data.MODULE_VARIABLES.items():
+            if module not in self.distribute:
+                continue
 
             # Check to find the matching stations
             data = getattr(self.data, variable, pd.DataFrame())
@@ -459,26 +487,49 @@ class SMRF():
             self.distribute['precipitation'].storm_days)
 
         # 6. cloud_factor
-        self.distribute['cloud_factor'].distribute(
-            self.data.cloud_factor.loc[t])
+        if 'cloud_factor' in self.config['output']['variables']:
+            self.distribute['cloud_factor'].distribute(
+                self.data.cloud_factor.loc[t]
+            )
 
         # 7. Solar
-        self.distribute['solar'].distribute(
-            t,
-            self.distribute["cloud_factor"].cloud_factor,
-            illum_ang,
-            cosz,
-            azimuth,
-            self.distribute['albedo'].albedo_vis,
-            self.distribute['albedo'].albedo_ir)
+        if 'net_solar' in self.config['output']['variables']:
+            self.distribute['solar'].distribute(
+                t,
+                self.distribute["cloud_factor"].cloud_factor,
+                illum_ang,
+                cosz,
+                azimuth,
+                self.distribute['albedo'].albedo_vis,
+                self.distribute['albedo'].albedo_ir
+            )
 
         # 8. thermal radiation
+        if 'cloud_factor' in self.distribute:
+            cloud_factor = self.distribute['cloud_factor'].cloud_factor
+        else:
+            with netCDF4.Dataset(
+                self.config['output']['out_location'] + '/cloud_factor.nc'
+            ) as cloud_data:
+                try:
+                    time_index = self._cloud_dates.index(t.timestamp())
+                except ValueError:
+                    # Note the missing timestamp
+                    Path(
+                        self.config['output']['out_location'] +
+                        f'/cloud_factor_miss_{t.timestamp()}.txt'
+                    ).touch()
+                    # Use the previous hour
+                    time_index = self._cloud_dates.index(t.timestamp() - 3600)
+                cloud_factor = cloud_data['TCDC'][time_index]
+
         self.distribute['thermal'].distribute(
             t,
             self.distribute['air_temp'].air_temp,
             self.distribute['vapor_pressure'].vapor_pressure,
             self.distribute['vapor_pressure'].dew_point,
-            self.distribute['cloud_factor'].cloud_factor)
+            cloud_factor
+        )
 
         # 9. Soil temperature
         self.distribute['soil_temp'].distribute()
