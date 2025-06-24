@@ -2,6 +2,8 @@ import netCDF4 as nc
 import numpy as np
 import pytz
 
+from unittest.mock import patch
+
 from smrf.data import Topo
 from smrf.distribute.wind.wind_ninja import WindNinjaModel
 from smrf.tests.smrf_test_case_lakes import SMRFTestCaseLakes
@@ -11,7 +13,8 @@ from smrf.utils.utils import date_range
 
 class TestWindNinja(SMRFTestCaseLakes):
 
-    def setup_wind_ninja(self, config):
+    @patch('smrf.distribute.wind.wind_ninja.logging')
+    def setup_wind_ninja(self, config, _mock_logging):
         """Setup the wind ninja class
 
         Args:
@@ -27,7 +30,8 @@ class TestWindNinja(SMRFTestCaseLakes):
             config['time']['start_date'],
             config['time']['end_date'],
             config['time']['time_step'],
-            tzinfo)
+            tzinfo
+        )
 
         wn = WindNinjaModel(config)
         wn.initialize(topo, None)
@@ -44,7 +48,7 @@ class TestWindNinja(SMRFTestCaseLakes):
         # The x values are ascending
         self.assertTrue(np.all(np.diff(wn.windninja_x) > 0))
 
-        # The y values are descnding
+        # The y values are descending
         self.assertTrue(np.all(np.diff(wn.windninja_y) < 0))
 
         # compare against gold
