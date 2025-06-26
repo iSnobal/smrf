@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from scipy.interpolate import griddata
 from scipy.interpolate.interpnd import _ndim_coords_from_arrays
-from scipy.spatial import qhull as qhull
+from scipy.spatial import Delaunay
 
 from smrf.utils.utils import grid_interpolate_deconstructed
 
@@ -145,7 +145,7 @@ class GRID:
         if self.tri is None:
             xy = _ndim_coords_from_arrays(
                 (self.metadata.utm_x, self.metadata.utm_y))
-            self.tri = qhull.Delaunay(xy)
+            self.tri = Delaunay(xy)
 
         # interpolate the slope/intercept
         grid_slope = grid_interpolate_deconstructed(

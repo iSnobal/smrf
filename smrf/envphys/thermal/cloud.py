@@ -93,7 +93,8 @@ def Kimball1982(th, ta, ea, cloud_factor):
 
     20170515 Scott Havens
     """
-
+    
+    c = 1 - cloud_factor
     ta = ta + FREEZE
     Tc = ta - 11
 
@@ -101,7 +102,7 @@ def Kimball1982(th, ta, ea, cloud_factor):
     e8z = 0.24 + 2.98 * 10**(-6) * ea**2 * np.exp(3000/ta)
     t8 = 1 - e8z * (1.4 - 0.4 * e8z)
 
-    return th + calc_long_wave(f8 * e8z * t8, ta)
+    return th + calc_long_wave(t8 * c * f8, Tc)
 
 
 def Crawford1999(th, ta, cloud_factor):

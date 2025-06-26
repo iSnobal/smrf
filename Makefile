@@ -12,6 +12,7 @@ export BROWSER_PYSCRIPT
 BROWSER := python3 -c "$$BROWSER_PYSCRIPT"
 
 help:
+	@echo "build_extensions - Build Cython extensions"
 	@echo "clean - remove all build, test, coverage and Python artifacts"
 	@echo "clean-build - remove build artifacts"
 	@echo "clean-pyc - remove Python file artifacts"
@@ -25,6 +26,14 @@ help:
 	@echo "dist - package"
 	@echo "install - install the package to the active Python's site-packages"
 
+clean_cython:
+	find . -name detrended_kriging.c -type f -delete
+	find . -name envphys_c.c -type f -delete
+	find . -name wind_c.c -type f -delete
+
+build_extensions: clean
+	python setup.py build_ext --inplace
+
 clean: clean-build clean-pyc clean-test
 
 clean-build:
@@ -33,6 +42,7 @@ clean-build:
 	rm -fr .eggs/
 	find . -name '*.egg-info' -exec rm -fr {} +
 	find . -name '*.egg' -exec rm -f {} +
+	find . -name '*.so' -type f -delete
 
 clean-pyc:
 	find . -name '*.pyc' -exec rm -f {} +
@@ -43,15 +53,15 @@ clean-pyc:
 clean-test:
 	rm -f .coverage
 	rm -fr htmlcov/
-	
+
 isort: ## using isort to sort imports
 	isort -rc -v .
 
 lint:
 	flake8 smrf
 
-test:
-	python3 setup.py test
+tests:
+	python3 -m unittest discover -s smrf/tests/
 
 coverage: ## run coverage and submit
 	coverage run --source smrf setup.py test
@@ -85,8 +95,4 @@ dist: clean
 	ls -l dist
 
 install: clean
-	python setup.py install
-
-install_tests:
-	python setup.py build_ext --inplace
-
+	python3 -m pip install -e .[dev]

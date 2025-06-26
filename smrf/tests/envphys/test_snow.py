@@ -1,6 +1,6 @@
 from smrf.envphys import Snow
 from smrf.envphys.nasde_model import Marks2017, PiecewiseSusong1999, Susong1999
-import mock
+from unittest import mock
 import unittest
 import numpy as np
 

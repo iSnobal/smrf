@@ -310,8 +310,7 @@ class ppt(image_data.image_data):
                         self.config,
                         self.metadata)
 
-                    self.distribute_for_susong1999(
-                        data, precip_temp, time)
+                self.distribute_for_susong1999(data, precip_temp, time)
         else:
             self.distribute_for_susong1999(data, precip_temp, time)
 

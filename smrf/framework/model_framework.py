@@ -19,7 +19,7 @@ Example:
     >>> s.create_distribution() # initialize the distribution
     >>> s.initializeOutput() # initialize the outputs if desired
     >>> s.loadData() # load weather data  and station metadata
-    >>> s.disttribute_data() # distribute
+    >>> s.distribute_data() # distribute
 
 """
 
@@ -253,55 +253,91 @@ class SMRF():
             * :func:`Thermal radiation <smrf.distribute.thermal.th>`
             * :func:`Soil Temperature <smrf.distribute.soil_temp.ts>`
         """
+        output_variables = self.config['output']['variables']
 
-        # 1. Air temperature
-        self.distribute['air_temp'] = distribute.air_temp.ta(
-            self.config['air_temp'])
+        # Always process air temperature and vapor pressure together since
+        # both are related to each other.
+        wants_vp = set(output_variables).intersection(
+            distribute.vapor_pressure.vp.OUTPUT_VARIABLES.keys()
+        )
+        if 'air_temp' in output_variables or \
+            len(wants_vp) > 0:
+            # Air temperature
+            self.distribute['air_temp'] = distribute.air_temp.ta(
+                self.config['air_temp']
+            )
 
-        # 2. Vapor pressure
-        self.distribute['vapor_pressure'] = distribute.vapor_pressure.vp(
-            self.config['vapor_pressure'],
-            self.config['precip']['precip_temp_method'])
+            # Vapor pressure
+            self.distribute['vapor_pressure'] = distribute.vapor_pressure.vp(
+                self.config['vapor_pressure'],
+                self.config['precip']['precip_temp_method'])
 
-        # 3. Wind
-        self.distribute['wind'] = distribute.wind.Wind(self.config)
+        # Wind
+        wants_wind = set(output_variables).intersection(
+            distribute.wind.Wind.OUTPUT_VARIABLES.keys()
+        )
+        if len(wants_wind) > 0:
+            self.distribute['wind'] = distribute.wind.Wind(self.config)
 
-        # 4. Precipitation
-        self.distribute['precipitation'] = distribute.precipitation.ppt(
-            self.config['precip'],
-            self.start_date,
-            self.config['time']['time_step'])
+        # Precipitation
+        wants_precip = set(output_variables).intersection(
+            distribute.precipitation.ppt.OUTPUT_VARIABLES.keys()
+        )
+        if len(wants_precip) > 0:
+            # Need air temp and vapor pressure for precip phase
+            if 'air_temp' not in self.distribute:
+                self.distribute['air_temp'] = distribute.air_temp.ta(
+                    self.config['air_temp']
+                )
 
-        # 5. Albedo
-        self.distribute['albedo'] = distribute.albedo.Albedo(
-            self.config['albedo'])
+            if 'vapor_pressure' not in self.distribute:
+                # Vapor pressure
+                self.distribute['vapor_pressure'] = distribute.vapor_pressure.vp(
+                    self.config['vapor_pressure'],
+                    self.config['precip']['precip_temp_method']
+                )
 
-        # 6. cloud_factor
-        if 'cloud_factor' in self.config['output']['variables']:
+            if self.config['precip']['precip_rescaling_model'] == 'winstral' and \
+                'wind' not in self.distribute:
+                self.distribute['wind'] = distribute.wind.Wind(self.config)
+
+            self.distribute['precipitation'] = distribute.precipitation.ppt(
+                self.config['precip'],
+                self.start_date,
+                self.config['time']['time_step']
+            )
+
+        # Cloud_factor
+        if 'cloud_factor' in output_variables:
             self.distribute['cloud_factor'] = distribute.cloud_factor.cf(
                 self.config['cloud_factor']
             )
-        else:
-            self._logger.info('Load HRRR cloud')
-            with netCDF4.Dataset(
-                self.config['output']['out_location'] + '/cloud_factor.nc'
-            ) as cloud_data:
-                from cftime import num2date
 
-                cloud_date_times = cloud_data['time']
-                self._cloud_dates = num2date(
-                    cloud_date_times[:],
-                    units=cloud_date_times.units,
-                    calendar=cloud_date_times.calendar,
-                    only_use_cftime_datetimes=False,
+        # Solar radiation; requires albedo and clouds
+        wants_albedo = set(output_variables).intersection(
+            distribute.albedo.Albedo.OUTPUT_VARIABLES.keys()
+        )
+        wants_solar = set(output_variables).intersection(
+            distribute.solar.Solar.OUTPUT_VARIABLES.keys()
+        )
+        if len(wants_solar) > 0 or len(wants_albedo) > 0:
+            # Need precip for albedo:
+            if 'precipitation' not in self.distribute:
+                self.distribute['precipitation'] = distribute.precipitation.ppt(
+                    self.config['precip'],
+                    self.start_date,
+                    self.config['time']['time_step']
                 )
-                self._cloud_dates = [
-                    date.replace(tzinfo=self.time_zone).timestamp() for
-                    date in self._cloud_dates
-                ]
+            # Need clouds for solar, either use external one or add to
+            # distributed list
+            if 'hrrr_cloud' not in output_variables:
+                self.distribute['cloud_factor'] = distribute.cloud_factor.cf(
+                    self.config['cloud_factor']
+                )
 
-        # 7. Solar radiation
-        if 'net_solar' in self.config['output']['variables']:
+            self.distribute['albedo'] = distribute.albedo.Albedo(
+                self.config['albedo']
+            )
             self.distribute['solar'] = distribute.solar.Solar(
                 self.config,
                 self.topo
@@ -309,13 +345,41 @@ class SMRF():
         else:
             self._logger.info('Using HRRR solar in iSnobal')
 
-        # 8. thermal radiation
-        self.distribute['thermal'] = distribute.thermal.th(
-            self.config['thermal'])
+        # Thermal radiation
+        wants_thermal = set(output_variables).intersection(
+            distribute.thermal.th.OUTPUT_VARIABLES.keys()
+        )
+        if len(wants_thermal) > 0:
+            # Need air temp, vapor pressure, and clouds
+            # Air temperature
+            if 'air_temp' not in self.distribute:
+                self.distribute['air_temp'] = distribute.air_temp.ta(
+                    self.config['air_temp']
+                )
 
-        # 9. soil temperature
+            # Vapor pressure
+            if 'vapor_pressure' not in self.distribute:
+                self.distribute['vapor_pressure'] = distribute.vapor_pressure.vp(
+                    self.config['vapor_pressure'],
+                    self.config['precip']['precip_temp_method']
+                )
+            # Need clouds for solar, either use external one or add to
+            # distributed list
+            if 'hrrr_cloud' not in output_variables:
+                self.distribute['cloud_factor'] = distribute.cloud_factor.cf(
+                    self.config['cloud_factor']
+                )
+            else:
+                self._logger.info('Using HRRR cloud file for thermal.')
+
+            self.distribute['thermal'] = distribute.thermal.th(
+                self.config['thermal']
+            )
+
+        # Soil temperature
         self.distribute['soil_temp'] = distribute.soil_temp.ts(
-            self.config['soil_temp'])
+            self.config['soil_temp']
+        )
 
     def loadData(self):
         """
@@ -365,19 +429,19 @@ class SMRF():
             self._logger.info('Backing up input data...')
             backup_input(self.data, self.ucfg)
 
-    def disttribute_data(self):
+    def distribute_data(self):
         """
         Wrapper for various distribute methods. If threading was set in
         configFile, then
-        :func:`~smrf.framework.model_framework.SMRF.disttribute_data_threaded`
+        :func:`~smrf.framework.model_framework.SMRF.distribute_data_threaded`
         will be called. Default will call
-        :func:`~smrf.framework.model_framework.SMRF.disttribute_data_serial`.
+        :func:`~smrf.framework.model_framework.SMRF.distribute_data_serial`.
         """
 
         if self.threading:
-            self.disttribute_data_threaded()
+            self.distribute_data_threaded()
         else:
-            self.disttribute_data_serial()
+            self.distribute_data_serial()
 
     def initialize_distribution(self, date_time=None):
         """Call the initialize method for each distribute module
@@ -390,7 +454,7 @@ class SMRF():
         for v in self.distribute:
             self.distribute[v].initialize(self.topo, self.data, date_time)
 
-    def disttribute_data_serial(self):
+    def distribute_data_serial(self):
         """
         Distribute the measurement point data for all variables in serial. Each
         variable is initialized first using the :func:`smrf.data.loadTopo.Topo`
@@ -437,66 +501,122 @@ class SMRF():
             self.data.load_class.load_timestep(t)
             self.data.set_variables()
 
-        # 0.1 sun angle for time step
-        cosz, azimuth, rad_vec = sunang.sunang(
-            t.astimezone(pytz.utc),
-            self.topo.basin_lat,
-            self.topo.basin_long)
+        # Air temperature
+        if 'air_temp' in self.distribute:
+            self.distribute['air_temp'].distribute(self.data.air_temp.loc[t])
 
-        # 0.2 illumination angle
-        illum_ang = None
-        if cosz > 0:
-            illum_ang = shade(
-                self.topo.sin_slope,
-                self.topo.aspect,
-                azimuth,
-                cosz)
+        # Vapor pressure
+        if 'vapor_pressure' in self.distribute:
+            self.distribute['vapor_pressure'].distribute(
+                self.data.vapor_pressure.loc[t],
+                self.distribute['air_temp'].air_temp
+            )
 
-        # 1. Air temperature
-        self.distribute['air_temp'].distribute(self.data.air_temp.loc[t])
+        # Wind_speed and wind_direction
+        if 'wind' in self.distribute:
+            self.distribute['wind'].distribute(
+                self.data.wind_speed.loc[t],
+                self.data.wind_direction.loc[t],
+                t
+            )
 
-        # 2. Vapor pressure
-        self.distribute['vapor_pressure'].distribute(
-            self.data.vapor_pressure.loc[t],
-            self.distribute['air_temp'].air_temp)
+        # Precipitation
+        if 'precipitation' in self.distribute:
+            # Get arguments for wind when 'winstral' rescaling is requested
+            if self.config['precip']['precip_rescaling_model'] == 'winstral':
+                try:
+                    wind_args=dict(
+                        wind_direction=self.distribute['wind'].wind_direction,
+                        dir_round_cell=self.distribute['wind'].wind_model.dir_round_cell,
+                        wind_speed=self.distribute['wind'].wind_speed,
+                        cell_maxus=self.distribute['wind'].wind_model.cellmaxus
+                    )
+                except AttributeError:
+                    self._logger.error(
+                        "Required wind argument for precipitation interpolation"
+                        " not found. Please add 'wind' as output variable in the"
+                        " .ini file"
+                    )
+            else:
+                wind_args = dict()
 
-        # 3. Wind_speed and wind_direction
-        self.distribute['wind'].distribute(
-            self.data.wind_speed.loc[t],
-            self.data.wind_direction.loc[t],
-            t)
+            self.distribute['precipitation'].distribute(
+                self.data.precip.loc[t],
+                self.distribute['vapor_pressure'].dew_point,
+                self.distribute['vapor_pressure'].precip_temp,
+                self.distribute['air_temp'].air_temp,
+                t,
+                self.data.wind_speed.loc[t],
+                self.data.air_temp.loc[t],
+                **wind_args
+            )
 
-        # 4. Precipitation
-        self.distribute['precipitation'].distribute(
-            self.data.precip.loc[t],
-            self.distribute['vapor_pressure'].dew_point,
-            self.distribute['vapor_pressure'].precip_temp,
-            self.distribute['air_temp'].air_temp,
-            t,
-            self.data.wind_speed.loc[t],
-            self.data.air_temp.loc[t],
-            self.distribute['wind'].wind_direction,
-            self.distribute['wind'].wind_model.dir_round_cell,
-            self.distribute['wind'].wind_speed,
-            self.distribute['wind'].wind_model.cellmaxus)
-
-        # 5. Albedo
-        self.distribute['albedo'].distribute(
-            t,
-            illum_ang,
-            self.distribute['precipitation'].storm_days)
-
-        # 6. cloud_factor
-        if 'cloud_factor' in self.config['output']['variables']:
+        # Cloud_factor
+        if 'cloud_factor' in self.distribute:
             self.distribute['cloud_factor'].distribute(
                 self.data.cloud_factor.loc[t]
             )
+            cloud_factor = self.distribute['cloud_factor'].cloud_factor
+        elif 'hrrr_cloud' in self.config['output']['variables']:
+            try:
+                with netCDF4.Dataset(
+                    self.config['output']['out_location'] + '/cloud_factor.nc'
+                ) as cloud_data:
+                    from cftime import num2date
 
-        # 7. Solar
-        if 'net_solar' in self.config['output']['variables']:
+                    cloud_date_times = cloud_data['time']
+                    cloud_dates = num2date(
+                        cloud_date_times[:],
+                        units=cloud_date_times.units,
+                        calendar=cloud_date_times.calendar,
+                        only_use_cftime_datetimes=False,
+                    )
+                    cloud_dates = [
+                        date.replace(tzinfo=self.time_zone).timestamp() for
+                        date in cloud_dates
+                    ]
+                    cloud_factor = cloud_data['TCDC'][
+                        cloud_dates.index(t.timestamp())
+                    ]
+            except FileNotFoundError:
+                self._logger.error(
+                    "Thermal or Solar were requested as output, but either"
+                    " the 'cloud_factor' needs to be in the .ini file or a"
+                    " cloud_factor.nc file has to be supplied in the output"
+                    " folder location."
+                )
+                sys.exit()
+
+        # Solar
+        if 'solar' in self.distribute:
+            # Sun angle for time step
+            cosz, azimuth, rad_vec = sunang.sunang(
+                t.astimezone(pytz.utc),
+                self.topo.basin_lat,
+                self.topo.basin_long
+            )
+
+            # Illumination angle
+            illum_ang = None
+            if cosz > 0:
+                illum_ang = shade(
+                    self.topo.sin_slope,
+                    self.topo.aspect,
+                    azimuth,
+                    cosz
+                )
+
+            # Albedo
+            self.distribute['albedo'].distribute(
+                t,
+                illum_ang,
+                self.distribute['precipitation'].storm_days
+            )
+
+            # Net Solar
             self.distribute['solar'].distribute(
                 t,
-                self.distribute["cloud_factor"].cloud_factor,
+                cloud_factor,
                 illum_ang,
                 cosz,
                 azimuth,
@@ -504,37 +624,20 @@ class SMRF():
                 self.distribute['albedo'].albedo_ir
             )
 
-        # 8. thermal radiation
-        if 'cloud_factor' in self.distribute:
-            cloud_factor = self.distribute['cloud_factor'].cloud_factor
-        else:
-            with netCDF4.Dataset(
-                self.config['output']['out_location'] + '/cloud_factor.nc'
-            ) as cloud_data:
-                try:
-                    time_index = self._cloud_dates.index(t.timestamp())
-                except ValueError:
-                    # Note the missing timestamp
-                    Path(
-                        self.config['output']['out_location'] +
-                        f'/cloud_factor_miss_{t.timestamp()}.txt'
-                    ).touch()
-                    # Use the previous hour
-                    time_index = self._cloud_dates.index(t.timestamp() - 3600)
-                cloud_factor = cloud_data['TCDC'][time_index]
+        # Thermal radiation
+        if 'thermal' in self.distribute:
+            self.distribute['thermal'].distribute(
+                t,
+                self.distribute['air_temp'].air_temp,
+                self.distribute['vapor_pressure'].vapor_pressure,
+                self.distribute['vapor_pressure'].dew_point,
+                cloud_factor
+            )
 
-        self.distribute['thermal'].distribute(
-            t,
-            self.distribute['air_temp'].air_temp,
-            self.distribute['vapor_pressure'].vapor_pressure,
-            self.distribute['vapor_pressure'].dew_point,
-            cloud_factor
-        )
-
-        # 9. Soil temperature
+        # Soil temperature
         self.distribute['soil_temp'].distribute()
 
-    def disttribute_data_threaded(self):
+    def distribute_data_threaded(self):
         """
         Distribute the measurement point data for all variables using threading
         and queues. Each variable is initialized first using the
@@ -648,36 +751,29 @@ class SMRF():
         # Distribute the data
         self.threads = []
 
-        # 0.1 sun angle for time step
-        self.threads.append(Thread(
-            target=sunang.sunang_thread,
-            name='sun_angle',
-            args=(self.smrf_queue, self.date_time,
-                  self.topo.basin_lat,
-                  self.topo.basin_long)))
+        if 'solar' in self.distribute:
+            # 0.1 sun angle for time step
+            self.threads.append(Thread(
+                target=sunang.sunang_thread,
+                name='sun_angle',
+                args=(self.smrf_queue, self.date_time,
+                      self.topo.basin_lat,
+                      self.topo.basin_long)))
 
-        # 0.2 illumination angle
-        self.threads.append(Thread(
-            target=model.shade_thread,
-            name='illum_angle',
-            args=(self.smrf_queue, self.date_time,
-                  self.topo.sin_slope, self.topo.aspect)))
+            # 0.2 illumination angle
+            self.threads.append(Thread(
+                target=model.shade_thread,
+                name='illum_angle',
+                args=(self.smrf_queue, self.date_time,
+                      self.topo.sin_slope, self.topo.aspect)))
 
-        thread_dict = {
-            'air_temp': self.distribute['air_temp'].distribute_thread,
-            'vapor_pressure': self.distribute['vapor_pressure'].distribute_thread,  # noqa
-            'wind': self.distribute['wind'].distribute_thread,
-            'precipitation': self.distribute['precipitation'].distribute_thread,  # noqa
-            'albedo': self.distribute['albedo'].distribute_thread,
-            'cloud_factor': self.distribute['cloud_factor'].distribute_thread,
-            'solar': self.distribute['solar'].distribute_thread,
-            'thermal': self.distribute['thermal'].distribute_thread
-        }
+        for name in self.distribute.keys():
+            if name == 'soil_temp':
+                continue
 
-        for name, target in thread_dict.items():
             self.threads.append(
                 Thread(
-                    target=target,
+                    target=self.distribute[name].distribute_thread,
                     name=name,
                     args=(self.smrf_queue, self.data_queue))
             )
@@ -687,6 +783,8 @@ class SMRF():
         # determine which variables belong where
         variable_dict = {}
         for output_variable in output_variables:
+            if output_variable in ['hrrr_cloud']:
+                continue
 
             if output_variable in self.possible_output_variables.keys():
                 fname = join(out_location, output_variable)
@@ -720,8 +818,11 @@ class SMRF():
         out_location = self.config['output']['out_location']
 
         # determine the variables to be output
-        s_var_list = ", ".join(self.config['output']['variables'])
-        self._logger.info('{} variables will be output'.format(s_var_list))
+        self._logger.info(
+            'Configured output variables: \n {}'.format(
+                ", ".join(self.config['output']['variables'])
+            )
+        )
 
         output_variables = self.config['output']['variables']
 
@@ -734,9 +835,11 @@ class SMRF():
         # determine what type of file to output
         if self.config['output']['file_type'].lower() == 'netcdf':
             self.out_func = output_netcdf.OutputNetcdf(
-                variable_dict, self.topo,
+                variable_dict,
+                self.topo,
                 self.config['time'],
-                self.config['output'])
+                self.config['output']
+            )
 
         elif self.config['output']['file_type'].lower() == 'hru':
             self.out_func = output_hru.output_hru(
@@ -845,7 +948,7 @@ def run_smrf(config, external_logger=None):
         s.loadData()
 
         # distribute
-        s.disttribute_data()
+        s.distribute_data()
 
         # post process if necessary
         s.post_process()

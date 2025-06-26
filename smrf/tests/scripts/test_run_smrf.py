@@ -2,9 +2,7 @@ import unittest
 from io import StringIO
 from unittest.mock import patch
 
-from .script_test_helper import load_script_as_module
-
-script = load_script_as_module('run_smrf')
+import smrf.cli.run_smrf as script
 
 
 class TestRunSmrf(unittest.TestCase):
