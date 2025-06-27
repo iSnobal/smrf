@@ -8,26 +8,21 @@ requires = [
 
 [project]
 name = "smrf"
-description = "Distributed snow modeling for water resources"
+description = "Forcing input framework for iSnobal"
 dynamic = [
     "version"
 ]
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 readme = "README.md"
 keywords = [
     'iSnobal',
     'Snow',
     'Modeling'
 ]
-license = { text = "CCO 1.0" }
 classifiers = [
-    'Development Status :: 2 - Pre-Alpha',
-    'Intended Audience :: Developers',
-    'Natural Language :: English',
-    'License :: CC0 1.0 Universal (CC0 1.0) Public Domain Dedication',
-    'Programming Language :: Python :: 3.7',
-    'Programming Language :: Python :: 3.8',
-    'Programming Language :: Python :: 3.9',
+    "Intended Audience :: Science/Research",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3.9"
 ]
 dependencies = [
     "coloredlogs",
