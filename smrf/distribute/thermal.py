@@ -160,29 +160,35 @@ class Thermal(ImageData):
     """
 
     variable = 'thermal'
+    HRRR_THERMAL = "thermal_hrrr"
 
     # these are variables that can be output
     OUTPUT_VARIABLES = {
-        'thermal': {
-            'units': 'watt/m2',
-            'standard_name': 'thermal_radiation',
-            'long_name': 'Thermal (longwave) radiation'
+        "thermal": {
+            "units": "watt/m2",
+            "standard_name": "thermal_radiation",
+            "long_name": "Thermal (longwave) radiation",
         },
-        'thermal_clear': {
-            'units': 'watt/m2',
-            'standard_name': 'thermal_radiation non-correct',
-            'long_name': 'Thermal (longwave) radiation non-corrected'
+        "thermal_clear": {
+            "units": "watt/m2",
+            "standard_name": "thermal_radiation non-correct",
+            "long_name": "Thermal (longwave) radiation non-corrected",
         },
-        'thermal_cloud': {
-            'units': 'watt/m2',
-            'standard_name': 'thermal_radiation cloud corrected',
-            'long_name': 'Thermal (longwave) radiation cloud corrected'
+        "thermal_cloud": {
+            "units": "watt/m2",
+            "standard_name": "thermal_radiation cloud corrected",
+            "long_name": "Thermal (longwave) radiation cloud corrected",
         },
-        'thermal_veg': {
-            'units': 'watt/m2',
-            'standard_name': 'thermal_radiation veg corrected',
-            'long_name': 'Thermal (longwave) radiation veg corrected'
-        }
+        "thermal_veg": {
+            "units": "watt/m2",
+            "standard_name": "thermal_radiation veg corrected",
+            "long_name": "Thermal (longwave) radiation veg corrected",
+        },
+        HRRR_THERMAL: {
+            "units": "watt/m2",
+            "standard_name": "thermal_radiation",
+            "long_name": "HRRR longwave radiation (variable DLWRF)",
+        },
     }
     # these are variables that are operate at the end only and do not need to
     # be written during main distribute loop

@@ -1,0 +1,2 @@
+class ThermalHRRR:
+    pass
