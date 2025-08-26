@@ -1,3 +1,6 @@
+# Version management
+smrf/version.py
+
 .DS_Store
 ._.*
 

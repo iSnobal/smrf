@@ -69,6 +69,7 @@ smrf = [
 
 [tool.setuptools_scm]
 local_scheme = 'node-and-date'
+write_to = "smrf/version.py"
 
 [tool.hatch.build.targets.sdist]
 exclude = ["/smrf/tests"]
