@@ -250,7 +250,7 @@ class SMRF():
             * :func:`Precipitation <smrf.distribute.precipitation.ppt>`
             * :func:`Albedo <smrf.distribute.albedo.Albedo>`
             * :func:`Solar radiation <smrf.distribute.solar.Solar>`
-            * :func:`Thermal radiation <smrf.distribute.thermal.th>`
+                * :func:`Thermal radiation <smrf.distribute.thermal.Thermal>`
             * :func:`Soil Temperature <smrf.distribute.soil_temp.ts>`
         """
         output_variables = self.config['output']['variables']
@@ -347,7 +347,7 @@ class SMRF():
 
         # Thermal radiation
         wants_thermal = set(output_variables).intersection(
-            distribute.thermal.th.OUTPUT_VARIABLES.keys()
+            distribute.thermal.Thermal.OUTPUT_VARIABLES.keys()
         )
         if len(wants_thermal) > 0:
             # Need air temp, vapor pressure, and clouds
@@ -372,8 +372,8 @@ class SMRF():
             else:
                 self._logger.info('Using HRRR cloud file for thermal.')
 
-            self.distribute['thermal'] = distribute.thermal.th(
-                self.config['thermal']
+            self.distribute["thermal"] = distribute.thermal.Thermal(
+                self.config["thermal"]
             )
 
         # Soil temperature
