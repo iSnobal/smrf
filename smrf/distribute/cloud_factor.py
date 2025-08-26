@@ -69,19 +69,19 @@ class cf(ImageData):
 
     def distribute(self, data):
         """
-            Distribute cloud factor given a Panda's dataframe for a single time
+        Distribute cloud factor given a Panda's dataframe for a single time
         step. Calls :mod:`smrf.distribute.ImageData._distribute`.
 
-            Args:
-                data: Pandas dataframe for a single time step from cloud_factor
-
+        Args:
+            data: Pandas dataframe for a single time step from cloud_factor
         """
 
         self._logger.debug('{} Distributing cloud_factor'.format(data.name))
 
         self._distribute(data)
-        self.cloud_factor = utils.set_min_max(self.cloud_factor, self.min,
-                                              self.max)
+        self.cloud_factor = utils.set_min_max(
+            self.cloud_factor, self.min, self.max
+        )
 
     def distribute_thread(self, smrf_queue, data_queue):
         """

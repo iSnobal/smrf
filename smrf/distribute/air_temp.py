@@ -53,15 +53,13 @@ class ta(ImageData):
 
     def initialize(self, topo, data, date_time=None):
         """
-            Initialize the distribution, solely calls
+        Initialize the distribution, solely calls
         :mod:`smrf.distribute.ImageData._initialize`.
 
-            Args:
-                topo: :mod:`smrf.data.loadTopo.Topo` instance contain topographic
-                    data and infomation
-                metadata: metadata Pandas dataframe containing the station metadata
-                    from :mod:`smrf.data.loadData` or :mod:`smrf.data.loadGrid`
-
+        Args:
+            topo: :mod:`smrf.data.loadTopo.Topo` instance
+            data:
+            date_time:
         """
 
         self._logger.debug('Initializing distribute.air_temp')
