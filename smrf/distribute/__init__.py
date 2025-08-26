@@ -3,7 +3,7 @@
 from .air_temp import ta
 from .albedo import Albedo
 from .cloud_factor import cf
-from .image_data import image_data
+from .image_data import ImageData
 from .precipitation import ppt
 from .soil_temp import ts
 from .solar import Solar
@@ -15,7 +15,7 @@ __all__ = [
     "ta",
     "Albedo",
     "cf",
-    "image_data",
+    "ImageData",
     "ppt",
     "ts",
     "Solar",

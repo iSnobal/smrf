@@ -5,11 +5,11 @@ import numpy as np
 import pytz
 from scipy.interpolate import interp1d
 
-from smrf.distribute.image_data import image_data
+from smrf.distribute.image_data import ImageData
 from smrf.utils import utils
 
 
-class WindNinjaModel(image_data):
+class WindNinjaModel(ImageData):
     """The `WindNinjaModel` loads data from a WindNinja simulation.
     The WindNinja is ran externally to SMRF and the configuration
     points to the location of the output ascii files. SMRF takes the
@@ -32,7 +32,7 @@ class WindNinjaModel(image_data):
             IOError: if maxus file does not match topo size
         """
 
-        image_data.__init__(self, self.VARIABLE)
+        super().__init__(self.VARIABLE)
 
         self._logger = logging.getLogger(__name__)
         self._logger.debug('Creating the WindNinjaModel')

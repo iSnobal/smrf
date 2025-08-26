@@ -1,11 +1,11 @@
 import numpy as np
 
-from .image_data import image_data
+from .image_data import ImageData
 from smrf.envphys import albedo
 from smrf.utils import utils
 
 
-class Albedo(image_data):
+class Albedo(ImageData):
     """
     The :mod:`~smrf.distribute.albedo.Albedo` class allows for variable
     specific distributions that go beyond the base class.
@@ -61,10 +61,8 @@ class Albedo(image_data):
         Args:
             albedoConfig: configuration from [albedo] section
         """
-
         # extend the base class
-        image_data.__init__(self, self.variable)
-
+        super().__init__(self.variable)
         # Get the veg values for the decay methods. Date method uses self.veg
         # Hardy2000 uses self.litter
         for d in ['veg', 'litter']:
@@ -85,7 +83,7 @@ class Albedo(image_data):
 
     def initialize(self, topo, data, date_time=None):
         """
-        Initialize the distribution, calls image_data.image_data._initialize()
+        Initialize the distribution, calls ImageData._initialize()
 
         Args:
             topo: smrf.data.loadTopo.Topo instance contain topo data/info
@@ -104,7 +102,7 @@ class Albedo(image_data):
     def distribute(self, current_time_step, cosz, storm_day):
         """
         Distribute air temperature given a Panda's dataframe for a single time
-        step. Calls :mod:`smrf.distribute.image_data.image_data._distribute`.
+        step. Calls :mod:`smrf.distribute.ImageData._distribute`.
 
         Args:
             current_time_step: Current time step in datetime object

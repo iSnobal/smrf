@@ -4,12 +4,12 @@ import logging
 import numpy as np
 from smrf.utils import utils
 
-from smrf.distribute.image_data import image_data
+from smrf.distribute.image_data import ImageData
 from smrf.distribute.wind.wind_ninja import WindNinjaModel
 from smrf.distribute.wind.winstral import WinstralWindModel
 
 
-class Wind(image_data):
+class Wind(ImageData):
     """
     The :mod:`~smrf.distribute.wind.wind` class allows for variable specific
     distributions that go beyond the base class.
@@ -70,7 +70,7 @@ class Wind(image_data):
     ])
 
     def __init__(self, config):
-        image_data.__init__(self, self.VARIABLE)
+        ImageData.__init__(self, self.VARIABLE)
         self._logger = logging.getLogger(__name__)
 
         # check and assign the configuration
@@ -120,7 +120,7 @@ class Wind(image_data):
     def initialize(self, topo, data, date_time=None):
         """
         Initialize the distribution, calls
-        :mod:`smrf.distribute.image_data.image_data._initialize`. Checks for
+    :mod:`smrf.distribute.ImageData._initialize`. Checks for
         the enhancement factors for the stations and vegetation.
 
         Args:
@@ -144,7 +144,7 @@ class Wind(image_data):
     def distribute(self, data_speed, data_direction, t):
         """
         Distribute given a Panda's dataframe for a single time step. Calls
-        :mod:`smrf.distribute.image_data.image_data._distribute` for
+    :mod:`smrf.distribute.ImageData._distribute` for
         the `wind_model` chosen.
 
         Args:

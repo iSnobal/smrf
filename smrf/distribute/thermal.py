@@ -1,13 +1,13 @@
 import numpy as np
 
-from .image_data import image_data
+from .image_data import ImageData
 from smrf.envphys.constants import STEF_BOLTZ
 from smrf.envphys.core import envphys_c
 from smrf.envphys.thermal import clear_sky, cloud, vegetation
 from smrf.utils import utils
 
 
-class Thermal(image_data):
+class Thermal(ImageData):
     """
     The :mod:`~smrf.distribute.thermal.Thermal` class allows for variable specific
     distributions that go beyond the base class.
@@ -194,9 +194,8 @@ class Thermal(image_data):
     ])
 
     def __init__(self, thermalConfig):
-
         # extend the base class
-        image_data.__init__(self, self.variable)
+        super().__init__(self.variable)
         self.getConfig(thermalConfig)
 
         self.min = thermalConfig['min']
@@ -216,7 +215,7 @@ class Thermal(image_data):
     def initialize(self, topo, data, date_time=None):
         """
         Initialize the distribution, calls
-        :mod:`smrf.distribute.image_data.image_data._initialize` for gridded
+        :mod:`smrf.distribute.ImageData._initialize` for gridded
         distirbution. Sets the following from :mod:`smrf.data.loadTopo.Topo`
 
         * :py:attr:`veg_height`
@@ -230,7 +229,6 @@ class Thermal(image_data):
                 data and infomation
             data: data Pandas dataframe containing the station data,
                 from :mod:`smrf.data.loadData` or :mod:`smrf.data.loadGrid`
-
         """
 
         self._logger.debug('Initializing distribute.thermal')

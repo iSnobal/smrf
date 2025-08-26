@@ -1,12 +1,12 @@
 
 import numpy as np
 
-from .image_data import image_data
+from .image_data import ImageData
 from smrf.envphys.core import envphys_c
 from smrf.utils import utils
 
 
-class vp(image_data):
+class vp(ImageData):
     """
     The :mod:`~smrf.distribute.vapor_pressure.vp` class allows for variable
     specific distributions that go beyond the base class
@@ -68,13 +68,11 @@ class vp(image_data):
     ])
 
     def __init__(self, vpConfig, precip_temp_method):
-
         # extend the base class
-        image_data.__init__(self, self.variable)
+        super().__init__(self.variable)
 
         # check and assign the configuration
         self.getConfig(vpConfig)
-
         # assign precip temp method
         self.precip_temp_method = precip_temp_method
 
@@ -83,7 +81,7 @@ class vp(image_data):
     def initialize(self, topo, data, date_time=None):
         """
         Initialize the distribution, calls
-        :mod:`smrf.distribute.image_data.image_data._initialize`. Preallocates
+        :mod:`smrf.distribute.ImageData._initialize`. Preallocates
         the following class attributes to zeros:
 
         Args:
@@ -104,7 +102,7 @@ class vp(image_data):
     def distribute(self, data, ta):
         """
         Distribute air temperature given a Panda's dataframe for a single time
-        step. Calls :mod:`smrf.distribute.image_data.image_data._distribute`.
+        step. Calls :mod:`smrf.distribute.ImageData._distribute`.
 
         The following steps are performed when distributing vapor pressure:
 
