@@ -6,7 +6,7 @@ import utm
 import xarray as xr
 
 from .file_handler import FileHandler
-from .grib_file import GribFile
+from .grib_file_xarray import GribFileXarray
 
 
 class FileLoader:
@@ -34,7 +34,7 @@ class FileLoader:
         :param file_type:       Determines how to read the files.
                                 Default: grib2
         :param external_logger: (Optional) Specify an existing logger instance
-        :param load_wind:        Flag to load HRRR wind data (Default: False)
+        :param load_wind:       Flag to load HRRR wind data (Default: False)
         """
         self.log = external_logger
 
@@ -59,8 +59,8 @@ class FileLoader:
 
     @file_type.setter
     def file_type(self, value):
-        if value == GribFile.SUFFIX:
-            self._file_loader = GribFile(external_logger=self.log)
+        if value == GribFileXarray.SUFFIX:
+            self._file_loader = GribFileXarray(external_logger=self.log)
         else:
             raise Exception('Unknown file type argument')
 
@@ -141,7 +141,7 @@ class FileLoader:
         while date <= end_date:
             self.log.debug('Reading file for date: {}'.format(date))
 
-            if self.file_type == GribFile.SUFFIX:
+            if self.file_type == GribFileXarray.SUFFIX:
                 # Filename of the default configured forecast hour
                 default_file = self._get_file_path(date, self._forecast_hour)
                 # Filename for variables that are mapped to the sixth

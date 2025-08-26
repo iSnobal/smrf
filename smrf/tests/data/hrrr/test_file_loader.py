@@ -6,7 +6,7 @@ import pandas as pd
 import xarray
 
 from smrf.data.hrrr.file_loader import FileLoader
-from smrf.data.hrrr.grib_file import GribFile
+from smrf.data.hrrr.grib_file_xarray import GribFileXarray
 
 FILE_DIR = '/path/to/files'
 START_DT = pd.to_datetime('2018-07-22 01:00')
@@ -27,8 +27,8 @@ class TestFileLoader(unittest.TestCase):
         assert self.subject.file_dir.endswith(FILE_DIR)
 
     def test_defaults_to_grib2(self):
-        self.assertIsInstance(self.subject.file_loader, GribFile)
-        self.assertEqual(GribFile.SUFFIX, self.subject.file_type)
+        self.assertIsInstance(self.subject.file_loader, GribFileXarray)
+        self.assertEqual(GribFileXarray.SUFFIX, self.subject.file_type)
 
     def test_defaults_to_first_forecast_hour(self):
         self.assertEqual(self.subject._forecast_hour, 1)
@@ -108,9 +108,9 @@ class TestFileLoaderGetData(TestFileLoader):
         LOGGER.debug = mock.Mock()
         LOGGER.error = mock.Mock()
 
-        file_loader = mock.MagicMock(spec=GribFile)
-        file_loader.name = 'Mock GRIB Loader'
-        file_loader.SUFFIX = GribFile.SUFFIX
+        file_loader = mock.MagicMock(spec=GribFileXarray)
+        file_loader.name = "Mock GRIBXARRAY Loader"
+        file_loader.SUFFIX = GribFileXarray.SUFFIX
         file_loader.load.return_value = [mock.Mock("HRRR data")]
 
         self.subject._file_loader = file_loader
@@ -205,9 +205,9 @@ class TestFileLoaderSixthHour(unittest.TestCase):
         LOGGER.debug = mock.Mock()
         LOGGER.error = mock.Mock()
 
-        file_loader = mock.MagicMock(spec=GribFile)
-        file_loader.name = 'Mock GRIB Loader'
-        file_loader.SUFFIX = GribFile.SUFFIX
+        file_loader = mock.MagicMock(spec=GribFileXarray)
+        file_loader.name = "Mock GRIBXARRAY Loader"
+        file_loader.SUFFIX = GribFileXarray.SUFFIX
         file_loader.load.return_value = [mock.Mock("HRRR data")]
 
         self.subject._file_loader = file_loader

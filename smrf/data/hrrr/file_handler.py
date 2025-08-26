@@ -1,6 +1,6 @@
 import pandas as pd
 
-from .grib_file import GribFile
+from .grib_file_xarray import GribFileXarray
 
 
 class FileHandler:
@@ -60,7 +60,7 @@ class FileHandler:
     @staticmethod
     def file_name(hour_of_day, forecast_hour, file_extension=None):
         if file_extension is None:
-            file_extension = GribFile.SUFFIX
+            file_extension = GribFileXarray.SUFFIX
 
         return FileHandler.FILE_NAME_BASE.format(
             hour_of_day, forecast_hour, file_extension

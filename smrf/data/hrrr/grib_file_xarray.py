@@ -4,9 +4,9 @@ from .grib_file_variables import (FIRST_HOUR, HRRR_HAG_10, HRRR_HAG_2,
                                   HRRR_SURFACE, SIXTH_HOUR)
 
 
-class GribFile:
+class GribFileXarray:
     """
-    Class to load a GRIB2 file from disk.
+    Class to load a GRIB2 file from disk using Xarray.
     """
     SUFFIX = 'grib2'
 

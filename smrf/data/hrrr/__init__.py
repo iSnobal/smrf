@@ -1,9 +1,9 @@
 from .file_loader import FileHandler
 from .file_loader import FileLoader
-from .file_loader import GribFile
+from .grib_file_xarray import GribFileXarray
 
 __all__ = [
     "FileHandler",
     "FileLoader",
-    "GribFile",
+    "GribFileXarray",
 ]
