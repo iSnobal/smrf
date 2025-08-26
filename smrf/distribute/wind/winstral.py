@@ -4,11 +4,11 @@ import netCDF4 as nc
 import numpy as np
 import pandas as pd
 
-from smrf.distribute import image_data
+from smrf.distribute.image_data import image_data
 from smrf.utils import utils
 
 
-class WinstralWindModel(image_data.image_data):
+class WinstralWindModel(image_data):
     """Estimating wind speed and direction is complex terrain can be difficult due
     to the interaction of the local topography with the wind. The methods
     described here follow the work developed by Winstral and Marks (2002) and
@@ -72,7 +72,7 @@ class WinstralWindModel(image_data.image_data):
             IOError: if maxus file does not match topo size
         """
 
-        image_data.image_data.__init__(self, self.VARIABLE)
+        image_data.__init__(self, self.VARIABLE)
 
         self._logger = logging.getLogger(__name__)
 

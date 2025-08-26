@@ -1,11 +1,11 @@
 import numpy as np
 
-from smrf.distribute import image_data
+from .image_data import image_data
 from smrf.envphys import albedo
 from smrf.utils import utils
 
 
-class Albedo(image_data.image_data):
+class Albedo(image_data):
     """
     The :mod:`~smrf.distribute.albedo.Albedo` class allows for variable
     specific distributions that go beyond the base class.
@@ -63,7 +63,7 @@ class Albedo(image_data.image_data):
         """
 
         # extend the base class
-        image_data.image_data.__init__(self, self.variable)
+        image_data.__init__(self, self.variable)
 
         # Get the veg values for the decay methods. Date method uses self.veg
         # Hardy2000 uses self.litter

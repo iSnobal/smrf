@@ -1,8 +1,8 @@
-from smrf.distribute import image_data
+from .image_data import image_data
 from smrf.utils import utils
 
 
-class cf(image_data.image_data):
+class cf(image_data):
     """
     The :mod:`~smrf.distribute.cloud_factor.cf` class allows for variable
     specific distributions that go beyond the base class. Cloud factor is
@@ -46,7 +46,7 @@ class cf(image_data.image_data):
     def __init__(self, config):
 
         # extend the base class
-        image_data.image_data.__init__(self, self.variable)
+        image_data.__init__(self, self.variable)
 
         # check and assign the configuration
         self.getConfig(config)

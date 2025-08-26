@@ -1,10 +1,10 @@
-from smrf.distribute import image_data
+from .image_data import image_data
 from smrf.envphys.constants import IR_WAVELENGTHS, VISIBLE_WAVELENGTHS
 from smrf.envphys.solar import cloud, toporad, vegetation
 from smrf.utils import utils
 
 
-class Solar(image_data.image_data):
+class Solar(image_data):
     """
     The :mod:`~smrf.distribute.solar.solar` class allows for variable specific
     distributions that go beyond the base class.
@@ -215,7 +215,7 @@ class Solar(image_data.image_data):
     def __init__(self, config, topo):
 
         # extend the base class
-        image_data.image_data.__init__(self, self.variable)
+        image_data.__init__(self, self.variable)
 
         self.config = config["solar"]
         self.albedoConfig = config["albedo"]

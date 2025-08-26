@@ -1,9 +1,9 @@
 import numpy as np
 
-from smrf.distribute import image_data
+from .image_data import image_data
 
 
-class ts(image_data.image_data):
+class ts(image_data):
     """
     The :mod:`~smrf.distribute.soil_temp.ts` class allows for variable specific
     distributions that go beyond the base class.
@@ -40,7 +40,7 @@ class ts(image_data.image_data):
     def __init__(self, soilConfig):
 
         # extend the base class
-        image_data.image_data.__init__(self, self.variable)
+        image_data.__init__(self, self.variable)
 
         self.config = soilConfig
 

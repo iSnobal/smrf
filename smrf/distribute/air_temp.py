@@ -1,8 +1,8 @@
-from smrf.distribute import image_data
+from .image_data import image_data
 from smrf.utils import utils
 
 
-class ta(image_data.image_data):
+class ta(image_data):
     """
     The :mod:`~smrf.distribute.air_temp.ta` class allows for variable specific
     distributions that go beyond the base class.
@@ -47,7 +47,7 @@ class ta(image_data.image_data):
     def __init__(self, taConfig):
 
         # extend the base class
-        image_data.image_data.__init__(self, self.variable)
+        image_data.__init__(self, self.variable)
 
         # check and assign the configuration
         self.getConfig(taConfig)

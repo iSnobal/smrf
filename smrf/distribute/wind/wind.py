@@ -4,12 +4,12 @@ import logging
 import numpy as np
 from smrf.utils import utils
 
-from smrf.distribute import image_data
+from smrf.distribute.image_data import image_data
 from smrf.distribute.wind.wind_ninja import WindNinjaModel
 from smrf.distribute.wind.winstral import WinstralWindModel
 
 
-class Wind(image_data.image_data):
+class Wind(image_data):
     """
     The :mod:`~smrf.distribute.wind.wind` class allows for variable specific
     distributions that go beyond the base class.
@@ -70,7 +70,7 @@ class Wind(image_data.image_data):
     ])
 
     def __init__(self, config):
-        image_data.image_data.__init__(self, self.VARIABLE)
+        image_data.__init__(self, self.VARIABLE)
         self._logger = logging.getLogger(__name__)
 
         # check and assign the configuration

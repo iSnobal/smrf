@@ -3,12 +3,12 @@ from datetime import timedelta
 import netCDF4 as nc
 import numpy as np
 from dateutil.parser import parse
-from smrf.distribute import image_data
+from .image_data import image_data
 from smrf.envphys import precip, Snow, storms
 from smrf.utils import utils
 
 
-class ppt(image_data.image_data):
+class ppt(image_data):
     """
     The :mod:`~smrf.distribute.precip.ppt` class allows for variable specific
     distributions that go beyond the base class.
@@ -110,7 +110,7 @@ class ppt(image_data.image_data):
     def __init__(self, pptConfig, start_date, time_step=60):
 
         # extend the base class
-        image_data.image_data.__init__(self, self.variable)
+        image_data.__init__(self, self.variable)
 
         # check and assign the configuration
         self.getConfig(pptConfig)

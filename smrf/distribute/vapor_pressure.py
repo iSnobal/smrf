@@ -1,12 +1,12 @@
 
 import numpy as np
 
-from smrf.distribute import image_data
+from .image_data import image_data
 from smrf.envphys.core import envphys_c
 from smrf.utils import utils
 
 
-class vp(image_data.image_data):
+class vp(image_data):
     """
     The :mod:`~smrf.distribute.vapor_pressure.vp` class allows for variable
     specific distributions that go beyond the base class
@@ -70,7 +70,7 @@ class vp(image_data.image_data):
     def __init__(self, vpConfig, precip_temp_method):
 
         # extend the base class
-        image_data.image_data.__init__(self, self.variable)
+        image_data.__init__(self, self.variable)
 
         # check and assign the configuration
         self.getConfig(vpConfig)

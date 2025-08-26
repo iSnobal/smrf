@@ -1,13 +1,13 @@
 import numpy as np
 
-from smrf.distribute import image_data
+from .image_data import image_data
 from smrf.envphys.constants import STEF_BOLTZ
 from smrf.envphys.core import envphys_c
 from smrf.envphys.thermal import clear_sky, cloud, vegetation
 from smrf.utils import utils
 
 
-class Thermal(image_data.image_data):
+class Thermal(image_data):
     """
     The :mod:`~smrf.distribute.thermal.Thermal` class allows for variable specific
     distributions that go beyond the base class.
@@ -196,7 +196,7 @@ class Thermal(image_data.image_data):
     def __init__(self, thermalConfig):
 
         # extend the base class
-        image_data.image_data.__init__(self, self.variable)
+        image_data.__init__(self, self.variable)
         self.getConfig(thermalConfig)
 
         self.min = thermalConfig['min']
