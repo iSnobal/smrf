@@ -2,13 +2,7 @@
 # flake8: noqa
 
 import os
-
-from pkg_resources import DistributionNotFound, get_distribution
-
-try:
-    __version__ = get_distribution(__name__).version
-except DistributionNotFound:
-    __version__ = 'unknown'
+from .version import __version__
 
 __core_config__ = os.path.abspath(
     os.path.dirname(__file__) + '/framework/CoreConfig.ini')
@@ -38,9 +32,6 @@ __config_titles__ = {
 
 from . import utils, data, distribute, envphys, framework, output, spatial  # isort:skip
 
-__config_header__ = "Config File for SMRF {0}\n" \
-                    "For more SMRF related help see:\n" \
-                    "{1}".format(
-                        __version__, 'http://smrf.readthedocs.io/en/latest/')
+__config_header__ = "Config File for SMRF {0}\n".format(__version__)
 __config_checkers__ = 'utils.utils'
 # -*- coding: utf-8 -*-

@@ -2,8 +2,6 @@ import math
 
 import numpy as np
 
-from smrf.utils.io import isint
-
 # define some constants
 MAXV = 1.0              # vis albedo when gsize = 0
 MAXIR = 0.85447         # IR albedo when gsize = 0
@@ -14,6 +12,14 @@ IRZRG = 2.0e-3          # ir zenith increase range factor
 IRZ0 = 0.1              # ir zenith increase range, gsize=0
 BOIL = 373.15           # boiling temperature K
 GRAVITY = 9.80665       # gravity (m/s^2)
+
+
+# TODO - Need to raise here instead of silently fail to make the user aware
+def isint(x):
+    try:
+        return int(x)
+    except ValueError:
+        return False
 
 
 def growth(t):
