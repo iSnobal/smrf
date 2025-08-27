@@ -1,8 +1,8 @@
-from smrf.distribute import image_data
+from .image_data import ImageData
 from smrf.utils import utils
 
 
-class ta(image_data.image_data):
+class ta(ImageData):
     """
     The :mod:`~smrf.distribute.air_temp.ta` class allows for variable specific
     distributions that go beyond the base class.
@@ -45,10 +45,8 @@ class ta(image_data.image_data):
     post_process_variables = {}
 
     def __init__(self, taConfig):
-
         # extend the base class
-        image_data.image_data.__init__(self, self.variable)
-
+        super().__init__(self.variable)
         # check and assign the configuration
         self.getConfig(taConfig)
         self._logger.debug('Created distribute.air_temp')
@@ -56,14 +54,12 @@ class ta(image_data.image_data):
     def initialize(self, topo, data, date_time=None):
         """
         Initialize the distribution, solely calls
-        :mod:`smrf.distribute.image_data.image_data._initialize`.
+        :mod:`smrf.distribute.ImageData._initialize`.
 
         Args:
-            topo: :mod:`smrf.data.loadTopo.Topo` instance contain topographic
-                data and infomation
-            metadata: metadata Pandas dataframe containing the station metadata
-                from :mod:`smrf.data.loadData` or :mod:`smrf.data.loadGrid`
-
+            topo: :mod:`smrf.data.loadTopo.Topo` instance
+            data:
+            date_time:
         """
 
         self._logger.debug('Initializing distribute.air_temp')

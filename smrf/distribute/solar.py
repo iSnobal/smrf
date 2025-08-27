@@ -1,10 +1,10 @@
-from smrf.distribute import image_data
+from .image_data import ImageData
 from smrf.envphys.constants import IR_WAVELENGTHS, VISIBLE_WAVELENGTHS
 from smrf.envphys.solar import cloud, toporad, vegetation
 from smrf.utils import utils
 
 
-class Solar(image_data.image_data):
+class Solar(ImageData):
     """
     The :mod:`~smrf.distribute.solar.solar` class allows for variable specific
     distributions that go beyond the base class.
@@ -215,7 +215,7 @@ class Solar(image_data.image_data):
     def __init__(self, config, topo):
 
         # extend the base class
-        image_data.image_data.__init__(self, self.variable)
+        super().__init__(self.variable)
 
         self.config = config["solar"]
         self.albedoConfig = config["albedo"]
@@ -227,7 +227,7 @@ class Solar(image_data.image_data):
     def initialize(self, topo, data, date_time=None):
         """
         Initialize the distribution, soley calls
-        :mod:`smrf.distribute.image_data.image_data._initialize`. Sets the
+        :mod:`smrf.distribute.ImageData._initialize`. Sets the
         following attributes:
 
         * :py:attr:`veg_height`
@@ -255,7 +255,7 @@ class Solar(image_data.image_data):
                    albedo_vis, albedo_ir):
         """
         Distribute air temperature given a Panda's dataframe for a single time
-        step. Calls :mod:`smrf.distribute.image_data.image_data._distribute`.
+        step. Calls :mod:`smrf.distribute.ImageData._distribute`.
 
         If the sun is up, i.e. ``cosz > 0``, then the following steps are
         performed:

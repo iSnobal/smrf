@@ -5,7 +5,7 @@ from unittest import mock
 import xarray
 
 import smrf
-from smrf.data.hrrr.grib_file import GribFile
+from smrf.data.hrrr.grib_file_xarray import GribFileXarray
 from smrf.data.hrrr.grib_file_variables import (HRRR_HAG_10, HRRR_HAG_2,
                                                 HRRR_SURFACE)
 
@@ -24,7 +24,7 @@ HRRR_DAY_FOLDER = 'hrrr.20191001'
 class TestGribFile(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.subject = GribFile(LOGGER)
+        cls.subject = GribFileXarray(LOGGER)
         cls.subject.bbox = BBOX
 
     def test_set_bbox(self):
@@ -40,15 +40,15 @@ class TestGribFile(unittest.TestCase):
         )
 
     def test_file_suffix(self):
-        self.assertEqual('grib2', GribFile.SUFFIX)
+        self.assertEqual("grib2", GribFileXarray.SUFFIX)
 
     def test_cell_size(self):
-        self.assertEqual(3000, GribFile.CELL_SIZE)
+        self.assertEqual(3000, GribFileXarray.CELL_SIZE)
 
     def test_variables(self):
         self.assertEqual(
             [HRRR_SURFACE, HRRR_HAG_2, HRRR_HAG_10],
-            GribFile.HRRR_VARIABLES
+            GribFileXarray.HRRR_VARIABLES,
         )
 
     def test_load_first_forecast_hour(self):

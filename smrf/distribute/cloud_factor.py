@@ -1,8 +1,8 @@
-from smrf.distribute import image_data
+from .image_data import ImageData
 from smrf.utils import utils
 
 
-class cf(image_data.image_data):
+class cf(ImageData):
     """
     The :mod:`~smrf.distribute.cloud_factor.cf` class allows for variable
     specific distributions that go beyond the base class. Cloud factor is
@@ -44,24 +44,22 @@ class cf(image_data.image_data):
     ])
 
     def __init__(self, config):
-
         # extend the base class
-        image_data.image_data.__init__(self, self.variable)
-
+        super().__init__(self.variable)
         # check and assign the configuration
         self.getConfig(config)
         self._logger.debug('Created distribute.cloud_factor')
 
     def initialize(self, topo, data, date_time=None):
         """
-        Initialize the distribution, solely calls
-        :mod:`smrf.distribute.image_data.image_data._initialize`.
+            Initialize the distribution, solely calls
+        :mod:`smrf.distribute.ImageData._initialize`.
 
-        Args:
-            topo: :mod:`smrf.data.loadTopo.Topo` instance contain topographic
-                data and infomation
-            metadata: metadata Pandas dataframe containing the station metadata
-                from :mod:`smrf.data.loadData` or :mod:`smrf.data.loadGrid`
+            Args:
+                topo: :mod:`smrf.data.loadTopo.Topo` instance contain topographic
+                    data and infomation
+                metadata: metadata Pandas dataframe containing the station metadata
+                    from :mod:`smrf.data.loadData` or :mod:`smrf.data.loadGrid`
 
         """
 
@@ -72,18 +70,18 @@ class cf(image_data.image_data):
     def distribute(self, data):
         """
         Distribute cloud factor given a Panda's dataframe for a single time
-        step. Calls :mod:`smrf.distribute.image_data.image_data._distribute`.
+        step. Calls :mod:`smrf.distribute.ImageData._distribute`.
 
         Args:
             data: Pandas dataframe for a single time step from cloud_factor
-
         """
 
         self._logger.debug('{} Distributing cloud_factor'.format(data.name))
 
         self._distribute(data)
-        self.cloud_factor = utils.set_min_max(self.cloud_factor, self.min,
-                                              self.max)
+        self.cloud_factor = utils.set_min_max(
+            self.cloud_factor, self.min, self.max
+        )
 
     def distribute_thread(self, smrf_queue, data_queue):
         """

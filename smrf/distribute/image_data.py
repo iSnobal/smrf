@@ -6,7 +6,7 @@ from smrf.spatial import grid, idw, kriging
 from smrf.spatial.dk import dk
 
 
-class image_data():
+class ImageData:
     """
     A base distribution method in SMRF that will ensure all variables are
     distributed in the same manner.  Other classes will be initialized
@@ -14,23 +14,23 @@ class image_data():
 
     .. code-block:: Python
 
-        class ta(smrf.distribute.image_data):
+    class ta(smrf.distribute.ImageData):
             '''
-            This is the ta class extending the image_data base class
+            This is the ta class extending the ImageData base class
             '''
 
     Args:
         variable (str): Variable name for the class
 
     Returns:
-        A :mod:`!smrf.distribute.image_data` class instance
+    A :mod:`!smrf.distribute.ImageData` class instance
 
     Attributes:
         variable: The name of the variable that this class will become
         [variable_name]: The :py:attr:`variable` will have the distributed data
         [other_attribute]: The distributed data can also be stored as another
             attribute specified in
-            :mod:`~smrf.distribute.image_data._distribute`
+            :mod:`~smrf.distribute.ImageData._distribute`
         config: Parsed dictionary from the configuration file for the variable
         stations: The stations to be used for the variable, if set, in
             alphabetical order
