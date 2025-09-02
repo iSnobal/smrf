@@ -43,8 +43,7 @@ from smrf.utils import queue
 from topocalc.shade import shade
 
 from smrf import distribute
-from smrf.data import InputData, Topo, InputGribHRRR
-from smrf.data.gridded_input import GriddedInput
+from smrf.data import InputData, Topo, InputGribHRRR, GriddedInput
 from smrf.envphys.solar import model
 from smrf.framework import art, logger
 from smrf.output import output_hru, output_netcdf

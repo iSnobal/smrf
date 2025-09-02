@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from smrf.data.gridded_input import GriddedInput
+from .gridded_input import GriddedInput
 from smrf.data.hrrr.file_loader import FileLoader
 from smrf.distribute.wind import Wind
 from smrf.distribute.wind.wind_ninja import WindNinjaModel
