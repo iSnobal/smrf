@@ -2,7 +2,7 @@ import netCDF4 as nc
 import numpy as np
 import pandas as pd
 
-from smrf.data.gridded_input import GriddedInput
+from .gridded_input import GriddedInput
 from smrf.utils.utils import apply_utm
 
 
@@ -71,9 +71,9 @@ class InputNetcdf(GriddedInput):
         metadata['latitude'] = mlat.flatten()
         metadata['longitude'] = mlon.flatten()
         metadata['elevation'] = mhgt.flatten()
-        metadata = metadata.apply(apply_utm,
-                                  args=(self.topo.zone_number,),
-                                  axis=1)
+        metadata = metadata.apply(
+            apply_utm, args=(self.topo.utm_zone_number,), axis=1
+        )
 
         self.metadata = metadata
 

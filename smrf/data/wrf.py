@@ -85,9 +85,9 @@ class InputWRF(GriddedInput):
         metadata['latitude'] = mlat.flatten()
         metadata['longitude'] = mlon.flatten()
         metadata['elevation'] = mhgt.flatten()
-        metadata = metadata.apply(apply_utm,
-                                  args=(self.topo.zone_number,),
-                                  axis=1)
+        metadata = metadata.apply(
+            apply_utm, args=(self.topo.utm_zone_number,), axis=1
+        )
 
         self.metadata = metadata
 

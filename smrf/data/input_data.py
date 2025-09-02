@@ -188,8 +188,12 @@ class InputData:
                 coordinates
         """
 
-        lat, lon = utm.to_latlon(utm_x, utm_y, self.topo.zone_number,
-                                 northern=self.topo.northern_hemisphere)
+        lat, lon = utm.to_latlon(
+            utm_x,
+            utm_y,
+            self.topo.utm_zone_number,
+            northern=self.topo.northern_hemisphere,
+        )
         return lat, lon
 
     @staticmethod

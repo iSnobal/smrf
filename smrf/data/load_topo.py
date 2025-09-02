@@ -126,18 +126,19 @@ class Topo:
         self.cx, self.cy = self.get_center(f, mask_name='mask')
 
         # Assign the UTM zone
-        self.zone_number = int(f.variables['projection'].utm_zone_number)
+        self.utm_zone_number = int(f.variables["projection"].utm_zone_number)
 
         # Calculate the lat long
         self.basin_lat, self.basin_long = to_latlon(
             self.cx,
             self.cy,
-            self.zone_number,
-            northern=self.northern_hemisphere)
+            self.utm_zone_number,
+            northern=self.northern_hemisphere,
+        )
 
         self._logger.info(
             "Domain center in UTM Zone {:d} = {:0.1f}m, {:0.1f}m".format(
-                self.zone_number, self.cx, self.cy
+                self.utm_zone_number, self.cx, self.cy
             )
         )
         self._logger.info(

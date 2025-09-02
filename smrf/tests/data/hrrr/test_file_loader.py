@@ -69,8 +69,10 @@ def saved_data_return_values():
 )
 class TestFileLoaderGetSavedData(unittest.TestCase):
     BBOX = mock.Mock(name='Bounding Box')
-    UTM_NUMBER = 12
-    METHOD_ARGS = [START_DT, END_DT, BBOX, UTM_NUMBER]
+    UTM_ZONE_NUMBER = 12
+    TOPO = mock.Mock(name="Topo")
+    TOPO.utm_zone_number = UTM_ZONE_NUMBER
+    METHOD_ARGS = [START_DT, END_DT, BBOX, TOPO]
 
     @classmethod
     def setUpClass(cls):
@@ -92,7 +94,7 @@ class TestFileLoaderGetSavedData(unittest.TestCase):
     def test_converts_df(self, df_patch, _get_data_patch):
         self.subject.get_saved_data(*self.METHOD_ARGS)
 
-        df_patch.assert_called_once_with(self.UTM_NUMBER)
+        df_patch.assert_called_once_with(self.UTM_ZONE_NUMBER)
 
     def test_returns_metadata_and_df(self, _data_patch, _df_patch):
         metadata, dataframe = self.subject.get_saved_data(*self.METHOD_ARGS)
