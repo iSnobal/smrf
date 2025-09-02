@@ -13,14 +13,7 @@ class TestInputGribHRRR(unittest.TestCase):
     BBOX = [1, 2, 3, 4]
     START_DATE = pd.to_datetime('2021-01-01 00:00 UTC')
     END_DATE = pd.to_datetime('2021-01-02')
-    SMRF_CONFIG = {
-        'gridded': {
-            'hrrr_load_method': 'timestep',
-        },
-        'output': {
-            'variables': []
-        }
-    }
+    SMRF_CONFIG = {"gridded": {}, "output": {"variables": []}}
 
     def test_load_method_config(self):
         hrrr_input = InputGribHRRR(

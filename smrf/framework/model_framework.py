@@ -43,7 +43,8 @@ from smrf.utils import queue
 from topocalc.shade import shade
 
 from smrf import distribute
-from smrf.data import InputData, Topo
+from smrf.data import InputData, Topo, InputGribHRRR
+from smrf.data.gridded_input import GriddedInput
 from smrf.envphys.solar import model
 from smrf.framework import art, logger
 from smrf.output import output_hru, output_netcdf
@@ -156,14 +157,13 @@ class SMRF():
                     tzinfo=self.time_zone)
 
         # if a gridded dataset will be used
-        self.gridded = False
         self.forecast_flag = False
-        self.hrrr_data_timestep = False
-        if 'gridded' in self.config:
-            self.gridded = True
-            if self.config['gridded']['data_type'] in ['hrrr_grib']:
-                self.hrrr_data_timestep = \
-                    self.config['gridded']['hrrr_load_method'] == 'timestep'
+        self.gridded = True if GriddedInput.TYPE in self.config else False
+        self.load_hrrr = False
+        if self.gridded:
+            self.load_hrrr = self.config["gridded"]["data_type"] in [
+                InputGribHRRR.DATA_TYPE
+            ]
 
         now = datetime.now().astimezone(self.time_zone)
         if ((self.start_date > now and not self.gridded) or
@@ -489,7 +489,7 @@ class SMRF():
 
         self._logger.info('Distributing time step {}'.format(t))
 
-        if self.hrrr_data_timestep:
+        if self.load_hrrr:
             self.data.load_class.load_timestep(t)
             self.data.set_variables()
 
@@ -696,7 +696,7 @@ class SMRF():
             self.data_queue[variable] = dq
 
         # create a thread to load the data
-        if self.hrrr_data_timestep:
+        if self.load_hrrr:
             data_thread = Thread(
                 target=self.data.load_class.load_timestep_thread,
                 name='data',
