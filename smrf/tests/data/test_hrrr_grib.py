@@ -30,10 +30,7 @@ class TestInputGribHRRR(unittest.TestCase):
             self.START_DATE + pd.to_timedelta(20, 'minutes'),
             hrrr_input.end_date
         )
-        self.assertEqual(
-            None,
-            hrrr_input.cf_memory
-        )
+        self.assertEqual(None, hrrr_input.cloud_factor_memory)
 
     def test_load_wind(self):
         hrrr_input = InputGribHRRR(
