@@ -22,10 +22,21 @@ class TestLoadTopo(unittest.TestCase):
         self.topo = Topo(topo_config)
 
     @classmethod
-    def tearDown(self):
-        self.ds.close()
+    def tearDown(cls):
+        cls.ds.close()
 
-    def test_center_calc_masked(self):
+    def test_property_filename(self):
+        self.assertEqual(
+            SMRFTestCase.basin_dir.joinpath("topo", "topo.nc"),
+            self.topo.filename,
+        )
+
+    def test_property_northern_hemisphere(self):
+        self.assertTrue(
+            self.topo.northern_hemisphere,
+        )
+
+    def test_center_domain_x_y_masked(self):
         '''
         Test the basin center calculation using the basin mask
         '''
@@ -33,7 +44,7 @@ class TestLoadTopo(unittest.TestCase):
         np.testing.assert_almost_equal(cx, 520033.7187500, 7)
         np.testing.assert_almost_equal(cy, 4768035.0, 7)
 
-    def test_center_calc_domain(self):
+    def test_center_domain_x_y(self):
         '''
         Test the basin center calculation for the entire basin domain
         '''
@@ -49,17 +60,23 @@ class TestLoadTopo(unittest.TestCase):
         # basin_lon:                     -116.7547
         # basin_lat:                     43.067
         np.testing.assert_almost_equal(
-            self.topo.basin_lat, 43.06475372378507, 7)
+            self.topo.basin_lat, 43.06475372378507, 7
+        )
         np.testing.assert_almost_equal(
-            self.topo.basin_long, -116.75395420397061, 7)
+            self.topo.basin_long, -116.75395420397061, 7
+        )
 
     def test_projection_attributes(self):
         '''
         Confirm that this class has important projection attributes
         '''
         # Attribute directly used in load Grid as attributess from topo class
-        important = ['basin_lat', 'basin_long', 'zone_number',
-                     'northern_hemisphere']
+        important = [
+            "basin_lat",
+            "basin_long",
+            "zone_number",
+            "northern_hemisphere",
+        ]
 
         for at in important:
             self.assertTrue(hasattr(self.topo, at))

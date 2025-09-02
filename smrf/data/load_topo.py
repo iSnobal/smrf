@@ -6,17 +6,24 @@ from netCDF4 import Dataset
 from topocalc import gradient
 from topocalc.viewf import viewf
 from utm import to_latlon
+from osgeo import gdal
+
+gdal.UseExceptions()
 
 
 class Topo:
     """
-    Class for topo images and processing those images. Images are:
+    Class for netCDF file holding all metadata for the model domain.
+    Variables stored with the file are:
     - DEM
     - Mask
     - veg type
     - veg height
     - veg k
     - veg tau
+    - sky view factor
+    - slope
+    - terrain factor
 
     Inputs to topo are the topo section of the config file
 
@@ -28,12 +35,21 @@ class Topo:
         self.topoConfig = topoConfig
 
         self._logger = logging.getLogger(__name__)
-        self._logger.info('Reading [TOPO] and making stoporad input')
+        self._logger.info("Reading configured topo file")
 
         self.readNetCDF()
 
         # calculate the gradient
         self.gradient()
+
+    @property
+    def filename(self):
+        return self.topoConfig["filename"]
+
+    @property
+    def northern_hemisphere(self):
+        # Is the modeling domain in the northern hemisphere
+        return self.topoConfig["northern_hemisphere"]
 
     def readNetCDF(self):
         """
@@ -42,7 +58,7 @@ class Topo:
         """
 
         # read in the images
-        f = Dataset(self.topoConfig['filename'], 'r')
+        f = Dataset(self.filename, "r")
 
         # netCDF>1.4.0 returns as masked arrays even if no missing values
         # are present. This will ensure that if the array has no missing
@@ -72,9 +88,6 @@ class Topo:
         # Calculate the center of the basin
         self.cx, self.cy = self.get_center(f, mask_name='mask')
 
-        # Is the modeling domain in the northern hemisphere
-        self.northern_hemisphere = self.topoConfig['northern_hemisphere']
-
         # Assign the UTM zone
         self.zone_number = int(f.variables['projection'].utm_zone_number)
 
@@ -85,10 +98,16 @@ class Topo:
             self.zone_number,
             northern=self.northern_hemisphere)
 
-        self._logger.info('Domain center in UTM Zone {:d} = {:0.1f}m, {:0.1f}m'
-                          ''.format(self.zone_number, self.cx, self.cy))
-        self._logger.info('Domain center as Latitude/Longitude = {:0.5f}, '
-                          '{:0.5f}'.format(self.basin_lat, self.basin_long))
+        self._logger.info(
+            "Domain center in UTM Zone {:d} = {:0.1f}m, {:0.1f}m".format(
+                self.zone_number, self.cx, self.cy
+            )
+        )
+        self._logger.info(
+            "Domain center as Latitude/Longitude = {:0.5f}, {:0.5f}".format(
+                self.basin_lat, self.basin_long
+            )
+        )
 
         # Load or calculate the sky view factor
         if 'sky_view_factor' in f.variables:
@@ -105,18 +124,14 @@ class Topo:
         Args:
             f: netcdf dataset object
         """
-
-        # netCDF files are stored typically as 32-bit float, so convert
-        # to double or int
-        for v_smrf in self.IMAGES:
-
-            if v_smrf in f.variables.keys():
-                if v_smrf == 'veg_type':
-                    result = f.variables[v_smrf][:].astype(int)
+        for metadata in self.IMAGES:
+            if metadata in f.variables.keys():
+                if metadata == "veg_type":
+                    result = f.variables[metadata][:].astype(int)
                 else:
-                    result = f.variables[v_smrf][:].astype(np.float64)
+                    result = f.variables[metadata][:].astype(np.float64)
 
-            setattr(self, v_smrf, result)
+            setattr(self, metadata, result)
 
     def get_center(self, ds, mask_name=None):
         '''
