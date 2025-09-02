@@ -133,15 +133,7 @@ gridded
 | 	True if the HRRR data is a forecast
 | 		*Default: False*
 | 		*Type: bool*
-| 
-
-| **hrrr_load_method**
-| 	Method to load the HRRR data either load all data first or for each timestep
-| 		*Default: first*
-| 		*Type: string*
-| 		*Options:*
- *first timestep*
-| 
+|
 
 | **netcdf_file**
 | 	Path to the netCDF file containing weather data
