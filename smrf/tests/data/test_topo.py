@@ -2,6 +2,7 @@ import unittest
 
 import netCDF4 as nc
 import numpy as np
+from osgeo import osr
 
 from smrf.data import Topo
 from smrf.tests.smrf_test_case import SMRFTestCase
@@ -35,6 +36,20 @@ class TestLoadTopo(unittest.TestCase):
         self.assertTrue(
             self.topo.northern_hemisphere,
         )
+
+    def test_property_osr_spatial_info(self):
+        self.assertEqual(type(self.topo.osr_spatial_info), osr.SpatialReference)
+        self.assertIn('"EPSG","32611"', str(self.topo.osr_spatial_info))
+
+    def test_property_gdal_output_bounds(self):
+        self.assertEqual(type(self.topo.gdal_bounds), list)
+        self.assertEqual(self.topo.gdal_bounds[0], 519650.0)
+        self.assertEqual(self.topo.gdal_bounds[1], 4767630.0)
+        self.assertEqual(self.topo.gdal_bounds[2], 520450.0)
+        self.assertEqual(self.topo.gdal_bounds[3], 4768480.0)
+
+    def test_property_gdal_resolution(self):
+        self.assertEqual(self.topo.gdal_resolution, 50.0)
 
     def test_center_domain_x_y_masked(self):
         '''

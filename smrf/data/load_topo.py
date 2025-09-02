@@ -6,7 +6,7 @@ from netCDF4 import Dataset
 from topocalc import gradient
 from topocalc.viewf import viewf
 from utm import to_latlon
-from osgeo import gdal
+from osgeo import gdal, osr
 
 gdal.UseExceptions()
 
@@ -38,6 +38,7 @@ class Topo:
         self._logger.info("Reading configured topo file")
 
         self.readNetCDF()
+        self.readGDAL()
 
         # calculate the gradient
         self.gradient()
@@ -50,6 +51,42 @@ class Topo:
     def northern_hemisphere(self):
         # Is the modeling domain in the northern hemisphere
         return self.topoConfig["northern_hemisphere"]
+
+    @property
+    def osr_spatial_info(self):
+        return self._osr_spatial_info
+
+    @property
+    def gdal_bounds(self):
+        return self._gdal_bounds
+
+    @property
+    def gdal_resolution(self):
+        return self._gdal_resolution
+
+    def gdal_output_bounds(self, topo):
+        geo_transform = topo.GetGeoTransform()
+        self._gdal_resolution = geo_transform[1]
+        return [
+            geo_transform[0],
+            geo_transform[3] + geo_transform[5] * topo.RasterYSize,
+            geo_transform[0] + geo_transform[1] * topo.RasterXSize,
+            geo_transform[3],
+        ]
+
+    def readGDAL(self):
+        """
+        Read in information that is used for warping forcing data based
+        on the topo projection and bounds.
+        """
+        with gdal.Open(self.filename, gdal.GA_ReadOnly) as topo_file:
+            # Take the first subset(variable) to get the information
+            with gdal.Open(topo_file.GetSubDatasets()[0][0]) as subset:
+                spatial_info = osr.SpatialReference()
+                spatial_info.SetFromUserInput(subset.GetProjection())
+                self._osr_spatial_info = spatial_info
+
+                self._gdal_bounds = self.gdal_output_bounds(subset)
 
     def readNetCDF(self):
         """
