@@ -13,14 +13,7 @@ class TestInputGribHRRR(unittest.TestCase):
     BBOX = [1, 2, 3, 4]
     START_DATE = pd.to_datetime('2021-01-01 00:00 UTC')
     END_DATE = pd.to_datetime('2021-01-02')
-    SMRF_CONFIG = {
-        'gridded': {
-            'hrrr_load_method': 'timestep',
-        },
-        'output': {
-            'variables': []
-        }
-    }
+    SMRF_CONFIG = {"gridded": {}, "output": {"variables": []}}
 
     def test_load_method_config(self):
         hrrr_input = InputGribHRRR(
@@ -37,10 +30,7 @@ class TestInputGribHRRR(unittest.TestCase):
             self.START_DATE + pd.to_timedelta(20, 'minutes'),
             hrrr_input.end_date
         )
-        self.assertEqual(
-            None,
-            hrrr_input.cf_memory
-        )
+        self.assertEqual(None, hrrr_input.cloud_factor_memory)
 
     def test_load_wind(self):
         hrrr_input = InputGribHRRR(

@@ -66,18 +66,7 @@ class TestLoadHRRR(SMRFTestCase):
         cls.config = config
         cls.gold_dir = cls.basin_dir.joinpath('gold_hrrr')
 
-    def test_grid_hrrr_local(self):
-
-        run_smrf(self.config)
-        self.compare_hrrr_gold()
-
     def test_load_timestep(self):
-
-        config = deepcopy(self.config)
-        config.raw_cfg['gridded']['hrrr_load_method'] = 'timestep'
-        config.apply_recipes()
-        config = cast_all_variables(config, config.mcfg)
-
-        run_smrf(config)
+        run_smrf(self.config)
 
         self.compare_hrrr_gold()
