@@ -4,14 +4,6 @@ smrf.output package
 Submodules
 ----------
 
-smrf.output.output\_hru module
-------------------------------
-
-.. automodule:: smrf.output.output_hru
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 smrf.output.output\_netcdf module
 ---------------------------------
 

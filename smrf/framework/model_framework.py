@@ -46,7 +46,7 @@ from smrf import distribute
 from smrf.data import InputData, Topo, InputGribHRRR, GriddedInput
 from smrf.envphys.solar import model
 from smrf.framework import art, logger
-from smrf.output import output_hru, output_netcdf
+from smrf.output import output_netcdf
 from smrf.utils.utils import backup_input, date_range, getqotw
 
 
@@ -817,34 +817,27 @@ class SMRF():
 
         output_variables = self.config['output']['variables']
 
-        variable_dict = self.create_output_variable_dict(
-            output_variables, out_location)
+        variable_dict = self.create_output_variable_dict(output_variables, out_location)
 
-        self._logger.debug('{} of {} variables will be output'.format(
-            len(output_variables), len(self.possible_output_variables)))
+        self._logger.debug(
+            "{} of {} variables will be output".format(
+                len(output_variables), len(self.possible_output_variables)
+            )
+        )
 
         # determine what type of file to output
-        if self.config['output']['file_type'].lower() == 'netcdf':
+        if self.config["output"]["file_type"].lower() == "netcdf":
             self.out_func = output_netcdf.OutputNetcdf(
-                variable_dict,
-                self.topo,
-                self.config['time'],
-                self.config['output']
+                variable_dict, self.topo, self.config["time"], self.config["output"]
             )
 
-        elif self.config['output']['file_type'].lower() == 'hru':
-            self.out_func = output_hru.output_hru(
-                variable_dict, self.topo,
-                self.date_time,
-                self.config['output'])
-
         else:
-            raise Exception('Could not determine type of file for output')
+            raise Exception("Could not determine type of file for output")
 
         # is there a function to apply?
         self.out_func.func = None
-        if 'func' in self.config['output']:
-            self.out_func.func = self.config['output']['func']
+        if "func" in self.config["output"]:
+            self.out_func.func = self.config["output"]["func"]
 
     def output(self, current_time_step,  module=None, out_var=None):
         """
