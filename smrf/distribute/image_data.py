@@ -262,14 +262,3 @@ class ImageData:
             setattr(self, other_attribute, v)
         else:
             setattr(self, self.variable, v)
-
-    def post_processor(self, output_func):
-        """
-        Each distributed variable has the oppurtunity to do post processing on
-        a sub variable. This is necessary in cases where the post proecessing
-        might need to be done on a different timescale than that of the main
-        loop.
-
-        Should be redefined in the individual variable module.
-        """
-        pass

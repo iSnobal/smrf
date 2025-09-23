@@ -893,14 +893,6 @@ class SMRF():
                 self._logger.debug("Outputting {0}".format(v['module']))
                 self.out_func.output(v['variable'], data, current_time_step)
 
-    def post_process(self):
-        """
-        Execute all the post processors
-        """
-
-        for k in self.distribute.keys():
-            self.distribute[k].post_processor(self)
-
     def title(self, option):
         """
         A little title to go at the top of the logger file
@@ -940,9 +932,6 @@ def run_smrf(config, external_logger=None):
 
         # distribute
         s.distribute_data()
-
-        # post process if necessary
-        s.post_process()
 
         s._logger.info(datetime.now() - start)
 

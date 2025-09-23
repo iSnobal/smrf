@@ -95,9 +95,6 @@ class ppt(ImageData):
         }
     }
 
-    # these are variables that are operate at the end only and do not need to
-    # be written during main distribute loop
-    post_process_variables = {}
 
     BASE_THREAD_VARIABLES = frozenset([
         'precip',
@@ -514,7 +511,3 @@ class ppt(ImageData):
 
             if self.nasde_model == "marks2017":
                 smrf_queue['storm_id'].put([date_time, self.storm_id])
-
-    def post_processor(self, main_obj, threaded=False):
-
-        pass

@@ -35,9 +35,6 @@ class cf(ImageData):
         }
     }
 
-    # these are variables that are operate at the end only and do not need to
-    # be written during main distribute loop
-    post_process_variables = {}
 
     BASE_THREAD_VARIABLES = frozenset([
         'cloud_factor'
