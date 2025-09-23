@@ -834,11 +834,6 @@ class SMRF():
         else:
             raise Exception("Could not determine type of file for output")
 
-        # is there a function to apply?
-        self.out_func.func = None
-        if "func" in self.config["output"]:
-            self.out_func.func = self.config["output"]["func"]
-
     def output(self, current_time_step,  module=None, out_var=None):
         """
         Output the forcing data or model outputs for the current_time_step.
