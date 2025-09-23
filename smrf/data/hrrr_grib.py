@@ -13,7 +13,7 @@ class InputGribHRRR(GriddedInput):
     """
     Load the data from the High Resolution Rapid Refresh (HRRR) model.
     The possible variables returned are dependent on the configuration
-    and returnd as Pandas dataframes.
+    and returned as Pandas dataframes.
     """
 
     DATA_TYPE = 'hrrr_grib'
@@ -66,9 +66,11 @@ class InputGribHRRR(GriddedInput):
         from the `air_temp` and `relative_humidity`. The `wind_speed` and
         `wind_direction` will be calculated from `wind_u` and `wind_v`
         """
-        self._logger.info('Reading data from from HRRR directory: {}'.format(
-            self.config['hrrr_directory']
-        ))
+        self._logger.info(
+            "Reading data from from HRRR directory: {}".format(
+                self.config["hrrr_directory"]
+            )
+        )
 
         metadata, data = FileLoader(
             file_dir=self.config['hrrr_directory'],
@@ -115,15 +117,14 @@ class InputGribHRRR(GriddedInput):
         self._logger.debug('Finished loading data')
 
     def parse_data(self, metadata, data):
-        """Parse the data from HRRR into dataframes for SMRF
+        """
+        Parse the data from HRRR into dataframes for SMRF
 
         Args:
             metadata (DataFrame): metadata DataFrame
             data (dict): dictionary of DataFrames from HRRR
         """
-
-        # the data may be returned as type=object, convert to numeric
-        # correct for the timezone
+        # Enforce configured timezone
         for key in data.keys():
             data[key] = data[key].apply(pd.to_numeric)
             data[key] = data[key].tz_localize(tz=self.time_zone)
