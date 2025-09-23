@@ -56,7 +56,7 @@ class InputData:
 
         self._logger = logging.getLogger(__name__)
 
-        # get the buffer gridded data domain extents in lat long
+        # set the gridded data domain extents in lat long with buffer
         self.model_domain_grid()
 
         self.__determine_data_type(smrf_config)
@@ -117,7 +117,8 @@ class InputData:
             )
 
     def set_variables(self):
-        """Set the instance attributes for each variable
+        """
+        Set the instance attributes for each variable
         """
 
         for variable in self.VARIABLES:
@@ -129,19 +130,16 @@ class InputData:
                 setattr(self, variable, d[self.start_date:self.end_date])
 
     def metadata_pixel_location(self):
-        """Set the pixel location in the topo for each station
+        """
+        Set the pixel location in the topo for each station
         """
 
-        self.metadata['xi'] = self.metadata.apply(
-            lambda row: self.find_pixel_location(
-                row,
-                self.topo.x,
-                'utm_x'), axis=1)
-        self.metadata['yi'] = self.metadata.apply(
-            lambda row: self.find_pixel_location(
-                row,
-                self.topo.y,
-                'utm_y'), axis=1)
+        self.metadata["xi"] = self.metadata.apply(
+            lambda row: self.find_pixel_location(row, self.topo.x, "utm_x"), axis=1
+        )
+        self.metadata["yi"] = self.metadata.apply(
+            lambda row: self.find_pixel_location(row, self.topo.y, "utm_y"), axis=1
+        )
 
     def model_domain_grid(self):
         """
@@ -171,9 +169,8 @@ class InputData:
         self.dlat = dlat
         self.dlon = dlon
 
-        # This is placed long, lat on purpose as thats the HRRR class expects
-        self.bbox = np.array([self.dlon[0], self.dlat[0],
-                              self.dlon[1], self.dlat[1]])
+        # This is placed long, lat to conform with HRRR loading
+        self.bbox = np.array([self.dlon[0], self.dlat[0], self.dlon[1], self.dlat[1]])
 
     def get_latlon(self, utm_x, utm_y):
         """

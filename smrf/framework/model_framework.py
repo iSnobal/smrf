@@ -46,7 +46,7 @@ from smrf import distribute
 from smrf.data import InputData, Topo, InputGribHRRR, GriddedInput
 from smrf.envphys.solar import model
 from smrf.framework import art, logger
-from smrf.output import output_hru, output_netcdf
+from smrf.output import output_netcdf
 from smrf.utils.utils import backup_input, date_range, getqotw
 
 
@@ -72,15 +72,17 @@ class SMRF():
     """
 
     # These are the modules that the user can modify and use different methods
-    modules = ['air_temp',
-               'albedo',
-               'precip',
-               'soil_temp',
-               'solar',
-               'cloud_factor',
-               'thermal',
-               'vapor_pressure',
-               'wind']
+    modules = [
+        "air_temp",
+        "albedo",
+        "precip",
+        "soil_temp",
+        "solar",
+        "cloud_factor",
+        "thermal",
+        "vapor_pressure",
+        "wind",
+    ]
 
     BASE_THREAD_VARIABLES = frozenset([
         'cosz', 'azimuth', 'illum_ang', 'output'
@@ -147,28 +149,30 @@ class SMRF():
         self._setup_date_and_time()
 
         # need to align date time
-        if 'date_method_start_decay' in self.config['albedo'].keys():
-            self.config['albedo']['date_method_start_decay'] = \
-                self.config['albedo']['date_method_start_decay'].replace(
-                    tzinfo=self.time_zone)
-            self.config['albedo']['date_method_end_decay'] = \
-                self.config['albedo']['date_method_end_decay'].replace(
-                    tzinfo=self.time_zone)
+        if "date_method_start_decay" in self.config["albedo"].keys():
+            self.config["albedo"]["date_method_start_decay"] = self.config["albedo"][
+                "date_method_start_decay"
+            ].replace(tzinfo=self.time_zone)
+            self.config["albedo"]["date_method_end_decay"] = self.config["albedo"][
+                "date_method_end_decay"
+            ].replace(tzinfo=self.time_zone)
 
         # if a gridded dataset will be used
         self.forecast_flag = False
         self.gridded = True if GriddedInput.TYPE in self.config else False
         self.load_hrrr = False
         if self.gridded:
-            self.load_hrrr = self.config["gridded"]["data_type"] in [
+            self.load_hrrr = self.config[GriddedInput.TYPE]["data_type"] in [
                 InputGribHRRR.DATA_TYPE
             ]
 
         now = datetime.now().astimezone(self.time_zone)
-        if ((self.start_date > now and not self.gridded) or
-                (self.end_date > now and not self.gridded)):
-            raise ValueError("A date set in the future can only be used with"
-                             " WRF generated data!")
+        if (self.start_date > now and not self.gridded) or (
+            self.end_date > now and not self.gridded
+        ):
+            raise ValueError(
+                "A date set in the future can only be used with WRF generated data!"
+            )
 
         self.distribute = {}
 
@@ -387,16 +391,11 @@ class SMRF():
         the data to the desired stations if CSV files are used.
         """
 
-        self.data = InputData(
-            self.config,
-            self.start_date,
-            self.end_date,
-            self.topo)
+        self.data = InputData(self.config, self.start_date, self.end_date, self.topo)
 
         # Pre-filter the data to the desired stations in
         # each [variable] section
-        self._logger.debug(
-            'Filter data to those specified in each variable section')
+        self._logger.debug("Filter data to those specified in each variable section")
         for variable, module in self.data.MODULE_VARIABLES.items():
             if module not in self.distribute:
                 continue
@@ -779,7 +778,7 @@ class SMRF():
 
             if output_variable in self.possible_output_variables.keys():
                 fname = join(out_location, output_variable)
-                module = self.possible_output_variables[output_variable]['module']  # noqa
+                module = self.possible_output_variables[output_variable]['module']
 
                 # TODO this is a hack to not have to redo the gold files
                 if module == 'precipitation':
@@ -817,34 +816,22 @@ class SMRF():
 
         output_variables = self.config['output']['variables']
 
-        variable_dict = self.create_output_variable_dict(
-            output_variables, out_location)
+        variable_dict = self.create_output_variable_dict(output_variables, out_location)
 
-        self._logger.debug('{} of {} variables will be output'.format(
-            len(output_variables), len(self.possible_output_variables)))
+        self._logger.debug(
+            "{} of {} variables are saved in output files".format(
+                len(output_variables), len(self.possible_output_variables)
+            )
+        )
 
         # determine what type of file to output
-        if self.config['output']['file_type'].lower() == 'netcdf':
+        if self.config["output"]["file_type"].lower() == "netcdf":
             self.out_func = output_netcdf.OutputNetcdf(
-                variable_dict,
-                self.topo,
-                self.config['time'],
-                self.config['output']
+                variable_dict, self.topo, self.config["time"], self.config["output"]
             )
 
-        elif self.config['output']['file_type'].lower() == 'hru':
-            self.out_func = output_hru.output_hru(
-                variable_dict, self.topo,
-                self.date_time,
-                self.config['output'])
-
         else:
-            raise Exception('Could not determine type of file for output')
-
-        # is there a function to apply?
-        self.out_func.func = None
-        if 'func' in self.config['output']:
-            self.out_func.func = self.config['output']['func']
+            raise Exception("Could not determine type of file for output")
 
     def output(self, current_time_step,  module=None, out_var=None):
         """
@@ -893,14 +880,6 @@ class SMRF():
                 self._logger.debug("Outputting {0}".format(v['module']))
                 self.out_func.output(v['variable'], data, current_time_step)
 
-    def post_process(self):
-        """
-        Execute all the post processors
-        """
-
-        for k in self.distribute.keys():
-            self.distribute[k].post_processor(self)
-
     def title(self, option):
         """
         A little title to go at the top of the logger file
@@ -940,9 +919,6 @@ def run_smrf(config, external_logger=None):
 
         # distribute
         s.distribute_data()
-
-        # post process if necessary
-        s.post_process()
 
         s._logger.info(datetime.now() - start)
 

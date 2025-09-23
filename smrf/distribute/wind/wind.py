@@ -60,9 +60,6 @@ class Wind(ImageData):
             'long_name': 'Wind direction'
         }
     }
-    # these are variables that are operate at the end only and do not need to
-    # be written during main distribute loop
-    post_process_variables = {}
 
     BASE_THREAD_VARIABLES = frozenset([
         'wind_speed',
