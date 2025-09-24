@@ -5,7 +5,7 @@ import pandas as pd
 from smrf.data.hrrr import FileHandler
 
 
-class TestHRRRFileHandler(unittest.TestCase):
+class TestFileHandler(unittest.TestCase):
     def test_file_date(self):
         file_time = pd.to_datetime('2018-02-08 05:00')
 
@@ -33,7 +33,7 @@ class TestHRRRFileHandler(unittest.TestCase):
     def test_file_name_grib(self):
         self.assertEqual(
             'hrrr.t04z.wrfsfcf01.grib2',
-            FileHandler.file_name(4, 1)
+            FileHandler.file_name(4, 1, 'grib2')
         )
 
     def test_folder_name(self):
@@ -44,7 +44,7 @@ class TestHRRRFileHandler(unittest.TestCase):
 
     def test_folder_and_file(self):
         folder_name, file_name = FileHandler.folder_and_file(
-            pd.to_datetime('2018-02-08 05:00'), 1
+            pd.to_datetime('2018-02-08 05:00'), 1, 'grib2'
         )
 
         self.assertEqual('hrrr.20180208', folder_name)

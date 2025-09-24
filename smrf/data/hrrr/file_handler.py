@@ -1,7 +1,5 @@
 import pandas as pd
 
-from .grib_file_xarray import GribFileXarray
-
 
 class FileHandler:
     """
@@ -58,23 +56,20 @@ class FileHandler:
         )
 
     @staticmethod
-    def file_name(hour_of_day, forecast_hour, file_extension=None):
-        if file_extension is None:
-            file_extension = GribFileXarray.SUFFIX
-
+    def file_name(hour_of_day, forecast_hour, file_extension):
         return FileHandler.FILE_NAME_BASE.format(
             hour_of_day, forecast_hour, file_extension
         )
 
     @staticmethod
-    def folder_and_file(date, forecast_hour, file_extension=None):
+    def folder_and_file(date, forecast_hour, file_extension):
         """
         Get the file and folder name for a specific forecast hour of HRRR
 
         Args:
             date:           Datetime that the filename is created for
             forecast_hour:  Forecast hour
-            file_extension: File name extension (Default: grib2)
+            file_extension: File name extension
 
         Returns:
             day_folder: Folder name containing the day file (hrrr.YYYYMMDD)
