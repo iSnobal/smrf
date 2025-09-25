@@ -5,7 +5,7 @@ from dataclasses import dataclass
 class HrrrVariable:
     """
     Class holding information to load HRRR variables from
-    WGRIB files and maps to the corresponding SMRF variable.
+    GRIB files and maps to the corresponding SMRF variable.
     """
     level: str
     grib_identifier: str

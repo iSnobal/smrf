@@ -8,6 +8,7 @@ import xarray
 from smrf.data.hrrr.file_loader import FileLoader
 from smrf.data.hrrr.grib_file_xarray import GribFileXarray
 
+
 FILE_DIR = '/path/to/files'
 START_DT = pd.to_datetime('2018-07-22 01:00')
 END_DT = pd.to_datetime('2018-07-22 06:00')
@@ -26,9 +27,8 @@ class TestFileLoader(unittest.TestCase):
     def test_file_dir_property(self):
         assert self.subject.file_dir.endswith(FILE_DIR)
 
-    def test_defaults_to_grib2(self):
-        self.assertIsInstance(self.subject.file_loader, GribFileXarray)
-        self.assertEqual(GribFileXarray.SUFFIX, self.subject.file_type)
+    def test_loads_grib2_suffix(self):
+        self.assertEqual('grib2', self.subject.NAME_SUFFIX)
 
     def test_defaults_to_first_forecast_hour(self):
         self.assertEqual(self.subject._forecast_hour, 1)
