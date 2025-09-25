@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 
@@ -15,22 +15,25 @@ class TestInputGribHRRR(unittest.TestCase):
     END_DATE = pd.to_datetime('2021-01-02')
     SMRF_CONFIG = {"gridded": {}, "output": {"variables": []}}
 
-    def test_load_method_config(self):
-        hrrr_input = InputGribHRRR(
-            self.START_DATE, self.END_DATE,
-            topo=self.TOPO_MOCK, bbox=self.BBOX,
+    def setUp(self):
+        self.hrrr_input = InputGribHRRR(
+            self.START_DATE,
+            self.END_DATE,
+            topo=self.TOPO_MOCK,
+            bbox=self.BBOX,
             config=self.SMRF_CONFIG,
         )
 
+    def test_load_method_config(self):
         self.assertEqual(
             self.START_DATE,
-            hrrr_input.start_date
+            self.hrrr_input.start_date
         )
         self.assertEqual(
             self.START_DATE + pd.to_timedelta(20, 'minutes'),
-            hrrr_input.end_date
+            self.hrrr_input.end_date
         )
-        self.assertEqual(None, hrrr_input.cloud_factor_memory)
+        self.assertEqual(None, self.hrrr_input.cloud_factor_memory)
 
     def test_load_wind(self):
         hrrr_input = InputGribHRRR(
@@ -61,3 +64,18 @@ class TestInputGribHRRR(unittest.TestCase):
             InputGribHRRR.VARIABLES,
             hrrr_input.variables
         )
+
+    @patch.object(InputGribHRRR, "timestep_dates")
+    @patch.object(InputGribHRRR, "load")
+    def test_load_timestep_sets_start_date(self, _mock_load, _mock_timestep_dates):
+        self.hrrr_input.load_timestep(self.START_DATE)
+
+        self.assertEqual(self.hrrr_input.start_date, self.START_DATE)
+
+    @patch.object(InputGribHRRR, "timestep_dates")
+    @patch.object(InputGribHRRR, "load")
+    def test_load_timestep_calls_methods(self, mock_load, mock_timestep_dates):
+        self.hrrr_input.load_timestep(self.START_DATE)
+
+        mock_timestep_dates.assert_called_once()
+        mock_load.assert_called_once()

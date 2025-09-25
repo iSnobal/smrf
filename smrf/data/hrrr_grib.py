@@ -62,9 +62,7 @@ class InputGribHRRR(GriddedInput):
     def load(self):
         """
         The function will take the keys and load them into the appropriate
-        objects within the `grid` class. The vapor pressure will be calculated
-        from the `air_temp` and `relative_humidity`. The `wind_speed` and
-        `wind_direction` will be calculated from `wind_u` and `wind_v`
+        objects within the `grid` class.
         """
         self._logger.info(
             "Reading data from from HRRR directory: {}".format(
@@ -73,15 +71,15 @@ class InputGribHRRR(GriddedInput):
         )
 
         metadata, data = FileLoader(
-            file_dir=self.config['hrrr_directory'],
             external_logger=self._logger,
-            load_wind = self._load_wind,
+            file_dir=self.config['hrrr_directory'],
             forecast_hour=self.config['hrrr_forecast_hour'],
+            load_wind = self._load_wind,
             sixth_hour_variables=self.config['hrrr_sixth_hour_variables'],
-        ).get_saved_data(
-            self.start_date,
-            self.end_date,
-            self.bbox,
+        ).data_for_time_and_topo(
+            start_date=self.start_date,
+            end_date=self.end_date,
+            bbox=self.bbox,
             utm_zone_number=self.topo.zone_number,
         )
 

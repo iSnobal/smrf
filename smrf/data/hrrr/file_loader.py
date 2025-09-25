@@ -1,5 +1,6 @@
 import os
-from datetime import timedelta
+from datetime import datetime, timedelta
+from typing import Dict, Tuple
 
 import pandas as pd
 import utm
@@ -7,7 +8,7 @@ import xarray as xr
 
 from .file_handler import FileHandler
 from .grib_file_xarray import GribFileXarray
-
+from smrf.data.load_topo import Topo
 
 class FileLoader:
     """
@@ -36,7 +37,6 @@ class FileLoader:
         self.log = external_logger
 
         self.file_dir = file_dir
-        self.file_type = file_type
 
         self._load_wind = load_wind
         self._forecast_hour = forecast_hour
@@ -49,6 +49,18 @@ class FileLoader:
     @file_dir.setter
     def file_dir(self, value):
         self._file_dir = os.path.abspath(value)
+
+    def data_for_time_and_topo(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+        bbox: list[float],
+        utm_zone_number: int,
+    ):
+        metadata, data = self.xarray(start_date, end_date, bbox, utm_zone_number)
+
+        return metadata, data
+
 
     def _get_file_path(self, file_time, forecast_hour):
         """
@@ -82,17 +94,37 @@ class FileLoader:
         else:
             return True
 
-    def get_data(self, start_date, end_date):
+    def xarray(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+        bbox: list[float],
+        utm_zone_number: int,
+    ) -> Tuple[pd.DataFrame, Dict[str, pd.DataFrame]]:
         """
-        Get the HRRR data for given start and end date.
+        Get the data for given time range and a specified bounding box using Xarray.
         Read data is stored on instance attribute.
 
         Args:
             start_date: datetime for the start of the data loading period
             end_date:   datetime for the end of the data loading period
+            bbox:       list of  [lonmin, latmin, lonmax, latmax]
+            utm_zone_number: UTM zone number to convert datetime to
+
+        Returns:
+            List containing dataframe for the metadata and for each read
+            variable.
         """
+        if start_date > end_date:
+            raise ValueError("start_date before end_date")
+
         date = start_date
         data = []
+
+        file_loader = GribFileXarray(external_logger=self.log)
+        file_loader.bbox = bbox
+
+        self.log.info("Getting saved data")
 
         while date <= end_date:
             self.log.debug("Reading file for date: {}".format(date))
@@ -129,9 +161,12 @@ class FileLoader:
 
         try:
             if len(data) > 0:
-                # The attributes can be safely dropped since the data is
-                # converted into a pandas dataframe as a next step after this method.
-                self.data = xr.combine_by_coords(data, combine_attrs='drop')
+                # The Xarray attributes can be safely dropped since those are not
+                # reused with Pandas dataframe
+                return self.convert_to_dataframes(
+                    xr.combine_by_coords(data, combine_attrs='drop'),
+                    utm_zone_number
+                )
             else:
                 raise Exception('No data HRRR data loaded')
         except Exception as e:
@@ -141,11 +176,14 @@ class FileLoader:
             )
             raise e
 
-    def convert_to_dataframes(self, utm_zone_number):
+    def convert_to_dataframes(
+        self, data: xr.DataArray, utm_zone_number: int
+    ) -> Tuple[pd.DataFrame, Dict[str, pd.DataFrame]]:
         """
         Convert the xarray's to a pandas dataframes
 
         Args:
+            data: Xarray data object to convert
             utm_zone_number: UTM zone number to convert datetime to
 
         Returns
@@ -154,17 +192,16 @@ class FileLoader:
         metadata = None
         dataframe = {}
 
-        for variable in list(self.data.data_vars):
-            df = self.data[variable].to_dataframe()
+        for variable in list(data.data_vars):
+            df = data[variable].to_dataframe()
 
             # convert from a row multi-index to a column multi-index
             df = df.unstack(level=[1, 2])
 
             # Get the metadata using the elevation variables
-            if variable == 'elevation':
-
+            if variable == "elevation":
                 metadata = []
-                for mm in ['latitude', 'longitude', variable]:
+                for mm in ["latitude", "longitude", variable]:
                     dftmp = df[mm].copy()
                     dftmp.columns = self.format_column_names(dftmp)
                     dftmp = dftmp.iloc[0]
@@ -173,26 +210,23 @@ class FileLoader:
 
                 metadata = pd.concat(metadata, axis=1)
                 metadata = metadata.apply(
-                    FileLoader.apply_utm,
-                    args=(utm_zone_number,),
-                    axis=1
+                    FileLoader.apply_utm, args=(utm_zone_number,), axis=1
                 )
             else:
                 df = df.loc[:, variable]
 
                 df.columns = self.format_column_names(df)
-                df.index.rename('date_time', inplace=True)
+                df.index.rename("date_time", inplace=True)
 
-                df.dropna(axis=1, how='all', inplace=True)
+                df.dropna(axis=1, how="all", inplace=True)
                 df.sort_index(axis=0, inplace=True)
                 dataframe[variable] = df
 
                 # manipulate data in necessary ways
-                if variable == 'air_temp':
-                    dataframe['air_temp'] -= 273.15
-                if variable == 'cloud_factor':
-                    dataframe['cloud_factor'] = \
-                        1 - dataframe['cloud_factor'] / 100
+                if variable == "air_temp":
+                    dataframe["air_temp"] -= 273.15
+                if variable == "cloud_factor":
+                    dataframe["cloud_factor"] = 1 - dataframe["cloud_factor"] / 100
 
         return metadata, dataframe
 
