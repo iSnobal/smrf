@@ -10,7 +10,6 @@ from smrf.data.hrrr.grib_file_xarray import GribFileXarray
 
 FILE_DIR = '/path/to/files'
 START_DT = pd.to_datetime('2018-07-22 01:00')
-END_DT = pd.to_datetime('2018-07-22 06:00')
 
 LOGGER = mock.Mock(name='Logger')
 
@@ -63,7 +62,7 @@ def saved_data_return_values():
 class TestFileLoaderXarray(unittest.TestCase,):
     BBOX = mock.Mock(name="Bounding Box")
     UTM_NUMBER = 12
-    METHOD_ARGS = [START_DT, END_DT, BBOX, UTM_NUMBER]
+    METHOD_ARGS = [START_DT, BBOX, UTM_NUMBER]
 
     def setUp(self):
         self.subject = FileLoader(
@@ -108,14 +107,14 @@ class TestFileLoaderXarray(unittest.TestCase,):
             self.subject.xarray(*self.METHOD_ARGS)
 
         self.assertEqual(
-            6,
+            1,
             self.file_loader_mock.load.call_count,
             msg='More data was loaded than requested dates'
         )
         # Check file path of last loaded file
         self.assertRegex(
             self.file_loader_mock.load.call_args[1]['file'],
-            r'.*/hrrr.20180722/hrrr.t05z.wrfsfcf01.grib2',
+            r'.*/hrrr.20180722/hrrr.t00z.wrfsfcf01.grib2',
             msg='Path to file not passed to file loader'
         )
         self.assertEqual(
@@ -153,23 +152,6 @@ class TestFileLoaderXarray(unittest.TestCase,):
             msg='Tried to load data from file although not present on disk'
         )
 
-    @mock.patch('xarray.combine_by_coords')
-    def test_failed_combine_coords(self, xarray_patch):
-        message = "Combine failed"
-        combine_error = Exception(message)
-        xarray_patch.side_effect = combine_error
-
-        with mock.patch('os.path.exists', return_value=True):
-            with self.assertRaisesRegex(
-                type(combine_error), message
-            ):
-                self.subject.xarray(*self.METHOD_ARGS)
-
-                self.assertFalse(
-                    hasattr(self.subject, 'data'),
-                    msg='Data set although failed to combine'
-                )
-
 
 class TestFileLoaderSixthHour(TestFileLoaderXarray):
     SIXTH_HOUR_VARIABLE = ['precip_int']
@@ -188,14 +170,14 @@ class TestFileLoaderSixthHour(TestFileLoaderXarray):
             self.subject.xarray(*self.METHOD_ARGS)
 
         self.assertEqual(
-            6,
+            1,
             self.file_loader_mock.load.call_count,
             msg='More data was loaded than requested dates'
         )
         # Check arguments of last loaded file
         self.assertRegex(
             self.file_loader_mock.load.call_args[1]['file'],
-            r'.*/hrrr.20180722/hrrr.t05z.wrfsfcf01.grib2',
+            r'.*/hrrr.20180722/hrrr.t00z.wrfsfcf01.grib2',
             msg='Path to file not passed to file loader'
         )
         self.assertEqual(
@@ -205,7 +187,7 @@ class TestFileLoaderSixthHour(TestFileLoaderXarray):
         )
         self.assertRegex(
             self.file_loader_mock.load.call_args[1]['sixth_hour_file'],
-            r'.*/hrrr.20180722/hrrr.t00z.wrfsfcf06.grib2',
+            r'.*/hrrr.20180721/hrrr.t19z.wrfsfcf06.grib2',
             msg='Path to file not passed to file loader'
         )
         self.assertEqual(
@@ -215,22 +197,16 @@ class TestFileLoaderSixthHour(TestFileLoaderXarray):
         )
 
     def test_checks_sixth_hour_presence(self):
-        first_hour = re.compile(r'.*hrrr.t01z\.wrfsfcf01\.grib2')
-        sixth_hour = re.compile(r'.*hrrr.t20z\.wrfsfcf06\.grib2')
+        first_hour = re.compile(r'.*hrrr.t00z\.wrfsfcf01\.grib2')
+        sixth_hour = re.compile(r'.*hrrr.t19z\.wrfsfcf06\.grib2')
         with mock.patch('os.path.exists', return_value=True) as path_patch:
             self.subject.xarray(*self.METHOD_ARGS)
 
-            assert (
-                any(
-                    first_hour.match(str(file))
-                    for file in path_patch.call_args_list
-                )
+            assert any(
+                first_hour.match(str(file)) for file in path_patch.call_args_list
             )
-            assert (
-                any(
-                    sixth_hour.match(str(file))
-                    for file in path_patch.call_args_list
-                )
+            assert any(
+                sixth_hour.match(str(file)) for file in path_patch.call_args_list
             )
 
     def test_checks_sixth_hour_missing(self):

@@ -29,12 +29,9 @@ class InputGribHRRR(GriddedInput):
         'wind_direction',
     ]
 
-    TIME_STEP = pd.to_timedelta(20, 'minutes')
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.timestep_dates()
         self.cloud_factor_memory = None
 
         self._load_wind = not Wind.config_model_type(
@@ -56,9 +53,6 @@ class InputGribHRRR(GriddedInput):
     def data_variables(self):
         return np.union1d(self.VARIABLES, self.WIND_VARIABLES)
 
-    def timestep_dates(self):
-        self.end_date = self.start_date + self.TIME_STEP
-
     def load(self):
         """
         The function will take the keys and load them into the appropriate
@@ -78,7 +72,6 @@ class InputGribHRRR(GriddedInput):
             sixth_hour_variables=self.config['hrrr_sixth_hour_variables'],
         ).data_for_time_and_topo(
             start_date=self.start_date,
-            end_date=self.end_date,
             bbox=self.bbox,
             utm_zone_number=self.topo.zone_number,
         )
@@ -93,7 +86,6 @@ class InputGribHRRR(GriddedInput):
         """
 
         self.start_date = date_time
-        self.timestep_dates()
         self.load()
 
     def load_timestep_thread(self, date_times, data_queue):

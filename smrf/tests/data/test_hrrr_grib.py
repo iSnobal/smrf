@@ -29,10 +29,6 @@ class TestInputGribHRRR(unittest.TestCase):
             self.START_DATE,
             self.hrrr_input.start_date
         )
-        self.assertEqual(
-            self.START_DATE + pd.to_timedelta(20, 'minutes'),
-            self.hrrr_input.end_date
-        )
         self.assertEqual(None, self.hrrr_input.cloud_factor_memory)
 
     def test_load_wind(self):
@@ -64,18 +60,3 @@ class TestInputGribHRRR(unittest.TestCase):
             InputGribHRRR.VARIABLES,
             hrrr_input.variables
         )
-
-    @patch.object(InputGribHRRR, "timestep_dates")
-    @patch.object(InputGribHRRR, "load")
-    def test_load_timestep_sets_start_date(self, _mock_load, _mock_timestep_dates):
-        self.hrrr_input.load_timestep(self.START_DATE)
-
-        self.assertEqual(self.hrrr_input.start_date, self.START_DATE)
-
-    @patch.object(InputGribHRRR, "timestep_dates")
-    @patch.object(InputGribHRRR, "load")
-    def test_load_timestep_calls_methods(self, mock_load, mock_timestep_dates):
-        self.hrrr_input.load_timestep(self.START_DATE)
-
-        mock_timestep_dates.assert_called_once()
-        mock_load.assert_called_once()

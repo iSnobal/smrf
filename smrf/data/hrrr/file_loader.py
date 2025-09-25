@@ -53,11 +53,10 @@ class FileLoader:
     def data_for_time_and_topo(
         self,
         start_date: datetime,
-        end_date: datetime,
         bbox: list[float],
         utm_zone_number: int,
     ):
-        metadata, data = self.xarray(start_date, end_date, bbox, utm_zone_number)
+        metadata, data = self.xarray(start_date, bbox, utm_zone_number)
 
         return metadata, data
 
@@ -96,8 +95,7 @@ class FileLoader:
 
     def xarray(
         self,
-        start_date: datetime,
-        end_date: datetime,
+        date: datetime,
         bbox: list[float],
         utm_zone_number: int,
     ) -> Tuple[pd.DataFrame, Dict[str, pd.DataFrame]]:
@@ -106,73 +104,53 @@ class FileLoader:
         Read data is stored on instance attribute.
 
         Args:
-            start_date: datetime for the start of the data loading period
-            end_date:   datetime for the end of the data loading period
-            bbox:       list of  [lonmin, latmin, lonmax, latmax]
+            date:            datetime for the start of the data loading period
+            bbox:            list of  [lonmin, latmin, lonmax, latmax]
             utm_zone_number: UTM zone number to convert datetime to
 
         Returns:
             List containing dataframe for the metadata and for each read
             variable.
         """
-        if start_date > end_date:
-            raise ValueError("start_date before end_date")
-
-        date = start_date
-        data = []
-
         file_loader = GribFileXarray(external_logger=self.log)
         file_loader.bbox = bbox
 
         self.log.info("Getting saved data")
 
-        while date <= end_date:
-            self.log.debug("Reading file for date: {}".format(date))
+        self.log.debug("Reading file for date: {}".format(date))
 
-            # Filename of the default configured forecast hour
-            default_file = self._get_file_path(date, self._forecast_hour)
-            # Filename for variables that are mapped to the sixth
-            # forecast hour
-            sixth_hour_file = self._check_sixth_hour_presence(date)
-
-            try:
-                if os.path.exists(default_file) and sixth_hour_file:
-                    data.append(
-                        file_loader.load(
-                            file=default_file,
-                            load_wind=self._load_wind,
-                            sixth_hour_file=sixth_hour_file,
-                            sixth_hour_variables=self._sixth_hour_variables,
-                        )
-                    )
-                else:
-                    raise FileNotFoundError(
-                        "  Not able to find file for datetime: {}".format(
-                            date.strftime("%Y-%m-%d %H:%M")
-                        )
-                    )
-            except Exception as e:
-                self.log.error(
-                    "  Could not load forecast for date {} successfully".format(date)
-                )
-                raise e
-
-            date += self.NEXT_HOUR
+        # Filename of the default configured forecast hour
+        default_file = self._get_file_path(date, self._forecast_hour)
+        # Filename for variables that are mapped to the sixth
+        # forecast hour
+        sixth_hour_file = self._check_sixth_hour_presence(date)
 
         try:
-            if len(data) > 0:
-                # The Xarray attributes can be safely dropped since those are not
-                # reused with Pandas dataframe
-                return self.convert_to_dataframes(
-                    xr.combine_by_coords(data, combine_attrs='drop'),
-                    utm_zone_number
+            if os.path.exists(default_file) and sixth_hour_file:
+                data = file_loader.load(
+                    file=default_file,
+                    load_wind=self._load_wind,
+                    sixth_hour_file=sixth_hour_file,
+                    sixth_hour_variables=self._sixth_hour_variables,
                 )
             else:
-                raise Exception('No data HRRR data loaded')
+                raise FileNotFoundError(
+                    "  Not able to find file for datetime: {}".format(
+                        date.strftime("%Y-%m-%d %H:%M")
+                    )
+                )
+        except Exception as e:
+            self.log.error(
+                "  Could not load forecast for date {} successfully".format(date)
+            )
+            raise e
+
+        try:
+            return self.convert_to_dataframes(data, utm_zone_number)
         except Exception as e:
             self.log.debug(
-                '  Could not combine forecast data for given dates: {} - {}'
-                .format(start_date, end_date)
+                '  Could not combine forecast data for given date: {} '
+                .format(date)
             )
             raise e
 
