@@ -11,18 +11,17 @@ from .grib_file_xarray import GribFileXarray
 
 class FileLoader:
     """
-    Load data from local HRRR files.
-    Currently supports loading from Grib format.
+    Load data from local HRRR GRIB files.
     """
     NEXT_HOUR = timedelta(hours=1)
     SIXTH_HOUR = 6
+    NAME_SUFFIX = 'grib2'
 
     def __init__(
         self,
         file_dir,
         forecast_hour,
         sixth_hour_variables=None,
-        file_type='grib2',
         external_logger=None,
         load_wind=False,
     ):
@@ -31,8 +30,6 @@ class FileLoader:
         :param forecast_hour:   HRRR forecast hour to load forcing data from
         :param sixth_hour_variables:   HRRR forecast hour to load data from
                                 the sixth forecast hour
-        :param file_type:       Determines how to read the files.
-                                Default: grib2
         :param external_logger: (Optional) Specify an existing logger instance
         :param load_wind:       Flag to load HRRR wind data (Default: False)
         """
@@ -53,47 +50,6 @@ class FileLoader:
     def file_dir(self, value):
         self._file_dir = os.path.abspath(value)
 
-    @property
-    def file_type(self):
-        return self._file_loader.SUFFIX
-
-    @file_type.setter
-    def file_type(self, value):
-        if value == GribFileXarray.SUFFIX:
-            self._file_loader = GribFileXarray(external_logger=self.log)
-        else:
-            raise Exception('Unknown file type argument')
-
-    @property
-    def file_loader(self):
-        return self._file_loader
-
-    def get_saved_data(self, start_date, end_date, bbox, utm_zone_number):
-        """
-        Get the saved data from above for a particular time and a particular
-        bounding box.
-
-        Args:
-            start_date: datetime for the start of the data loading period
-            end_date:   datetime for the end of the data loading period
-            bbox:       list of  [lonmin, latmin, lonmax, latmax]
-            utm_zone_number: UTM zone number to convert datetime to
-
-        Returns:
-            List containing dataframe for the metadata and for each read
-            variable.
-        """
-
-        if start_date > end_date:
-            raise ValueError('start_date before end_date')
-
-        self.file_loader.bbox = bbox
-
-        self.log.info('Getting saved data')
-        self.get_data(start_date, end_date)
-
-        return self.convert_to_dataframes(utm_zone_number)
-
     def _get_file_path(self, file_time, forecast_hour):
         """
         Construct an absolute file path to a HRRR file
@@ -104,7 +60,7 @@ class FileLoader:
         :return: (String) Absolute file path
         """
         day_folder, file_name = FileHandler.folder_and_file(
-            file_time, forecast_hour, self.file_type
+            file_time, forecast_hour, self.NAME_SUFFIX
         )
         return os.path.join(self.file_dir, day_folder, file_name)
 
@@ -139,35 +95,35 @@ class FileLoader:
         data = []
 
         while date <= end_date:
-            self.log.debug('Reading file for date: {}'.format(date))
+            self.log.debug("Reading file for date: {}".format(date))
 
-            if self.file_type == GribFileXarray.SUFFIX:
-                # Filename of the default configured forecast hour
-                default_file = self._get_file_path(date, self._forecast_hour)
-                # Filename for variables that are mapped to the sixth
-                # forecast hour
-                sixth_hour_file = self._check_sixth_hour_presence(date)
+            # Filename of the default configured forecast hour
+            default_file = self._get_file_path(date, self._forecast_hour)
+            # Filename for variables that are mapped to the sixth
+            # forecast hour
+            sixth_hour_file = self._check_sixth_hour_presence(date)
 
-                try:
-                    if os.path.exists(default_file) and sixth_hour_file:
-                        data.append(self.file_loader.load(
+            try:
+                if os.path.exists(default_file) and sixth_hour_file:
+                    data.append(
+                        file_loader.load(
                             file=default_file,
                             load_wind=self._load_wind,
                             sixth_hour_file=sixth_hour_file,
                             sixth_hour_variables=self._sixth_hour_variables,
-                        ))
-                    else:
-                        raise FileNotFoundError(
-                            '  Not able to find file for datetime: {}'.format(
-                                date.strftime('%Y-%m-%d %H:%M')
-                            )
                         )
-                except Exception as e:
-                    self.log.error(
-                        '  Could not load forecast for date {} '
-                        'successfully'.format(date)
                     )
-                    raise e
+                else:
+                    raise FileNotFoundError(
+                        "  Not able to find file for datetime: {}".format(
+                            date.strftime("%Y-%m-%d %H:%M")
+                        )
+                    )
+            except Exception as e:
+                self.log.error(
+                    "  Could not load forecast for date {} successfully".format(date)
+                )
+                raise e
 
             date += self.NEXT_HOUR
 
