@@ -102,6 +102,8 @@ class InputData:
                 topo=self.topo,
             )
             if self.data_type == InputGribHRRR.DATA_TYPE:
+                # Note - HRRR data is only loaded for the start date and the end date
+                #        is ignored.
                 self.load_class = InputGribHRRR(**loader_args, **data_inputs)
             elif self.data_type == InputNetcdf.DATA_TYPE:
                 self.load_class = InputNetcdf(**loader_args, **data_inputs)
