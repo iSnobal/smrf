@@ -8,7 +8,6 @@ class GribFileXarray:
     """
     Class to load a GRIB2 file from disk using Xarray.
     """
-    SUFFIX = 'grib2'
 
     CELL_SIZE = 3000  # in meters
 

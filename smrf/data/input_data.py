@@ -4,10 +4,10 @@ import numpy as np
 import utm
 
 from .csv import InputCSV
+from .gridded_input import GriddedInput
 from .hrrr_grib import InputGribHRRR
 from .netcdf import InputNetcdf
 from .wrf import InputWRF
-from .gridded_input import GriddedInput
 
 
 class InputData:
@@ -102,6 +102,8 @@ class InputData:
                 topo=self.topo,
             )
             if self.data_type == InputGribHRRR.DATA_TYPE:
+                # Note - HRRR data is only loaded for the start date and the end date
+                #        is ignored.
                 self.load_class = InputGribHRRR(**loader_args, **data_inputs)
             elif self.data_type == InputNetcdf.DATA_TYPE:
                 self.load_class = InputNetcdf(**loader_args, **data_inputs)
