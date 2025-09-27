@@ -321,7 +321,7 @@ class WinstralWindModel(ImageData):
             e = self.metadata.loc[m, 'enhancement']
 
             # maxus value at the station
-            if m in data_direction.index:
+            if m in data_direction and not pd.isna(data_direction[m]):
                 if self.config['station_peak'] is not None and \
                     m.upper() in self.config['station_peak']:
                         val_maxus = np.min(self.maxus[:, yi, xi] + e)
