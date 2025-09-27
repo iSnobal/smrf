@@ -27,6 +27,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       CC: gcc-11
+      GCC_VERSION: 11
 
     steps:
       - uses: actions/checkout@v5
@@ -35,7 +36,7 @@ jobs:
         run: |
           wget https://raw.githubusercontent.com/iSnobal/model_setup/refs/heads/main/conda/isnobal.yaml
 
-      - name: Cache GCC 11 installation
+      - name: Cache GCC ${{ env.GCC_VERSION }} installation
         uses: actions/cache@v4
         with:
           path: |
@@ -43,31 +44,31 @@ jobs:
             /usr/local/bin/g++
             /usr/bin/gcc
             /usr/bin/g++
-            /usr/bin/gcc-11
-            /usr/bin/g++-11
-          key: gcc-11-${{ runner.os }}-${{ hashFiles('.github/workflows/unittest.yml') }}
+            /usr/bin/gcc-${{ env.GCC_VERSION }}
+            /usr/bin/g++-${{ env.GCC_VERSION }}
+          key: gcc-${{ env.GCC_VERSION }}-${{ runner.os }}-${{ hashFiles('.github/workflows/unittest.yml') }}
 
-      - name: Install and set GCC 11 as default on Ubuntu
+      - name: Install and set GCC as default on Ubuntu
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-11 g++-11
+          sudo apt-get install -y gcc-${{ env.GCC_VERSION }} g++-${{ env.GCC_VERSION }}
           # Update alternatives for system-wide default
-          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 100
-          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 100
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${{ env.GCC_VERSION }} 100
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${{ env.GCC_VERSION }} 100
           # Check
           gcc --version
           g++ --version
         shell: bash
 
-      - name: Install and set GCC 11 as default on macOS
+      - name: Install and set GCC as default on macOS
         if: runner.os == 'macOS'
         run: |
           brew update
-          brew install gcc@11
-          # Symlink gcc-11 as gcc to ensure default in path
-          ln -sf $(brew --prefix)/opt/gcc@11/bin/gcc-11 /usr/local/bin/gcc
-          ln -sf $(brew --prefix)/opt/gcc@11/bin/g++-11 /usr/local/bin/g++
+          brew install gcc@${{ env.GCC_VERSION }}
+          # Symlink gcc-${{ env.GCC_VERSION }} as gcc to ensure default in path
+          ln -sf $(brew --prefix)/opt/gcc@${{ env.GCC_VERSION }}/bin/gcc-${{ env.GCC_VERSION }} /usr/local/bin/gcc
+          ln -sf $(brew --prefix)/opt/gcc@${{ env.GCC_VERSION }}/bin/g++-${{ env.GCC_VERSION }} /usr/local/bin/g++
           # Check
           gcc --version
           g++ --version
