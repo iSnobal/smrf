@@ -9,35 +9,50 @@ jobs:
       fail-fast: false
       matrix:
         os: [ ubuntu-latest, macos-latest ]
-        python-version: [ 3.8, 3.9 ]
     runs-on: ${{ matrix.os }}
     env:
-      CC: gcc-9
+      CC: gcc-11
 
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: 'pip'
+      - uses: actions/checkout@v5
 
-      - name: Install eccodes
+      - name: Download environment file
         run: |
-          if [ "$RUNNER_OS" == "Linux" ]; then
-              sudo apt-get install -y libeccodes-tools
-          elif [ "$RUNNER_OS" == "macOS" ]; then
-              brew install eccodes
-          fi
+          wget https://raw.githubusercontent.com/iSnobal/model_setup/refs/heads/main/conda/isnobal.yaml
+
+      - name: Install and set GCC 11 as default on Ubuntu
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-11 g++-11
+          # Update alternatives for system-wide default
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 100
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 100
+          # Check
+          gcc --version
+          g++ --version
         shell: bash
 
-      - name: Install dependencies
-        # Use the -e install flag to build the Cython extensions needed for
-        # testing
+      - name: Install and set GCC 11 as default on macOS
+        if: runner.os == 'macOS'
         run: |
-          python3 -m pip install --upgrade pip setuptools
-          make install
+          brew update
+          brew install gcc@11
+          # Symlink gcc-11 as gcc to ensure default in path
+          ln -sf $(brew --prefix)/opt/gcc@11/bin/gcc-11 /usr/local/bin/gcc
+          ln -sf $(brew --prefix)/opt/gcc@11/bin/g++-11 /usr/local/bin/g++
+          # Check
+          gcc --version
+          g++ --version
+        shell: bash
+
+      - uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: isnobal.yaml
+          init-shell: bash
+          cache-environment: true
 
       - name: Run unittests
         run: |
-          make tests
+          micromamba run -n isnobal make install
+          micromamba run -n isnobal make tests
