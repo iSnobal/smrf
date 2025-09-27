@@ -1,7 +1,20 @@
 name: Unittest
 
 on:
-  push
+  push:
+    branches:
+      - main
+    tags:
+      - v*
+    paths-ignore:
+      - LICENSE
+      - '**.md'
+      - .gitignore
+      - .editorconfig
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
   unittest:
