@@ -35,6 +35,18 @@ jobs:
         run: |
           wget https://raw.githubusercontent.com/iSnobal/model_setup/refs/heads/main/conda/isnobal.yaml
 
+      - name: Cache GCC 11 installation
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/local/bin/gcc
+            /usr/local/bin/g++
+            /usr/bin/gcc
+            /usr/bin/g++
+            /usr/bin/gcc-11
+            /usr/bin/g++-11
+          key: gcc-11-${{ runner.os }}-${{ hashFiles('.github/workflows/unittest.yml') }}
+
       - name: Install and set GCC 11 as default on Ubuntu
         if: runner.os == 'Linux'
         run: |
