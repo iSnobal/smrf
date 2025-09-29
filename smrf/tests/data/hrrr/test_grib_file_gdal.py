@@ -25,13 +25,7 @@ class TestGribFile(unittest.TestCase):
         self.grib_gdal = GribFileGdal(topo=self.TOPO_NC, resample_method="cubic")
 
     def test_init(self):
-        self.assertEqual("EPSG:32611", self.grib_gdal._dstSRS)
-        self.assertEqual("EPSG:32611", self.grib_gdal._outputBoundsSRS)
-        self.assertEqual(
-            [319975.0, 4158275.0, 327775.0, 4166675.0], self.grib_gdal._outputBounds
-        )
-        self.assertEqual(50.0, self.grib_gdal._xRes)
-        self.assertEqual(50.0, self.grib_gdal._yRes)
+        self.assertEqual(self.TOPO_NC, self.grib_gdal.topo)
         self.assertEqual(gdal.GRA_Cubic, self.grib_gdal.resample_method)
 
     def test_get_grib_metadata(self):

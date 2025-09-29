@@ -1,10 +1,8 @@
 import unittest
+from unittest import mock
 
 import netCDF4 as nc
 import numpy as np
-
-from unittest import mock
-
 from smrf.data import Topo
 from smrf.tests.smrf_test_case import SMRFTestCase
 
@@ -33,6 +31,15 @@ class TestLoadTopo(unittest.TestCase):
         self.assertEqual(self.TOPO_CONFIG, topo.topoConfig)
         gradient.assert_called_once()
         read_nc.assert_called_once()
+
+    def test_topo_gdal_attributes(self):
+        self.assertEqual("EPSG:32611", self.topo.gdal_attributes.srs)
+        self.assertEqual(
+            [519650.0, 4767630.0, 520450.0, 4768480.0],
+            self.topo.gdal_attributes.outputBounds,
+        )
+        self.assertEqual(50.0, self.topo.gdal_attributes.xRes)
+        self.assertEqual(50.0, self.topo.gdal_attributes.yRes)
 
     def test_attribute_file(self):
         self.assertEqual(self.TOPO_CONFIG['filename'], self.topo.file)

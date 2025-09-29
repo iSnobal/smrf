@@ -2,7 +2,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Generator, Tuple
 
-from osgeo import gdal, osr
+from osgeo import gdal
 from smrf.data.load_topo import Topo
 
 gdal.UseExceptions()
@@ -32,65 +32,8 @@ class GribFileGdal:
     }
 
     def __init__(self, topo: Topo, resample_method:str):
-        # Topo related
-        self._dstSRS = None
-        self._outputBoundsSRS = None
-        self._outputBounds = None
-        self._xRes = None
-        self._yRes = None
-
         self.resample_method = self.RESAMPLING_METHODS[resample_method]
-
-        self.get_spatial_info(topo.file)
-
-
-    def get_spatial_info(self, filename: str) -> None:
-        """
-        Grabbing the spatial information (projection, bounds) from the first dataset
-        and set instance variables to use with the warp and cut call.
-
-        :param filename: Path to topo.nc file
-        """
-        spatial_info = osr.SpatialReference()
-
-        with gdal.Open(filename, gdal.GA_ReadOnly) as topo:
-            with gdal.Open(topo.GetSubDatasets()[0][0], gdal.GA_ReadOnly) as dataset:
-                spatial_info.SetFromUserInput(dataset.GetProjection())
-
-                self._dstSRS = self.gdal_osr_authority(spatial_info)
-                self._outputBoundsSRS = self.gdal_osr_authority(spatial_info)
-                self._outputBounds = self.gdal_output_bounds(dataset)
-                self._xRes = dataset.GetGeoTransform()[1]
-                self._yRes = dataset.GetGeoTransform()[1]
-
-    @staticmethod
-    def gdal_osr_authority(spatial_info: osr.SpatialReference) -> str:
-        """
-        Construct and projection string with format "EPSG:XXXXX" from the given
-        spatial reference.
-
-        :param spatial_info: Spatial reference object of the topo file
-
-        :return: str - Spatial reference
-        """
-        return f"{spatial_info.GetAuthorityName(None)}:{spatial_info.GetAuthorityCode(None)}"
-
-    @staticmethod
-    def gdal_output_bounds(topo: gdal.Dataset) -> list[float]:
-        """
-        Get bounding box of the topo file in the order of [xmin, ymin, xmax, ymax]
-
-        :param topo: Opened topo file as GDAL dataset
-
-        :return: list of corner coordinates
-        """
-        geo_transform = topo.GetGeoTransform()
-        return [
-            geo_transform[0],
-            geo_transform[3] + geo_transform[5] * topo.RasterYSize,
-            geo_transform[0] + geo_transform[1] * topo.RasterXSize,
-            geo_transform[3]
-        ]
+        self.topo = topo
 
     @staticmethod
     def get_grib_metadata(grib_file: str) -> Tuple[dict[str, int], dict[str, datetime]]:
@@ -130,11 +73,11 @@ class GribFileGdal:
             gdal.Dataset in a context block
         """
         options = gdal.WarpOptions(
-            dstSRS=self._dstSRS,
-            outputBoundsSRS=self._outputBoundsSRS,
-            outputBounds=self._outputBounds,
-            xRes=self._xRes,
-            yRes=self._yRes,
+            dstSRS=self.topo.gdal_attributes.srs,
+            outputBoundsSRS=self.topo.gdal_attributes.srs,
+            outputBounds=self.topo.gdal_attributes.outputBounds,
+            xRes=self.topo.gdal_attributes.xRes,
+            yRes=self.topo.gdal_attributes.yRes,
             resampleAlg=self.resample_method,
             multithread=True,
             format='MEM',
