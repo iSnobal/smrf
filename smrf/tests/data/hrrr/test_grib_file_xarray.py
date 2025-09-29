@@ -39,9 +39,6 @@ class TestGribFile(unittest.TestCase):
             self.subject.log,
         )
 
-    def test_file_suffix(self):
-        self.assertEqual("grib2", GribFileXarray.SUFFIX)
-
     def test_cell_size(self):
         self.assertEqual(3000, GribFileXarray.CELL_SIZE)
 

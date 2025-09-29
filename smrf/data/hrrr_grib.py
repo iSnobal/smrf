@@ -29,12 +29,9 @@ class InputGribHRRR(GriddedInput):
         'wind_direction',
     ]
 
-    TIME_STEP = pd.to_timedelta(20, 'minutes')
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.timestep_dates()
         self.cloud_factor_memory = None
 
         self._load_wind = not Wind.config_model_type(
@@ -56,15 +53,10 @@ class InputGribHRRR(GriddedInput):
     def data_variables(self):
         return np.union1d(self.VARIABLES, self.WIND_VARIABLES)
 
-    def timestep_dates(self):
-        self.end_date = self.start_date + self.TIME_STEP
-
     def load(self):
         """
         The function will take the keys and load them into the appropriate
-        objects within the `grid` class. The vapor pressure will be calculated
-        from the `air_temp` and `relative_humidity`. The `wind_speed` and
-        `wind_direction` will be calculated from `wind_u` and `wind_v`
+        objects within the `grid` class.
         """
         self._logger.info(
             "Reading data from from HRRR directory: {}".format(
@@ -73,15 +65,14 @@ class InputGribHRRR(GriddedInput):
         )
 
         metadata, data = FileLoader(
-            file_dir=self.config['hrrr_directory'],
             external_logger=self._logger,
-            load_wind = self._load_wind,
+            file_dir=self.config['hrrr_directory'],
             forecast_hour=self.config['hrrr_forecast_hour'],
+            load_wind = self._load_wind,
             sixth_hour_variables=self.config['hrrr_sixth_hour_variables'],
-        ).get_saved_data(
-            self.start_date,
-            self.end_date,
-            self.bbox,
+        ).data_for_time_and_topo(
+            start_date=self.start_date,
+            bbox=self.bbox,
             utm_zone_number=self.topo.zone_number,
         )
 
@@ -95,7 +86,6 @@ class InputGribHRRR(GriddedInput):
         """
 
         self.start_date = date_time
-        self.timestep_dates()
         self.load()
 
     def load_timestep_thread(self, date_times, data_queue):
