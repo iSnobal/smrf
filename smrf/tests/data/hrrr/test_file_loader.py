@@ -1,17 +1,25 @@
 import re
 import unittest
-
 from unittest import mock
-import pandas as pd
 
+import pandas as pd
 from smrf.data.hrrr.file_loader import FileLoader
 from smrf.data.hrrr.grib_file_xarray import GribFileXarray
-
 
 FILE_DIR = '/path/to/files'
 START_DT = pd.to_datetime('2018-07-22 01:00')
 
+BBOX = mock.Mock(name="Bounding Box")
+TOPO = mock.Mock(name="Topo NC")
+UTM_NUMBER = 12
 LOGGER = mock.Mock(name='Logger')
+
+
+def xarray_mock_return():
+    metadata = mock.MagicMock()
+    metadata.name = 'metadata'
+    data = {'var': mock.Mock(name='data')}
+    return metadata, data
 
 
 class TestFileLoader(unittest.TestCase):
@@ -50,18 +58,28 @@ class TestFileLoader(unittest.TestCase):
     def test_default_to_wind_load_false(self):
         self.assertFalse(self.subject._load_wind)
 
+    @mock.patch.object(FileLoader, 'xarray', return_value=xarray_mock_return())
+    def test_data_for_time_and_topo_no_gdal(self, xarray_mock):
+        metadata, data = self.subject.data_for_time_and_topo(
+            START_DT, BBOX, TOPO, UTM_NUMBER
+        )
+        xarray_mock.assert_called_once()
+        self.assertEqual('metadata', metadata.name)
+        self.assertEqual(['var'], list(data.keys()))
 
-def saved_data_return_values():
-    metadata = mock.MagicMock()
-    metadata.name = 'metadata'
-    dataframe = mock.MagicMock(spec={})
-    dataframe.name = 'dataframe'
-    return metadata, dataframe
-
+    @mock.patch.object(FileLoader, 'xarray', return_value=xarray_mock_return())
+    @mock.patch.object(FileLoader, 'gdal', return_value={'var2': mock.Mock(name='GDAL')})
+    def test_data_for_time_and_topo_with_gdal(self, gdal_mock, xarray_mock):
+        subject = FileLoader(FILE_DIR, 1, ['precip_int'], load_gdal=['HRRR_VAR'])
+        metadata, data = subject.data_for_time_and_topo(
+            START_DT, BBOX, TOPO, UTM_NUMBER
+        )
+        xarray_mock.assert_called_once()
+        gdal_mock.assert_called_once()
+        self.assertEqual(metadata.name, 'metadata' )
+        self.assertEqual(['var', 'var2'], list(data.keys()))
 
 class TestFileLoaderXarray(unittest.TestCase,):
-    BBOX = mock.Mock(name="Bounding Box")
-    UTM_NUMBER = 12
     METHOD_ARGS = [START_DT, BBOX, UTM_NUMBER]
 
     def setUp(self):
@@ -84,7 +102,7 @@ class TestFileLoaderXarray(unittest.TestCase,):
         self.convert_patch = mock.patch.object(
             FileLoader,
             'convert_to_dataframes',
-            return_value=saved_data_return_values()
+            return_value=xarray_mock_return()
         )
         self.convert_patch.start()
 
@@ -100,7 +118,7 @@ class TestFileLoaderXarray(unittest.TestCase,):
         with mock.patch('os.path.exists', return_value=True):
             self.subject.xarray(*self.METHOD_ARGS)
 
-        self.assertEqual(self.BBOX, self.file_loader_mock.bbox)
+        self.assertEqual(BBOX, self.file_loader_mock.bbox)
 
     def test_load_attempts_per_timestamp(self):
         with mock.patch('os.path.exists', return_value=True):
