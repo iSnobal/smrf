@@ -923,18 +923,3 @@ def run_smrf(config, external_logger=None):
         s._logger.info(datetime.now() - start)
 
     return s
-
-
-def can_i_run_smrf(config):
-    """
-    Function that wraps run_smrf in try, except for testing purposes
-
-    Args:
-        config: string path to the config file or inicheck UserConfig instance
-    """
-    try:
-        run_smrf(config)
-        return True
-    except Exception as e:
-        raise e
-        return False
