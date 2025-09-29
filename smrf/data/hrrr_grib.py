@@ -18,6 +18,7 @@ class InputGribHRRR(GriddedInput):
     """
 
     DATA_TYPE = 'hrrr_grib'
+    GDAL_VARIABLE_KEY = "hrrr_gdal_variables"
 
     VARIABLES = [
         'air_temp',
@@ -43,11 +44,10 @@ class InputGribHRRR(GriddedInput):
             "hrrr_cloud" not in kwargs["config"]["output"]["variables"]
         )
 
-        self._load_gdal = kwargs["config"]["gridded"].get("hrrr_gdal_variables") or []
+        self._load_gdal = self.config.get(self.GDAL_VARIABLE_KEY) or []
         # Matches the default value from CoreConfig.ini
         self._gdal_algorithm = (
-            kwargs["config"]["gridded"].get("hrrr_gdal_algorithm")
-            or GribFileGdal.DEFAULT_ALGORITHM
+            self.config.get("hrrr_gdal_algorithm") or GribFileGdal.DEFAULT_ALGORITHM
         )
 
     @property
