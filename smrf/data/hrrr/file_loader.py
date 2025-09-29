@@ -283,5 +283,5 @@ class FileLoader:
         file_loader = GribFileGdal(topo, self._gdal_algorithm)
 
         return file_loader.load(
-            self._load_gdal, self._get_file_path(date, self.SIXTH_HOUR).as_posixpath()
+            self._load_gdal, self._get_file_path(date, self.SIXTH_HOUR)
         )

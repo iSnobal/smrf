@@ -4,6 +4,7 @@ from unittest import mock
 
 import pandas as pd
 from smrf.data.hrrr.file_loader import FileLoader
+from smrf.data.hrrr.grib_file_gdal import GribFileGdal
 from smrf.data.hrrr.grib_file_xarray import GribFileXarray
 
 FILE_DIR = '/path/to/files'
@@ -78,6 +79,17 @@ class TestFileLoader(unittest.TestCase):
         gdal_mock.assert_called_once()
         self.assertEqual(metadata.name, 'metadata' )
         self.assertEqual(['var', 'var2'], list(data.keys()))
+
+    @mock.patch("smrf.data.hrrr.file_loader.GribFileGdal")
+    def test_gdal(self, mocK_grib_gdal):
+        mock_instance = mocK_grib_gdal.return_value
+        self.subject.gdal(START_DT, TOPO)
+
+        mocK_grib_gdal.assert_called_once_with(TOPO, GribFileGdal.DEFAULT_ALGORITHM)
+        mock_instance.load.assert_called_once_with(
+            self.subject._load_gdal,
+            "/path/to/files/hrrr.20180721/hrrr.t19z.wrfsfcf06.grib2"
+        )
 
 class TestFileLoaderXarray(unittest.TestCase,):
     METHOD_ARGS = [START_DT, BBOX, UTM_NUMBER]
