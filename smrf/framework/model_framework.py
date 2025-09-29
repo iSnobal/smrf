@@ -380,7 +380,7 @@ class SMRF():
         """
         Load the measurement point data for distributing to the DEM,
         must be called after the distributions are initialized. Currently, data
-        can be loaded from three different sources:
+        can be loaded from two different sources:
 
             * :func:`CSV files <smrf.data.loadData.wxdata>`
             * :func:`Gridded data source (WRF) <smrf.data.loadGrid.grid>`

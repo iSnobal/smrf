@@ -12,15 +12,13 @@ from .wrf import InputWRF
 
 class InputData:
     """
-    Class for loading and storing the data, either from
-    - CSV file
-    - HRRR grib files
-    - WRF
-    - Generic gridded NetCDF
+    Global entry point for loading and storing the data as attributes.
 
-
-    The data will be loaded into a Pandas dataframe
-
+    Supported data sources:
+    * CSV file
+    * HRRR grib files
+    * WRF
+    * Generic gridded NetCDF
     """
 
     VARIABLES = [
