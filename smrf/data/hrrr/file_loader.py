@@ -67,8 +67,7 @@ class FileLoader:
         utm_zone_number: int,
     ) -> Tuple[pd.DataFrame, Dict[str, pd.DataFrame]]:
         """
-        Load variables from HRRR either using Xarray (default) or GDAL. The latter
-        is used when variables were specified in the .ini file via `load_gdal`.
+        Load variables from HRRR either using Xarray (default) or GDAL.
 
         :param start_date: datetime - Day to load
         :param bbox: list - Bounding box of the domain to load (used with Xarray)

@@ -1,7 +1,8 @@
+import netCDF4 as nc
+import numpy.testing as npt
 from inicheck.tools import cast_all_variables
-
 from smrf.framework.model_framework import run_smrf
-from smrf.tests.smrf_test_case import SMRFTestCase
+from smrf.tests.smrf_test_case_lakes import SMRFTestCase, SMRFTestCaseLakes
 
 
 class TestLoadHRRR(SMRFTestCase):
@@ -68,3 +69,41 @@ class TestLoadHRRR(SMRFTestCase):
         run_smrf(self.config)
 
         self.compare_hrrr_gold()
+
+
+class TestHrrrThermal(SMRFTestCaseLakes):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+
+        config = cls.base_config_copy()
+        config.raw_cfg['output']['variables'] = ['hrrr_thermal']
+        config.apply_recipes()
+        config = cast_all_variables(config, config.mcfg)
+
+        cls.config = config
+
+    def test_load(self):
+        run_smrf(self.config)
+
+        nc_variable = 'thermal'
+
+        with nc.Dataset(self.gold_dir.joinpath('thermal_hrrr.nc')) as gold:
+            with nc.Dataset(self.output_dir.joinpath('thermal.nc')) as test:
+                npt.assert_equal(
+                    gold.variables['time'][:],
+                    test.variables['time'][:],
+                    err_msg="Time steps did not match for {}".format(nc_variable)
+                )
+
+                for att in gold.variables[nc_variable].ncattrs():
+                    self.assertEqual(
+                        getattr(gold.variables[nc_variable], att),
+                        getattr(test.variables[nc_variable], att)
+                    )
+
+                self.assert_gold_equal(
+                    gold.variables[nc_variable][:],
+                    test.variables[nc_variable][:],
+                    "Variable: {0} did not match gold standard".format(nc_variable)
+                )

@@ -1,10 +1,12 @@
-import numpy as np
+import logging
 
-from .image_data import ImageData
-from smrf.envphys.constants import STEF_BOLTZ
+import numpy as np
+from smrf.envphys.constants import EMISS_TERRAIN, STEF_BOLTZ
 from smrf.envphys.core import envphys_c
 from smrf.envphys.thermal import clear_sky, cloud, vegetation
 from smrf.utils import utils
+
+from .image_data import ImageData
 
 
 class Thermal(ImageData):
@@ -137,7 +139,7 @@ class Thermal(ImageData):
     and :math:`T_a` is the distributed air temperature.
 
     Args:
-        thermalConfig: The [thermal] section of the configuration file
+        thermal_config: The [thermal] section of the configuration file
 
     Attributes:
         config: configuration from [thermal] section
@@ -190,13 +192,13 @@ class Thermal(ImageData):
         'thermal_clear'
     ])
 
-    def __init__(self, thermalConfig):
+    def __init__(self, thermal_config):
         # extend the base class
         super().__init__(self.variable)
-        self.getConfig(thermalConfig)
+        self.getConfig(thermal_config)
 
-        self.min = thermalConfig['min']
-        self.max = thermalConfig['max']
+        self.min = thermal_config['min']
+        self.max = thermal_config['max']
 
         self.correct_cloud = self.config['correct_cloud']
         self.correct_veg = self.config['correct_veg']
@@ -369,3 +371,65 @@ class Thermal(ImageData):
             smrf_queue['thermal_clear'].put([date_time, self.thermal_clear])
 
             smrf_queue['thermal'].put([date_time, self.thermal])
+
+
+class ThermalHRRR:
+    """
+    Calculate thermal radiation based of the HRRR
+    Downwelling Longwave Radiation Flux (DLWRF) and corrected by the sky view factor.
+
+    .. math::
+        LW_{in} = V_f \\times DLWRF + (1 - V_f) \\times \\epsilon \\sigma T_a^4
+
+        \\sigma = Stefan Boltzmann constant
+    """
+    OUT_VARIABLE = 'thermal'
+    INI_VARIABLE = 'hrrr_thermal'
+    GRIB_NAME = 'DLWRF'
+
+    OUTPUT_VARIABLES = {
+        OUT_VARIABLE: {
+            'units': 'watt/m2',
+            'standard_name': 'thermal_radiation',
+            'long_name': 'Thermal (longwave) radiation',
+            'module': 'hrrr_thermal',
+        },
+    }
+
+    def __init__(self):
+        self.thermal = None
+        self._sky_view_factor = None
+        self._forcing_data = None
+        self._date_time = None
+
+        self._logger = logging.getLogger(self.__class__.__module__)
+
+    @property
+    def output_variables(self) -> dict:
+        """
+        Information for the output NetCDF file.
+
+        :return:
+            Dict - Attributes written to the NetCDF file.
+        """
+        return self.OUTPUT_VARIABLES
+
+    def initialize(self, topo, data, _date_time=None) -> None:
+        """
+        Initialize the distribution and set the loaded data from the input forcing
+        file as attribute.
+
+        :param topo: Topo instance
+        :param data: Data loaded from the forcing input file
+        :param _date_time: UNUSED - Present to conform with default method API
+        """
+        self._logger.debug(f"Initializing {self.__class__.__name__}")
+        self._sky_view_factor = topo.sky_view_factor
+        self._forcing_data = data.thermal
+
+    def distribute(self, date_time, air_temp):
+        self._logger.debug('%s Distributing HRRR thermal' % date_time)
+        self.thermal = (
+            self._sky_view_factor * self._forcing_data
+        ) + (1 - self._sky_view_factor) * EMISS_TERRAIN * STEF_BOLTZ * air_temp**4
+

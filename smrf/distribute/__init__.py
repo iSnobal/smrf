@@ -7,7 +7,7 @@ from .image_data import ImageData
 from .precipitation import ppt
 from .soil_temp import ts
 from .solar import Solar
-from .thermal import Thermal
+from .thermal import Thermal, ThermalHRRR
 from .vapor_pressure import vp
 from .wind import Wind
 
@@ -20,6 +20,7 @@ __all__ = [
     "ts",
     "Solar",
     "Thermal",
+    "ThermalHRRR",
     "vp",
     "Wind",
 ]

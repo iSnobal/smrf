@@ -28,26 +28,24 @@ import os
 import sys
 from datetime import datetime
 from os.path import abspath, join
-from pathlib import Path
 from threading import Thread
 
-import numpy as np
 import netCDF4
+import numpy as np
 import pandas as pd
 import pytz
 from inicheck.config import UserConfig
 from inicheck.output import generate_config, print_config_report
 from inicheck.tools import check_config, get_user_config
-from smrf.envphys import sunang
-from smrf.utils import queue
-from topocalc.shade import shade
-
 from smrf import distribute
-from smrf.data import InputData, Topo, InputGribHRRR, GriddedInput
+from smrf.data import GriddedInput, InputData, InputGribHRRR, Topo
+from smrf.envphys import sunang
 from smrf.envphys.solar import model
 from smrf.framework import art, logger
 from smrf.output import output_netcdf
+from smrf.utils import queue
 from smrf.utils.utils import backup_input, date_range, getqotw
+from topocalc.shade import shade
 
 
 class SMRF():
@@ -372,6 +370,19 @@ class SMRF():
             self.distribute["thermal"] = distribute.Thermal(
                 self.config["thermal"]
             )
+        elif distribute.ThermalHRRR.INI_VARIABLE in output_variables:
+            # Air temperature
+            if 'air_temp' not in self.distribute:
+                self.distribute["air_temp"] = distribute.ta(
+                    self.config["air_temp"]
+                )
+
+            # Trigger loading of longwave from HRRR
+            self.config["gridded"].setdefault(
+                InputGribHRRR.GDAL_VARIABLE_KEY, []
+            ).append(distribute.ThermalHRRR.GRIB_NAME)
+
+            self.distribute[distribute.ThermalHRRR.INI_VARIABLE] = distribute.ThermalHRRR()
 
         # Soil temperature
         self.distribute["soil_temp"] = distribute.ts(self.config["soil_temp"])
@@ -623,6 +634,11 @@ class SMRF():
                 self.distribute['vapor_pressure'].dew_point,
                 cloud_factor
             )
+        elif distribute.ThermalHRRR.INI_VARIABLE in self.distribute:
+            self.distribute[distribute.ThermalHRRR.INI_VARIABLE].distribute(
+                t,
+                self.distribute['air_temp'].air_temp,
+            )
 
         # Soil temperature
         self.distribute['soil_temp'].distribute()
@@ -772,13 +788,22 @@ class SMRF():
 
         # determine which variables belong where
         variable_dict = {}
+
         for output_variable in output_variables:
-            if output_variable in ['hrrr_cloud']:
-                continue
+            module = None
+            # Mapping the HRRR special cases back to standard naming or skip
+            if output_variable.startswith('hrrr'):
+                if output_variable in ['hrrr_cloud']:
+                    continue
+                elif output_variable in distribute.ThermalHRRR.INI_VARIABLE:
+                    output_variable = distribute.ThermalHRRR.OUT_VARIABLE
+                    module = distribute.ThermalHRRR.INI_VARIABLE
 
             if output_variable in self.possible_output_variables.keys():
                 fname = join(out_location, output_variable)
-                module = self.possible_output_variables[output_variable]['module']
+                module = (
+                    module or self.possible_output_variables[output_variable]["module"]
+                )
 
                 # TODO this is a hack to not have to redo the gold files
                 if module == 'precipitation':
@@ -790,7 +815,7 @@ class SMRF():
                     'variable': output_variable,
                     'module': nc_module,
                     'out_location': fname,
-                    'info': self.distribute[module].output_variables[output_variable]  # noqa
+                    'info': self.distribute[module].output_variables[output_variable]
                 }
 
             else:
@@ -833,7 +858,7 @@ class SMRF():
         else:
             raise Exception("Could not determine type of file for output")
 
-    def output(self, current_time_step,  module=None, out_var=None):
+    def output(self, current_time_step, module=None, out_var=None):
         """
         Output the forcing data or model outputs for the current_time_step.
 
@@ -849,20 +874,20 @@ class SMRF():
 
         # Only output according to the user specified value,
         # or if it is the end.
-        if (output_count % self.config['output']['frequency'] == 0) or \
-           (output_count == len(self.date_time)):
-
+        if (output_count % self.config["output"]["frequency"] == 0) or (
+            output_count == len(self.date_time)
+        ):
             # User is attempting to output single variable
             if module is not None and out_var is not None:
-                # add only one variable to the output list and preceed
+                # add only one variable to the output list and proceed
                 var_vals = [self.out_func.variable_dict[out_var]]
-
             # Incomplete request
             elif module is not None or out_var is not None:
-                raise ValueError("Function requires an output module and"
-                                 " variable name when outputting a specific"
-                                 " variables")
-
+                raise ValueError(
+                    "Function requires an output module and"
+                    " variable name when outputting a specific"
+                    " variables"
+                )
             else:
                 # Output all the variables
                 var_vals = self.out_func.variable_dict.values()
@@ -870,15 +895,14 @@ class SMRF():
             # Get the output variables then pass to the function
             for v in var_vals:
                 # get the data desired
-                data = getattr(
-                    self.distribute[v['info']['module']], v['variable'])
+                data = getattr(self.distribute[v["info"]["module"]], v["variable"])
 
                 if data is None:
                     data = np.zeros((self.topo.ny, self.topo.nx))
 
                 # output the time step
-                self._logger.debug("Outputting {0}".format(v['module']))
-                self.out_func.output(v['variable'], data, current_time_step)
+                self._logger.debug("Outputting {0}".format(v["module"]))
+                self.out_func.output(v["variable"], data, current_time_step)
 
     def title(self, option):
         """
@@ -914,7 +938,7 @@ def run_smrf(config, external_logger=None):
         # initialize the outputs if desired
         s.initializeOutput()
 
-        # load weather data  and station metadata
+        # load weather data and station metadata
         s.loadData()
 
         # distribute

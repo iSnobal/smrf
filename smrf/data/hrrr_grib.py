@@ -129,10 +129,10 @@ class InputGribHRRR(GriddedInput):
         for key in data.keys():
             # Skip conversion when loaded via GDAL as there is no use of dataframes
             if key in self._load_gdal:
-                continue
-
-            data[key] = data[key].apply(pd.to_numeric)
-            data[key] = data[key].tz_localize(tz=self.time_zone)
+                setattr(self, key, data[key])
+            else:
+                data[key] = data[key].apply(pd.to_numeric)
+                data[key] = data[key].tz_localize(tz=self.time_zone)
 
         self.metadata = metadata
 
