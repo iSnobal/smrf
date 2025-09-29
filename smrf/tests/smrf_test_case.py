@@ -55,6 +55,10 @@ class SMRFTestCase(unittest.TestCase):
     def configure(cls):
         cls.run_config = cls.base_config_copy()
 
+    @classmethod
+    def topo_nc(cls):
+        return cls.basin_dir.joinpath("topo", "topo.nc")
+
     @property
     def smrf_instance(self):
         return smrf.framework.SMRF(self.config_file)

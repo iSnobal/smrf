@@ -35,6 +35,10 @@ class Topo:
         # calculate the gradient
         self.gradient()
 
+    @property
+    def file(self):
+        return self.topoConfig['filename']
+
     def readNetCDF(self):
         """
         Read in the images from the config file where the file
@@ -42,7 +46,7 @@ class Topo:
         """
 
         # read in the images
-        f = Dataset(self.topoConfig['filename'], 'r')
+        f = Dataset(self.file, 'r')
 
         # netCDF>1.4.0 returns as masked arrays even if no missing values
         # are present. This will ensure that if the array has no missing
