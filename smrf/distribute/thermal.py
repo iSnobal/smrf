@@ -414,22 +414,20 @@ class ThermalHRRR:
         """
         return self.OUTPUT_VARIABLES
 
-    def initialize(self, topo, data, _date_time=None) -> None:
+    def initialize(self, topo, _data, _date_time=None) -> None:
         """
-        Initialize the distribution and set the loaded data from the input forcing
-        file as attribute.
+        Initialize the distribution.
 
         :param topo: Topo instance
-        :param data: Data loaded from the forcing input file
+        :param _data: UNUSED - Metadata from forcing inputs
         :param _date_time: UNUSED - Present to conform with default method API
         """
         self._logger.debug(f"Initializing {self.__class__.__name__}")
         self._sky_view_factor = topo.sky_view_factor
-        self._forcing_data = data.thermal
 
-    def distribute(self, date_time, air_temp):
+    def distribute(self, date_time, forcing_data, air_temp):
         self._logger.debug('%s Distributing HRRR thermal' % date_time)
         self.thermal = (
-            self._sky_view_factor * self._forcing_data
+            self._sky_view_factor * forcing_data
         ) + (1 - self._sky_view_factor) * EMISS_TERRAIN * STEF_BOLTZ * air_temp**4
 

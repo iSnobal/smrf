@@ -22,14 +22,13 @@ class TestThermal(unittest.TestCase):
         self.subject.initialize(TOPO_MOCK, DATA_MOCK)
 
         self.assertEqual(SKY_VIEW_FACTOR_MOCK, self.subject._sky_view_factor)
-        self.assertEqual(RAW_DATA_MOCK, self.subject._forcing_data)
 
     def test_distribute(self):
         result = (SKY_VIEW_FACTOR_MOCK * RAW_DATA_MOCK) + (
             1 - SKY_VIEW_FACTOR_MOCK
         ) * EMISS_TERRAIN * STEF_BOLTZ * AIR_TEMP_MOCK**4
 
-        self.subject.initialize(TOPO_MOCK, DATA_MOCK)
-        self.subject.distribute("2025-09-20=9", AIR_TEMP_MOCK)
+        self.subject.initialize(TOPO_MOCK, None)
+        self.subject.distribute("2025-09-20=9", RAW_DATA_MOCK, AIR_TEMP_MOCK)
 
         self.assertEqual(result, self.subject.thermal)

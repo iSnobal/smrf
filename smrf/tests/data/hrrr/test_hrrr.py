@@ -102,8 +102,8 @@ class TestHrrrThermal(SMRFTestCaseLakes):
                         getattr(test.variables[nc_variable], att)
                     )
 
-                self.assert_gold_equal(
-                    gold.variables[nc_variable][:],
+                npt.assert_array_equal(
                     test.variables[nc_variable][:],
+                    gold.variables[nc_variable][:],
                     "Variable: {0} did not match gold standard".format(nc_variable)
                 )

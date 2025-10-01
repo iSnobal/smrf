@@ -637,6 +637,7 @@ class SMRF():
         elif distribute.ThermalHRRR.INI_VARIABLE in self.distribute:
             self.distribute[distribute.ThermalHRRR.INI_VARIABLE].distribute(
                 t,
+                self.data.thermal,
                 self.distribute['air_temp'].air_temp,
             )
 
