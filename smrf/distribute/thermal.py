@@ -1,7 +1,7 @@
 import logging
 
 import numpy as np
-from smrf.envphys.constants import EMISS_TERRAIN, STEF_BOLTZ
+from smrf.envphys.constants import EMISS_TERRAIN, STEF_BOLTZ, FREEZE
 from smrf.envphys.core import envphys_c
 from smrf.envphys.thermal import clear_sky, cloud, vegetation
 from smrf.utils import utils
@@ -382,6 +382,8 @@ class ThermalHRRR:
         LW_{in} = V_f \\times DLWRF + (1 - V_f) \\times \\epsilon \\sigma T_a^4
 
         \\sigma = Stefan Boltzmann constant
+        \\epsilon = Emissivity of the terrain
+        \\T_a = Air temperature in Kelvin
     """
     OUT_VARIABLE = 'thermal'
     INI_VARIABLE = 'hrrr_thermal'
@@ -427,7 +429,7 @@ class ThermalHRRR:
 
     def distribute(self, date_time, forcing_data, air_temp):
         self._logger.debug('%s Distributing HRRR thermal' % date_time)
-        self.thermal = (
-            self._sky_view_factor * forcing_data
-        ) + (1 - self._sky_view_factor) * EMISS_TERRAIN * STEF_BOLTZ * air_temp**4
+        self.thermal = (self._sky_view_factor * forcing_data) + (
+            1 - self._sky_view_factor
+        ) * EMISS_TERRAIN * STEF_BOLTZ * (air_temp + FREEZE) ** 4
 

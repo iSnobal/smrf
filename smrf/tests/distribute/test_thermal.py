@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 import numpy as np
 from smrf.data import Topo
 from smrf.distribute import ThermalHRRR
-from smrf.envphys.constants import EMISS_TERRAIN, STEF_BOLTZ
+from smrf.envphys.constants import EMISS_TERRAIN, STEF_BOLTZ, FREEZE
 
 SKY_VIEW_FACTOR_MOCK = np.ones((1, 1))
 RAW_DATA_MOCK = np.ones((1, 1))
@@ -26,7 +26,7 @@ class TestThermal(unittest.TestCase):
     def test_distribute(self):
         result = (SKY_VIEW_FACTOR_MOCK * RAW_DATA_MOCK) + (
             1 - SKY_VIEW_FACTOR_MOCK
-        ) * EMISS_TERRAIN * STEF_BOLTZ * AIR_TEMP_MOCK**4
+        ) * EMISS_TERRAIN * STEF_BOLTZ * (AIR_TEMP_MOCK + FREEZE)**4
 
         self.subject.initialize(TOPO_MOCK, None)
         self.subject.distribute("2025-09-20=9", RAW_DATA_MOCK, AIR_TEMP_MOCK)
