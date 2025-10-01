@@ -1,7 +1,7 @@
-# Fork of the Spatial Modeling for Resources Framework (SMRF)
+# Spatial Modeling for Resources Framework (SMRF)
 
-This is a fork of the [USDA-ARS-NWRC SMRF](https://github.com/USDA-ARS-NWRC/smrf)
-to continue the development of the framework.
+This is a fork of the [USDA-ARS-NWRC SMRF](https://github.com/USDA-ARS-NWRC/smrf) to continue the development of the
+framework for the [iSnobal-CM](https://github.com/UofU-Cryosphere/iSnobal-CM) project.
 
 ## History
 This package was used in conjunction with the Automated Water Supply model in
