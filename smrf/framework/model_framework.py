@@ -28,7 +28,6 @@ import os
 import sys
 from datetime import datetime
 from os.path import abspath, join
-from threading import Thread
 
 import netCDF4
 import numpy as np
@@ -40,10 +39,8 @@ from inicheck.tools import check_config, get_user_config
 from smrf import distribute
 from smrf.data import GriddedInput, InputData, InputGribHRRR, Topo
 from smrf.envphys import sunang
-from smrf.envphys.solar import model
 from smrf.framework import art, logger
 from smrf.output import output_netcdf
-from smrf.utils import queue
 from smrf.utils.utils import backup_input, date_range, getqotw
 from topocalc.shade import shade
 
@@ -81,10 +78,6 @@ class SMRF():
         "vapor_pressure",
         "wind",
     ]
-
-    BASE_THREAD_VARIABLES = frozenset([
-        'cosz', 'azimuth', 'illum_ang', 'output'
-    ])
 
     def __init__(self, config, external_logger=None):
         """
@@ -430,20 +423,6 @@ class SMRF():
             self._logger.info('Backing up input data...')
             backup_input(self.data, self.ucfg)
 
-    def distribute_data(self):
-        """
-        Wrapper for various distribute methods. If threading was set in
-        configFile, then
-        :func:`~smrf.framework.model_framework.SMRF.distribute_data_threaded`
-        will be called. Default will call
-        :func:`~smrf.framework.model_framework.SMRF.distribute_data_serial`.
-        """
-
-        if self.threading:
-            self.distribute_data_threaded()
-        else:
-            self.distribute_data_serial()
-
     def initialize_distribution(self, date_time=None):
         """Call the initialize method for each distribute module
 
@@ -455,7 +434,7 @@ class SMRF():
         for v in self.distribute:
             self.distribute[v].initialize(self.topo, self.data, date_time)
 
-    def distribute_data_serial(self):
+    def distribute_data(self):
         """
         Distribute the measurement point data for all variables in serial. Each
         variable is initialized first using the :func:`smrf.data.loadTopo.Topo`
@@ -643,147 +622,6 @@ class SMRF():
 
         # Soil temperature
         self.distribute['soil_temp'].distribute()
-
-    def distribute_data_threaded(self):
-        """
-        Distribute the measurement point data for all variables using threading
-        and queues. Each variable is initialized first using the
-        :func:`smrf.data.loadTopo.Topo` instance and the metadata loaded from
-        :func:`~smrf.framework.model_framework.SMRF.loadData`. A
-        :func:`DateQueue <smrf.utils.queue.DateQueue_Threading>` is initialized
-        for :attr:`all threading
-        variables <smrf.framework.model_framework.SMRF.thread_variables>`. Each
-        variable in :func:`smrf.distribute` is passed all the required point
-        data at once using the distribute_thread function.  The
-        distribute_thread function iterates over
-        :attr:`~smrf.framework.model_framework.SMRF.date_time` and places the
-        distributed values into the
-        :func:`DateQueue <smrf.utils.queue.DateQueue_Threading>`.
-        """
-
-        # Load the data into the data queue
-        self.create_data_queue()
-
-        # Create threads for distribution
-        self.create_distributed_threads()
-
-        # output thread
-        self.threads.append(
-            queue.QueueOutput(
-                self.smrf_queue,
-                self.date_time,
-                self.out_func,
-                self.config['output']['frequency'],
-                self.topo.nx,
-                self.topo.ny))
-
-        # the cleaner
-        self.threads.append(queue.QueueCleaner(
-            self.date_time, self.smrf_queue))
-
-        # start all the threads
-        for i in range(len(self.threads)):
-            self.threads[i].start()
-
-        # Wait for the end
-        for i in range(len(self.threads)):
-            self.threads[i].join()
-
-        self._logger.debug('DONE!!!!')
-
-    def create_data_queue(self):
-
-        self._logger.info('Creating the data queue and loading current data')
-
-        self.data_queue = {}
-        for variable in self.data.VARIABLES[:-1]:
-            dq = queue.DateQueueThreading(
-                timeout=self.time_out,
-                name="data_{}".format(variable))
-
-            # load the data into the queue, all methods should have
-            # loaded something, even the HRRR will have a single hour
-            # of data loaded.
-            data = getattr(self.data, variable, pd.DataFrame())
-            for date_time, row in data.iterrows():
-                dq.put([date_time, row])
-
-            self.data_queue[variable] = dq
-
-        # create a thread to load the data
-        if self.load_hrrr:
-            data_thread = Thread(
-                target=self.data.load_class.load_timestep_thread,
-                name='data',
-                args=(self.date_time, self.data_queue))
-            data_thread.start()
-
-    def set_queue_variables(self):
-
-        # These are the variables that will be queued
-        self.thread_queue_variables = list(self.BASE_THREAD_VARIABLES)
-
-        for v in self.distribute:
-            self.thread_queue_variables += self.distribute[v].thread_variables
-
-    def create_distributed_threads(self, other_queue=None):
-        """
-        Creates the threads for a distributed run in smrf.
-        Designed for smrf runs in memory
-
-        Returns
-            t: list of threads for distribution
-            q: queue
-        """
-
-        # -------------------------------------
-        # Initialize the distributions and get thread variables
-        self._logger.info("Initializing distributed variables...")
-
-        self.initialize_distribution(self.date_time)
-        self.set_queue_variables()
-
-        # -------------------------------------
-        # Create Queues for all the variables
-        self.smrf_queue = {}
-        self._logger.info("Staging {} threaded variables...".format(
-            len(self.thread_queue_variables)))
-        for v in self.thread_queue_variables:
-            self.smrf_queue[v] = queue.DateQueueThreading(
-                self.queue_max_values,
-                self.time_out,
-                name=v)
-
-        # -------------------------------------
-        # Distribute the data
-        self.threads = []
-
-        if 'solar' in self.distribute:
-            # 0.1 sun angle for time step
-            self.threads.append(Thread(
-                target=sunang.sunang_thread,
-                name='sun_angle',
-                args=(self.smrf_queue, self.date_time,
-                      self.topo.basin_lat,
-                      self.topo.basin_long)))
-
-            # 0.2 illumination angle
-            self.threads.append(Thread(
-                target=model.shade_thread,
-                name='illum_angle',
-                args=(self.smrf_queue, self.date_time,
-                      self.topo.sin_slope, self.topo.aspect)))
-
-        for name in self.distribute.keys():
-            if name == 'soil_temp':
-                continue
-
-            self.threads.append(
-                Thread(
-                    target=self.distribute[name].distribute_thread,
-                    name=name,
-                    args=(self.smrf_queue, self.data_queue))
-            )
 
     def create_output_variable_dict(self, output_variables, out_location):
 
