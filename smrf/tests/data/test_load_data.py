@@ -24,7 +24,7 @@ class TestLoadData(SMRFTestCase):
     def setUp(self):
         super(self.__class__, self).setUp()
         self.smrf = self.smrf_instance
-        self.smrf.loadTopo()
+        self.smrf.load_topo()
 
     @mock.patch.object(smrf_data.InputCSV, 'check_colocation')
     @mock.patch.object(smrf_data.InputCSV, 'load')
@@ -57,7 +57,7 @@ class TestInputDataGridded(SMRFTestCaseLakes):
     def setUp(self):
         super(self.__class__, self).setUp()
         self.smrf = self.smrf_instance
-        self.smrf.loadTopo()
+        self.smrf.load_topo()
 
     def assert_parameters(self, instance):
         for parameter in ['start_date', 'end_date', 'topo']:

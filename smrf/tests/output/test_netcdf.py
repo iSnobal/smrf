@@ -32,7 +32,7 @@ class TestOutputNetCDF(SMRFTestCase):
 
     def test_netcdf_smrf_version(self):
 
-        self.smrf.loadTopo()
+        self.smrf.load_topo()
 
         OutputNetcdf(
             self.variable_dict,
@@ -50,7 +50,7 @@ class TestOutputNetCDF(SMRFTestCase):
     def test_netcdf_precision(self):
         self.smrf.config['output']['netcdf_output_precision'] = 'double'
 
-        self.smrf.loadTopo()
+        self.smrf.load_topo()
 
         OutputNetcdf(
             self.variable_dict,

@@ -152,27 +152,3 @@ class Albedo(ImageData):
         else:
             self.albedo_vis = np.zeros(storm_day.shape)
             self.albedo_ir = np.zeros(storm_day.shape)
-
-    def distribute_thread(self, smrf_queue, data_queue=None):
-        """
-        Distribute the data using threading and queue
-
-        Args:
-            queue: queue dict for all variables
-            date: dates to loop over
-
-        Output:
-            Changes the queue albedo_vis, albedo_ir
-                for the given date
-        """
-        self._logger.info("Distributing {}".format(self.variable))
-
-        for date_time in self.date_time:
-
-            illum_ang = smrf_queue['illum_ang'].get(date_time)
-            storm_day = smrf_queue['storm_days'].get(date_time)
-
-            self.distribute(date_time, illum_ang, storm_day)
-
-            smrf_queue['albedo_vis'].put([date_time, self.albedo_vis])
-            smrf_queue['albedo_ir'].put([date_time, self.albedo_ir])

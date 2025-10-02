@@ -185,36 +185,3 @@ class Wind(ImageData):
         self.wind_speed = utils.set_min_max(self.wind_speed,
                                             self.wind_model.min,
                                             self.wind_model.max)
-
-    def distribute_thread(self, smrf_queue, data_queue):
-        """
-        Distribute the data using threading. All data is provided and
-        ``distribute_thread`` will go through each time step and call
-        :mod:`smrf.distribute.wind.wind.distribute` then puts the distributed
-        data into the smrf_queue for :py:attr:`wind_speed`.
-
-        Args:
-            smrf_queue: smrf_queue dictionary for all variables
-            data: pandas dataframe for all data, indexed by date time
-        """
-        self._logger.info("Distributing {}".format(self.variable))
-
-        for date_time in self.date_time:
-
-            ws_data = data_queue['wind_speed'].get(date_time)
-            wd_data = data_queue['wind_direction'].get(date_time)
-
-            self.distribute(ws_data, wd_data, date_time)
-
-            smrf_queue['wind_speed'].put(
-                [date_time, self.wind_model.wind_speed])
-            smrf_queue['wind_direction'].put(
-                [date_time, self.wind_model.wind_direction])
-
-            if self.model_type(WinstralWindModel.MODEL_TYPE):
-                smrf_queue['flatwind'].put(
-                    [date_time, self.wind_model.flatwind])
-                smrf_queue['cellmaxus'].put(
-                    [date_time, self.wind_model.cellmaxus])
-                smrf_queue['dir_round_cell'].put(
-                    [date_time, self.wind_model.dir_round_cell])
