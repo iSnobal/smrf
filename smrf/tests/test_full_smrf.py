@@ -3,7 +3,7 @@ from smrf.tests.check_mixin import CheckSMRFOutputs
 from smrf.tests.smrf_test_case import SMRFTestCase
 
 
-class TestThreadedRME(CheckSMRFOutputs, SMRFTestCase):
+class TestRME(CheckSMRFOutputs, SMRFTestCase):
     """
     Integration test for SMRF.
     Runs the short simulation over reynolds mountain east.

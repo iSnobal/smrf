@@ -24,10 +24,6 @@ class TestLoadNetcdf(SMRFTestCase):
             'cloud_factor': 'cloud_factor'
         }
         config.raw_cfg['gridded'] = generic_grid
-        config.raw_cfg['system']['time_out'] = '25'
-        config.raw_cfg['system']['queue_max_values'] = '2'
-        # Doesn't work with true
-        config.raw_cfg['system']['threading'] = 'False'
 
         # set the distribution to grid, thermal defaults will be fine
         for v in self.dist_variables:

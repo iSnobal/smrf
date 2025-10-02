@@ -20,7 +20,6 @@ class TestLoadGrid(SMRFTestCase):
                 'wrf_file': './gridded/WRF_test.nc',
             },
             'system': {
-                'threading': 'False',
                 'log_file': './output/log.txt'
             },
             'precip': {

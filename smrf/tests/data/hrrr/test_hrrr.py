@@ -24,7 +24,6 @@ class TestLoadHRRR(SMRFTestCase):
                 'time_zone': 'utc'
             },
             'system': {
-                'threading': False,
                 'log_file': './output/test.log'
             },
             'air_temp': {
