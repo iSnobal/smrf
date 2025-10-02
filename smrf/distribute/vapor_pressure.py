@@ -157,30 +157,3 @@ class vp(ImageData):
             self.precip_temp = wet_bulb
         else:
             self.precip_temp = dpt
-
-    def distribute_thread(self, smrf_queue, data_queue):
-        """
-        Distribute the data using threading. All data is provided and
-        ``distribute_thread`` will go through each time step and call
-        :mod:`smrf.distribute.vapor_pressure.vp.distribute` then puts the
-        distributed data into the smrf_queue for:
-
-        * :py:attr:`vapor_pressure`
-        * :py:attr:`dew_point`
-
-        Args:
-            smrf_queue: smrf_queue dictionary for all variables
-            data: pandas dataframe for all data, indexed by date time
-        """
-        self._logger.info("Distributing {}".format(self.variable))
-
-        for date_time in self.date_time:
-
-            vp_data = data_queue['vapor_pressure'].get(date_time)
-            ta = smrf_queue['air_temp'].get(date_time)
-
-            self.distribute(vp_data, ta)
-
-            smrf_queue[self.variable].put([date_time, self.vapor_pressure])
-            smrf_queue['precip_temp'].put([date_time, self.precip_temp])
-            smrf_queue['dew_point'].put([date_time, self.dew_point])

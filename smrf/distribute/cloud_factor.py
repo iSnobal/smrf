@@ -79,23 +79,3 @@ class cf(ImageData):
         self.cloud_factor = utils.set_min_max(
             self.cloud_factor, self.min, self.max
         )
-
-    def distribute_thread(self, smrf_queue, data_queue):
-        """
-        Distribute the data using threading and queue. All data is provided
-        and ``distribute_thread`` will go through each time step and call
-        :mod:`smrf.distribute.cloud_factor.cf.distribute` then puts the
-        distributed data into ``queue['cloud_factor']``.
-
-        Args:
-            queue: queue dictionary for all variables
-            data: pandas dataframe for all data, indexed by date time
-
-        """
-        self._logger.info("Distributing {}".format(self.variable))
-
-        for date_time in self.date_time:
-
-            data = data_queue[self.variable].get(date_time)
-            self.distribute(data)
-            smrf_queue[self.variable].put([date_time, self.cloud_factor])

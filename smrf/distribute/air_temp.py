@@ -77,23 +77,3 @@ class ta(ImageData):
 
         self._distribute(data)
         self.air_temp = utils.set_min_max(self.air_temp, self.min, self.max)
-
-    def distribute_thread(self, smrf_queue, data_queue):
-        """
-        Distribute the data using threading and queue. All data is provided
-        and ``distribute_thread`` will go through each time step and call
-        :mod:`smrf.distribute.air_temp.ta.distribute` then puts the distributed
-        data into ``queue['air_temp']``.
-
-        Args:
-            queue: queue dictionary for all variables
-            data: pandas dataframe for all data, indexed by date time
-
-        """
-        self._logger.info("Distributing {}".format(self.variable))
-
-        for date_time in self.date_time:
-
-            data = data_queue[self.variable].get(date_time)
-            self.distribute(data)
-            smrf_queue[self.variable].put([date_time, self.air_temp])

@@ -338,40 +338,6 @@ class Thermal(ImageData):
 
         self.thermal = utils.set_min_max(cth, self.min, self.max)
 
-    def distribute_thread(self, smrf_queue, data_queue=None):
-        """
-        Distribute the data using threading. All data is provided and
-        ``distribute_thread`` will go through each time step and call
-        :mod:`smrf.distribute.thermal.Thermal.distribute` then puts the distributed
-        data into the smrf_queue for :py:attr:`thermal`.
-
-        Args:
-            smrf_queue: smrf_queue dictionary for all variables
-            data: pandas dataframe for all data, indexed by date time
-
-        """
-
-        for date_time in self.date_time:
-
-            air_temp = smrf_queue['air_temp'].get(date_time)
-            dew_point = smrf_queue['dew_point'].get(date_time)
-            vapor_pressure = smrf_queue['vapor_pressure'].get(date_time)
-            cloud_factor = smrf_queue['cloud_factor'].get(date_time)
-
-            self.distribute(date_time, air_temp, vapor_pressure,
-                            dew_point, cloud_factor)
-
-            if self.correct_veg:
-                smrf_queue['thermal_veg'].put(
-                    [date_time, self.thermal_veg])
-            if self.correct_cloud:
-                smrf_queue['thermal_cloud'].put(
-                    [date_time, self.thermal_cloud])
-
-            smrf_queue['thermal_clear'].put([date_time, self.thermal_clear])
-
-            smrf_queue['thermal'].put([date_time, self.thermal])
-
 
 class ThermalHRRR:
     """

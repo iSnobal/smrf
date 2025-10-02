@@ -358,53 +358,6 @@ class Solar(ImageData):
             # net
             self.net_solar = None
 
-    def distribute_thread(self, smrf_queue, data_queue=None):
-        """
-        Distribute the data using threading. All data is provided and
-        ``distribute_thread`` will go through each time step following the
-        methods outlined in :mod:`smrf.distribute.solar.solar.distribute`. The
-        data smrf_queues puts the distributed data into:
-
-        * :py:attr:`net_solar`
-
-        Args:
-            smrf_queue: smrf_queue dictionary for all variables
-            data: pandas dataframe for all data, indexed by date time
-        """
-        self._logger.info("Distributing {}".format(self.variable))
-        for date_time in self.date_time:
-
-            cosz = smrf_queue['cosz'].get(date_time)
-            azimuth = smrf_queue['azimuth'].get(date_time)
-            illum_ang = smrf_queue['illum_ang'].get(date_time)
-            albedo_ir = smrf_queue['albedo_ir'].get(date_time)
-            albedo_vis = smrf_queue['albedo_vis'].get(date_time)
-            self.cloud_factor = smrf_queue['cloud_factor'].get(date_time)
-
-            self.distribute(
-                date_time,
-                self.cloud_factor,
-                illum_ang,
-                cosz,
-                azimuth,
-                albedo_vis,
-                albedo_ir)
-
-            for cstv in self.CLEAR_SKY_THREAD_VARIABLES:
-                smrf_queue[cstv].put([date_time, getattr(self, cstv)])
-
-            # Add the cloud corrected variables to the smrf_queue
-            if self.config['correct_cloud']:
-                for vtv in self.VEG_THREAD_VARIABLES:
-                    smrf_queue[vtv].put([date_time, getattr(self, vtv)])
-
-            # Add the veg correct variables to the smrf_queue
-            if self.config['correct_veg']:
-                for ctv in self.CLOUD_THREAD_VARIABLES:
-                    smrf_queue[ctv].put([date_time, getattr(self, ctv)])
-
-            smrf_queue['net_solar'].put([date_time, self.net_solar])
-
     def cloud_correct(self):
         """
         Correct the modeled clear sky radiation for cloud cover using
