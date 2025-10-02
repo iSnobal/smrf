@@ -1,19 +1,28 @@
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pandas as pd
-
+from smrf.data.hrrr.grib_file_gdal import GribFileGdal
 from smrf.data.hrrr_grib import InputGribHRRR
 from smrf.data.load_topo import Topo
 from smrf.distribute.wind.wind_ninja import WindNinjaModel
 
 
 class TestInputGribHRRR(unittest.TestCase):
-    TOPO_MOCK = MagicMock(spec=Topo, instance=True)
+    TOPO_MOCK = MagicMock(spec=Topo, instance=True, zone_number=12)
     BBOX = [1, 2, 3, 4]
     START_DATE = pd.to_datetime('2021-01-01 00:00 UTC')
     END_DATE = pd.to_datetime('2021-01-02')
-    SMRF_CONFIG = {"gridded": {}, "output": {"variables": []}}
+    SMRF_CONFIG = {
+        "gridded": {
+            "hrrr_directory": "/data/hrrr",
+            "hrrr_forecast_hour": 1,
+            "hrrr_sixth_hour_variables": ["var1"],
+        },
+        "output": {
+            "variables": []
+        }
+    }
 
     def setUp(self):
         self.hrrr_input = InputGribHRRR(
@@ -24,12 +33,28 @@ class TestInputGribHRRR(unittest.TestCase):
             config=self.SMRF_CONFIG,
         )
 
-    def test_load_method_config(self):
-        self.assertEqual(
-            self.START_DATE,
-            self.hrrr_input.start_date
-        )
+    def test_init_default(self):
+        self.assertEqual(self.START_DATE, self.hrrr_input.start_date)
         self.assertEqual(None, self.hrrr_input.cloud_factor_memory)
+        self.assertEqual([], self.hrrr_input._load_gdal)
+        self.assertEqual(GribFileGdal.DEFAULT_ALGORITHM, self.hrrr_input._gdal_algorithm)
+
+    def test_init_load_gdal(self):
+        hrrr_input = InputGribHRRR(
+            self.START_DATE,
+            self.END_DATE,
+            topo=self.TOPO_MOCK,
+            bbox=self.BBOX,
+            config={
+                "gridded": {
+                    "hrrr_gdal_variables": ["VAR"],
+                    "hrrr_gdal_algorithm": "nearest"
+                },
+                "output": {"variables": []}
+            },
+        )
+        self.assertEqual(["VAR"], hrrr_input._load_gdal)
+        self.assertEqual("nearest", hrrr_input._gdal_algorithm)
 
     def test_load_wind(self):
         hrrr_input = InputGribHRRR(
@@ -60,3 +85,39 @@ class TestInputGribHRRR(unittest.TestCase):
             InputGribHRRR.VARIABLES,
             hrrr_input.variables
         )
+
+    @patch("smrf.data.hrrr_grib.FileLoader")
+    @patch.object(InputGribHRRR, "parse_data")
+    def test_load(self, mock_parse_data, mock_file_loader):
+        file_loader = MagicMock()
+        mock_file_loader.return_value = file_loader
+        mock_metadata = Mock(name="metadata")
+        mock_data = {"variable": Mock(name="dataframe")}
+        file_loader.data_for_time_and_topo.return_value = (mock_metadata, mock_data)
+
+        InputGribHRRR(
+            self.START_DATE,
+            self.END_DATE,
+            topo=self.TOPO_MOCK,
+            bbox=self.BBOX,
+            config=self.SMRF_CONFIG,
+        ).load()
+
+        mock_file_loader.assert_called_once_with(
+            external_logger=self.hrrr_input._logger,
+            file_dir=self.SMRF_CONFIG["gridded"]["hrrr_directory"],
+            forecast_hour=self.SMRF_CONFIG["gridded"]["hrrr_forecast_hour"],
+            load_gdal=self.hrrr_input._load_gdal,
+            gdal_algorithm=self.hrrr_input._gdal_algorithm,
+            load_wind=self.hrrr_input._load_wind,
+            sixth_hour_variables=self.SMRF_CONFIG["gridded"]["hrrr_sixth_hour_variables"],
+        )
+
+        file_loader.data_for_time_and_topo.assert_called_once_with(
+            start_date=self.START_DATE,
+            bbox=self.BBOX,
+            topo=self.TOPO_MOCK,
+            utm_zone_number=self.TOPO_MOCK.zone_number,
+        )
+
+        mock_parse_data.assert_called_once_with(mock_metadata, mock_data)

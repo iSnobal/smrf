@@ -1,12 +1,13 @@
 import numpy as np
 import pandas as pd
-
-from .gridded_input import GriddedInput
 from smrf.data.hrrr.file_loader import FileLoader
+from smrf.data.hrrr.grib_file_gdal import GribFileGdal
 from smrf.distribute.wind import Wind
 from smrf.distribute.wind.wind_ninja import WindNinjaModel
 from smrf.envphys.solar.cloud import get_hrrr_cloud
 from smrf.envphys.vapor_pressure import rh2vp
+
+from .gridded_input import GriddedInput
 
 
 class InputGribHRRR(GriddedInput):
@@ -17,6 +18,7 @@ class InputGribHRRR(GriddedInput):
     """
 
     DATA_TYPE = 'hrrr_grib'
+    GDAL_VARIABLE_KEY = "hrrr_gdal_variables"
 
     VARIABLES = [
         'air_temp',
@@ -40,6 +42,12 @@ class InputGribHRRR(GriddedInput):
 
         self._calculate_cloud_factor = (
             "hrrr_cloud" not in kwargs["config"]["output"]["variables"]
+        )
+
+        self._load_gdal = self.config.get(self.GDAL_VARIABLE_KEY) or []
+        # Matches the default value from CoreConfig.ini
+        self._gdal_algorithm = (
+            self.config.get("hrrr_gdal_algorithm") or GribFileGdal.DEFAULT_ALGORITHM
         )
 
     @property
@@ -68,11 +76,14 @@ class InputGribHRRR(GriddedInput):
             external_logger=self._logger,
             file_dir=self.config['hrrr_directory'],
             forecast_hour=self.config['hrrr_forecast_hour'],
+            load_gdal=self._load_gdal,
+            gdal_algorithm=self._gdal_algorithm,
             load_wind = self._load_wind,
             sixth_hour_variables=self.config['hrrr_sixth_hour_variables'],
         ).data_for_time_and_topo(
             start_date=self.start_date,
             bbox=self.bbox,
+            topo=self.topo,
             utm_zone_number=self.topo.zone_number,
         )
 
@@ -116,8 +127,12 @@ class InputGribHRRR(GriddedInput):
         """
         # Enforce configured timezone
         for key in data.keys():
-            data[key] = data[key].apply(pd.to_numeric)
-            data[key] = data[key].tz_localize(tz=self.time_zone)
+            # Skip conversion when loaded via GDAL as there is no use of dataframes
+            if key in self._load_gdal:
+                setattr(self, key, data[key])
+            else:
+                data[key] = data[key].apply(pd.to_numeric)
+                data[key] = data[key].tz_localize(tz=self.time_zone)
 
         self.metadata = metadata
 

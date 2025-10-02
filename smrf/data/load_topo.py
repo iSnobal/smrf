@@ -1,11 +1,24 @@
-
 import logging
+from dataclasses import dataclass
 
 import numpy as np
 from netCDF4 import Dataset
+from osgeo import gdal, osr
 from topocalc import gradient
 from topocalc.viewf import viewf
 from utm import to_latlon
+
+
+@dataclass
+class GdalAttributes:
+    # Helper class to store attributes from GDAL:
+    #  * Spatial Reference
+    #  * Domain Bounds
+    #  * Spatial Resolution (X and Y)
+    srs: str
+    outputBounds: list
+    xRes: float
+    yRes: float
 
 
 class Topo:
@@ -32,8 +45,15 @@ class Topo:
 
         self.readNetCDF()
 
+        # Set attributes used for GDAL warp and cut
+        self.gdal_attributes = self.read_gdal_attributes()
+
         # calculate the gradient
         self.gradient()
+
+    @property
+    def file(self):
+        return self.topoConfig['filename']
 
     def readNetCDF(self):
         """
@@ -42,7 +62,7 @@ class Topo:
         """
 
         # read in the images
-        f = Dataset(self.topoConfig['filename'], 'r')
+        f = Dataset(self.file, 'r')
 
         # netCDF>1.4.0 returns as masked arrays even if no missing values
         # are present. This will ensure that if the array has no missing
@@ -98,6 +118,26 @@ class Topo:
         else:
             f.close()
             self.calculate_sky_view_factor()
+
+    def read_gdal_attributes(self) -> GdalAttributes:
+        """
+        Get the spatial information from the topo for warping and cutting via GDAL.
+
+        :returns
+            GdalAttributes - attributes read via GDAL
+        """
+        spatial_info = osr.SpatialReference()
+
+        with gdal.Open(self.file, gdal.GA_ReadOnly) as topo:
+            with gdal.Open(topo.GetSubDatasets()[0][0], gdal.GA_ReadOnly) as dataset:
+                spatial_info.SetFromUserInput(dataset.GetProjection())
+
+                return GdalAttributes(
+                    srs = Topo.gdal_osr_authority(spatial_info),
+                    outputBounds = self.gdal_output_bounds(dataset),
+                    xRes = dataset.GetGeoTransform()[1],
+                    yRes = dataset.GetGeoTransform()[1],
+                )
 
     def readImages(self, f):
         """Read images from the netcdf and set as attributes in the Topo class
@@ -213,3 +253,32 @@ class Topo:
         slope[:, :] = np.degrees(self.slope_radians)
 
         topo.close()
+
+    @staticmethod
+    def gdal_osr_authority(spatial_info: osr.SpatialReference) -> str:
+        """
+        Construct and projection string with format "EPSG:XXXXX" from the given
+        spatial reference.
+
+        :param spatial_info: Spatial reference object of the topo file
+
+        :return: str - Spatial reference
+        """
+        return f"{spatial_info.GetAuthorityName(None)}:{spatial_info.GetAuthorityCode(None)}"
+
+    @staticmethod
+    def gdal_output_bounds(topo: gdal.Dataset) -> list[float]:
+        """
+        Get bounding box of the topo file in the order of [xmin, ymin, xmax, ymax]
+
+        :param topo: Opened topo file as GDAL dataset
+
+        :return: list of corner coordinates
+        """
+        geo_transform = topo.GetGeoTransform()
+        return [
+            geo_transform[0],
+            geo_transform[3] + geo_transform[5] * topo.RasterYSize,
+            geo_transform[0] + geo_transform[1] * topo.RasterXSize,
+            geo_transform[3]
+        ]

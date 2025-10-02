@@ -2,13 +2,16 @@ import os
 from datetime import datetime, timedelta
 from typing import Dict, Tuple
 
+import numpy as np
 import pandas as pd
 import utm
 import xarray as xr
+from smrf.data.load_topo import Topo
 
 from .file_handler import FileHandler
+from .grib_file_gdal import GribFileGdal
 from .grib_file_xarray import GribFileXarray
-from smrf.data.load_topo import Topo
+
 
 class FileLoader:
     """
@@ -23,6 +26,8 @@ class FileLoader:
         file_dir,
         forecast_hour,
         sixth_hour_variables=None,
+        load_gdal: list[str] = None,
+        gdal_algorithm: str = None,
         external_logger=None,
         load_wind=False,
     ):
@@ -31,6 +36,8 @@ class FileLoader:
         :param forecast_hour:   HRRR forecast hour to load forcing data from
         :param sixth_hour_variables:   HRRR forecast hour to load data from
                                 the sixth forecast hour
+        :param load_gdal:       Variable list to load via GDAL
+        :param gdal_algorithm:  Interpolation algorithm to use for GDAL
         :param external_logger: (Optional) Specify an existing logger instance
         :param load_wind:       Flag to load HRRR wind data (Default: False)
         """
@@ -41,6 +48,8 @@ class FileLoader:
         self._load_wind = load_wind
         self._forecast_hour = forecast_hour
         self._sixth_hour_variables = sixth_hour_variables
+        self._load_gdal = (load_gdal or [])
+        self._gdal_algorithm = (gdal_algorithm or GribFileGdal.DEFAULT_ALGORITHM)
 
     @property
     def file_dir(self):
@@ -54,9 +63,23 @@ class FileLoader:
         self,
         start_date: datetime,
         bbox: list[float],
+        topo: Topo,
         utm_zone_number: int,
-    ):
+    ) -> Tuple[pd.DataFrame, Dict[str, pd.DataFrame]]:
+        """
+        Load variables from HRRR either using Xarray (default) or GDAL.
+
+        :param start_date: datetime - Day to load
+        :param bbox: list - Bounding box of the domain to load (used with Xarray)
+        :param topo: Topo - Instance of the loaded topo file (used with GDAL)
+        :param utm_zone_number: Int - UTM zone number to convert dataframe (Xarray)
+
+        :return:
+          Tuple - Dataframe with metadata and dictionary with variable names as keys
+        """
         metadata, data = self.xarray(start_date, bbox, utm_zone_number)
+        if len(self._load_gdal) > 0:
+            data |= self.gdal(start_date, topo)
 
         return metadata, data
 
@@ -244,3 +267,20 @@ class FileLoader:
         )
 
         return dataframe
+
+    def gdal(self, date: datetime, topo: Topo) -> dict[str, np.ndarray]:
+        """
+        Load data for given date and time and topo config using GDAL
+
+        Args:
+            date: datetime for the start of the data loading period
+            topo: Instance of Topo class
+
+        :return
+            Dict - Loaded variable data transformed to topo
+        """
+        file_loader = GribFileGdal(topo, self._gdal_algorithm)
+
+        return file_loader.load(
+            self._load_gdal, self._get_file_path(date, self.SIXTH_HOUR)
+        )

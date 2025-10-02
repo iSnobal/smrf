@@ -2,6 +2,7 @@ import logging
 
 import numpy as np
 import utm
+from smrf.distribute import ThermalHRRR
 
 from .csv import InputCSV
 from .gridded_input import GriddedInput
@@ -12,15 +13,13 @@ from .wrf import InputWRF
 
 class InputData:
     """
-    Class for loading and storing the data, either from
-    - CSV file
-    - HRRR grib files
-    - WRF
-    - Generic gridded NetCDF
+    Global entry point for loading and storing the data as attributes.
 
-
-    The data will be loaded into a Pandas dataframe
-
+    Supported data sources:
+    * CSV file
+    * HRRR grib files
+    * WRF
+    * Generic gridded NetCDF
     """
 
     VARIABLES = [
@@ -127,6 +126,15 @@ class InputData:
             d = getattr(self.load_class, variable, None)
             if variable == 'metadata':
                 setattr(self, variable, d)
+            elif (
+                variable == ThermalHRRR.OUT_VARIABLE
+                and getattr(self.load_class, ThermalHRRR.GRIB_NAME, None) is not None
+            ):
+                setattr(
+                    self,
+                    ThermalHRRR.OUT_VARIABLE,
+                    getattr(self.load_class, ThermalHRRR.GRIB_NAME),
+                )
             elif d is not None:
                 d = d.tz_convert(tz=self.time_zone)
                 setattr(self, variable, d[self.start_date:self.end_date])
