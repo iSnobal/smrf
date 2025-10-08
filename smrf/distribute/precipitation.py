@@ -106,7 +106,7 @@ class Precipitation(VariableBase):
         self.storm_total = np.zeros((self.topo.ny, self.topo.nx))
 
         # Assign storm_days array if given
-        if self.config["storm_days_restart"] is not None:
+        if self.config.get("storm_days_restart", None):
             self._logger.debug(
                 "Reading {} from {}".format(
                     "storm_days", self.config["storm_days_restart"]
