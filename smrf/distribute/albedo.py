@@ -1,3 +1,4 @@
+from typing import Tuple
 from datetime import datetime
 
 import numpy as np
@@ -194,3 +195,26 @@ class Albedo(VariableBase):
 
                 self.albedo_vis = utils.set_min_max(alb_v, self.min, self.max)
                 self.albedo_ir = utils.set_min_max(alb_ir, self.min, self.max)
+
+        else:
+            self.albedo_vis = np.zeros(storm_day.shape)
+            self.albedo_ir = np.zeros(storm_day.shape)
+
+    def decay_window(self, current_timestep: datetime) -> Tuple[float, float]:
+        # Calculate hour past start of decay
+        current_difference = current_timestep - self.config["start_decay"]
+        current_hours = (
+            current_difference.days * 24.0 + current_difference.seconds / 3600.0
+        )
+
+        # Exit if we are before the window starts
+        if current_hours < 0:
+            return -1, 0
+
+        # Calculate total time of decay
+        decay_difference = self.config["end_decay"] - self.config["start_decay"]
+        decay_hours = (
+            decay_difference.days * 24.0 + decay_difference.seconds / 3600.0
+        )
+
+        return current_hours, decay_hours

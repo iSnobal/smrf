@@ -106,7 +106,15 @@ def albedo(telapsed, cosz, gsize, maxgsz, dirt=2) -> Tuple[np.ndarray, np.ndarra
     return alb_v, alb_ir
 
 
-def decay_alb_power(veg, veg_type, start_decay, end_decay, t_curr, pwr, alb_v, alb_ir):
+def decay_alb_power(
+    veg: dict,
+    veg_type: np.ndarray,
+    current_hours: float,
+    decay_hours: float,
+    pwr: float,
+    alb_v: np.ndarray,
+    alb_ir: np.ndarray,
+) -> Tuple[np.ndarray, np.ndarray]:
     """
     Find a decrease in albedo due to litter accumulation. Decay is based on
     max decay, decay power, and start and end dates. No litter decay occurs
@@ -121,47 +129,22 @@ def decay_alb_power(veg, veg_type, start_decay, end_decay, t_curr, pwr, alb_v, a
     and :math:`end` are the current, start, and end times for the litter decay.
 
     Args:
-        start_decay: date to start albedo decay (datetime)
-        end_decay: date at which to end albedo decay curve (datetime)
-        t_curr: datetime object of current timestep
+        veg: Vegetation specific decay values
+        veg_type: Array of vegetation type from the topo
+        current_hours: Time delta in hours of current time minus decay start time
+        decay_hours: Time delta in hours of decay start time to end time
         pwr: power for power law decay
         alb_v: numpy array of albedo for visible spectrum
         alb_ir: numpy array of albedo for IR spectrum
 
-    Returns:
-        tuple:
-        Returns a tuple containing the corrected albedo arrays
-        based on date, veg type
-        - **alb_v** (*numpy.array*) - albedo for visible specturm
-
-        - **alb_ir** (*numpy.array*) -  albedo for ir spectrum
-
-
-    Created July 18, 2017
-    Micah Sandusky
+    Returns: Tuple
+        alb_v_d, alb_ir_d : numpy arrays of decayed albedo
 
     """
-    # Calculate hour past start of decay
-    t_diff_hr = t_curr - start_decay
-    t_diff_hr = (
-        t_diff_hr.days * 24.0 + t_diff_hr.seconds / 3600.0
-    )  # only need hours here
-
-    # Calculate total time of decay
-    t_decay_hr = end_decay - start_decay
-    t_decay_hr = (
-        t_decay_hr.days * 24.0 + t_decay_hr.seconds / 3600.0
-    )  # only need hours here
-
-    # correct for veg
     alb_dec = np.zeros_like(alb_v)
 
-    # Don't decay if before start
-    if t_diff_hr <= 0.0:
-        alb_dec = alb_dec * 0.0
-
     # Use max decay if after start
-    elif t_diff_hr > t_decay_hr:
+    if current_hours > decay_hours:
         # Use default
         alb_dec = alb_dec + veg["default"]
         # Decay based on veg type
@@ -173,19 +156,19 @@ def decay_alb_power(veg, veg_type, start_decay, end_decay, t_curr, pwr, alb_v, a
     else:
         # Use defaults
         max_dec = veg["default"]
-        tao = (t_decay_hr) / (max_dec ** (1.0 / pwr))
+        tao = current_hours / (max_dec ** (1.0 / pwr))
 
         # Add default decay to array of zeros
-        alb_dec = alb_dec + ((t_diff_hr) / tao) ** pwr
+        alb_dec = alb_dec + (current_hours / tao) ** pwr
 
         # Decay based on veg type
         for k, v in veg.items():
             max_dec = v
-            tao = (t_decay_hr) / (max_dec ** (1.0 / pwr))
+            tao = decay_hours / (max_dec ** (1.0 / pwr))
 
             # Set albedo decay at correct veg types
             if isint(k):
-                alb_dec[veg_type == int(k)] = ((t_diff_hr) / tao) ** pwr
+                alb_dec[veg_type == int(k)] = (current_hours / tao) ** pwr
 
     alb_v_d = alb_v - alb_dec
     alb_ir_d = alb_ir - alb_dec
