@@ -1,3 +1,4 @@
+from typing import Tuple
 import numpy as np
 
 from .image_data import ImageData
@@ -117,6 +118,18 @@ class Albedo(ImageData):
                     storm_day,
                     alb_v,
                     alb_ir)
+            if self.config["decay_method"] == "date_method":
+                current_hours, decay_hours = self.decay_window(current_time_step)
+                if current_hours > 0:
+                    alb_v, alb_ir = albedo.decay_alb_power(
+                        self.veg,
+                        self.veg_type,
+                        current_hours,
+                        decay_hours,
+                        self.config["date_method_decay_power"],
+                        alb_v,
+                        alb_ir,
+                    )
 
                 alb_v = alb_v_d
                 alb_ir = alb_ir_d
@@ -127,3 +140,22 @@ class Albedo(ImageData):
         else:
             self.albedo_vis = np.zeros(storm_day.shape)
             self.albedo_ir = np.zeros(storm_day.shape)
+
+    def decay_window(self, current_timestep: datetime) -> Tuple[float, float]:
+        # Calculate hour past start of decay
+        current_difference = current_timestep - self.config["start_decay"]
+        current_hours = (
+            current_difference.days * 24.0 + current_difference.seconds / 3600.0
+        )
+
+        # Exit if we are before the window starts
+        if current_hours < 0:
+            return -1, 0
+
+        # Calculate total time of decay
+        decay_difference = self.config["end_decay"] - self.config["start_decay"]
+        decay_hours = (
+            decay_difference.days * 24.0 + decay_difference.seconds / 3600.0
+        )
+
+        return current_hours, decay_hours
