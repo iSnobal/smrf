@@ -1,4 +1,6 @@
+from datetime import datetime
 from typing import Tuple
+
 from datetime import datetime
 
 import numpy as np
@@ -117,11 +119,8 @@ class Albedo(VariableBase):
 
         Args:
             current_time_step: Current time step in datetime object
-            cosz: numpy array of the illumination angle for the current time
-                step
-            storm_day: numpy array of the decimal days since it last
-                snowed at a grid cell
-
+            cosz: Llumination angle for the current time step
+            storm_day: Decimal days since it last snowed at a grid cell
         """
         self._logger.debug("%s Distributing albedo" % current_time_step)
 
@@ -171,27 +170,21 @@ class Albedo(VariableBase):
 
                 # Perform litter decay
                 if self.config["decay_method"] == "date_method":
-                    alb_v_d, alb_ir_d = albedo.decay_alb_power(
+                    current_hours, decay_hours = self.decay_window(current_time_step)
+                    alb_v, alb_ir = albedo.decay_alb_power(
                         self.veg,
                         self.veg_type,
-                        self.config["date_method_start_decay"],
-                        self.config["date_method_end_decay"],
-                        current_time_step,
+                        current_hours,
+                        decay_hours,
                         self.config["date_method_decay_power"],
                         alb_v,
                         alb_ir,
                     )
 
-                    alb_v = alb_v_d
-                    alb_ir = alb_ir_d
-
                 elif self.config["decay_method"] == "hardy2000":
-                    alb_v_d, alb_ir_d = albedo.decay_alb_hardy(
+                    alb_v, alb_ir = albedo.decay_alb_hardy(
                         self.litter, self.veg_type, storm_day, alb_v, alb_ir
                     )
-
-                    alb_v = alb_v_d
-                    alb_ir = alb_ir_d
 
                 self.albedo_vis = utils.set_min_max(alb_v, self.min, self.max)
                 self.albedo_ir = utils.set_min_max(alb_ir, self.min, self.max)
