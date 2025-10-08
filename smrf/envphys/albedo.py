@@ -1,4 +1,5 @@
 import math
+from typing import Tuple
 
 import numpy as np
 
@@ -29,50 +30,42 @@ def growth(t):
     """
 
     a = 4.0
-    b = 3.
+    b = 3.0
     c = 2.0
     d = 1.0
 
-    factor = (a+(b*t)+(t*t))/(c+(d*t)+(t*t)) - 1.0
+    factor = (a + (b * t) + (t * t)) / (c + (d * t) + (t * t)) - 1.0
 
-    return(1.0 - factor)
+    return 1.0 - factor
 
 
-def albedo(telapsed, cosz, gsize, maxgsz, dirt=2):
+def albedo(telapsed, cosz, gsize, maxgsz, dirt=2) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Calculate the abedo, adapted from IPW function albedo
+    Calculate the albedo, adapted from IPW function albedo
 
     Args:
-        telapsed - time since last snow storm (decimal days)
-        cosz - cosine local solar illumination angle matrix
-        gsize - gsize is effective grain radius of snow after last storm (mu m)
-        maxgsz - maxgsz is maximum grain radius expected from grain growth
-                  (mu m)
-        dirt - dirt is effective contamination for adjustment to visible
-               albedo (usually between 1.5-3.0)
+        telapsed: Time since last snow storm (decimal days)
+        cosz:     Cosine local solar illumination angle matrix
+        gsize:    Grain size is effective grain radius of snow after last storm (mu m)
+        maxgsz:   Max grain size is maximum grain radius expected from grain growth (mu m)
+        dirt:     Dirt is effective contamination for adjustment to visible albedo
+                  (usually between 1.5-3.0)
 
     Returns:
-        tuple:
-        Returns a tuple containing the visible and IR spectral albedo
+        Tuple
+            alb_v - albedo for visible spectrum
+            alb_ir -  albedo for ir spectrum
 
-        - **alb_v** (*numpy.array*) - albedo for visible specturm
-
-        - **alb_ir** (*numpy.array*) -  albedo for ir spectrum
-
-    Created April 17, 2015
     Modified July 23, 2015 - take image of cosz and calculate albedo for
         one time step
     Scott Havens
 
     """
-
-#     telapsed = np.array(telapsed)
-
     # check inputs
     if gsize <= 0 or gsize > 500:
         raise Exception("unrealistic input: gsize=%i", gsize)
 
-    if (maxgsz <= gsize or maxgsz > 2000):
+    if maxgsz <= gsize or maxgsz > 2000:
         raise Exception("unrealistic input: maxgsz=%i", maxgsz)
 
     if 1 >= dirt >= 10:
@@ -87,11 +80,11 @@ def albedo(telapsed, cosz, gsize, maxgsz, dirt=2):
     # calc grain growth decay factor
     growth_factor = growth(telapsed + 1.0)
 
-    # calc effective gsizes for vis & ir
+    # calc effective grain size for vis & ir
     gv = radius_v + (range_v * growth_factor)
     gir = radius_ir + (range_ir * growth_factor)
 
-    # calc albedos for cos(z)=1
+    # calc albedo for cos(z)=1
     alb_v_1 = MAXV - (gv / VFAC)
     alb_ir_1 = MAXIR * np.exp(IRFAC * gir)
 
@@ -113,10 +106,9 @@ def albedo(telapsed, cosz, gsize, maxgsz, dirt=2):
     return alb_v, alb_ir
 
 
-def decay_alb_power(veg, veg_type, start_decay, end_decay,
-                    t_curr, pwr, alb_v, alb_ir):
+def decay_alb_power(veg, veg_type, start_decay, end_decay, t_curr, pwr, alb_v, alb_ir):
     """
-    Find a decrease in albedo due to litter acccumulation. Decay is based on
+    Find a decrease in albedo due to litter accumulation. Decay is based on
     max decay, decay power, and start and end dates. No litter decay occurs
     before start_date. Fore times between start and end of decay,
 
@@ -133,7 +125,7 @@ def decay_alb_power(veg, veg_type, start_decay, end_decay,
         end_decay: date at which to end albedo decay curve (datetime)
         t_curr: datetime object of current timestep
         pwr: power for power law decay
-        alb_v: numpy array of albedo for visibile spectrum
+        alb_v: numpy array of albedo for visible spectrum
         alb_ir: numpy array of albedo for IR spectrum
 
     Returns:
@@ -151,13 +143,15 @@ def decay_alb_power(veg, veg_type, start_decay, end_decay,
     """
     # Calculate hour past start of decay
     t_diff_hr = t_curr - start_decay
-    t_diff_hr = t_diff_hr.days*24.0 + \
-        t_diff_hr.seconds/3600.0  # only need hours here
+    t_diff_hr = (
+        t_diff_hr.days * 24.0 + t_diff_hr.seconds / 3600.0
+    )  # only need hours here
 
     # Calculate total time of decay
-    t_decay_hr = (end_decay - start_decay)
-    t_decay_hr = t_decay_hr.days*24.0 + \
-        t_decay_hr.seconds/3600.0  # only need hours here
+    t_decay_hr = end_decay - start_decay
+    t_decay_hr = (
+        t_decay_hr.days * 24.0 + t_decay_hr.seconds / 3600.0
+    )  # only need hours here
 
     # correct for veg
     alb_dec = np.zeros_like(alb_v)
@@ -169,7 +163,7 @@ def decay_alb_power(veg, veg_type, start_decay, end_decay,
     # Use max decay if after start
     elif t_diff_hr > t_decay_hr:
         # Use default
-        alb_dec = alb_dec + veg['default']
+        alb_dec = alb_dec + veg["default"]
         # Decay based on veg type
         for k, v in veg.items():
             if isint(k):
@@ -178,20 +172,20 @@ def decay_alb_power(veg, veg_type, start_decay, end_decay,
     # Power function decay if during decay period
     else:
         # Use defaults
-        max_dec = veg['default']
-        tao = (t_decay_hr) / (max_dec**(1.0/pwr))
+        max_dec = veg["default"]
+        tao = (t_decay_hr) / (max_dec ** (1.0 / pwr))
 
         # Add default decay to array of zeros
-        alb_dec = alb_dec + ((t_diff_hr) / tao)**pwr
+        alb_dec = alb_dec + ((t_diff_hr) / tao) ** pwr
 
         # Decay based on veg type
         for k, v in veg.items():
             max_dec = v
-            tao = (t_decay_hr) / (max_dec**(1.0/pwr))
+            tao = (t_decay_hr) / (max_dec ** (1.0 / pwr))
 
             # Set albedo decay at correct veg types
             if isint(k):
-                alb_dec[veg_type == int(k)] = ((t_diff_hr) / tao)**pwr
+                alb_dec[veg_type == int(k)] = ((t_diff_hr) / tao) ** pwr
 
     alb_v_d = alb_v - alb_dec
     alb_ir_d = alb_ir - alb_dec
@@ -201,7 +195,7 @@ def decay_alb_power(veg, veg_type, start_decay, end_decay,
 
 def decay_alb_hardy(litter, veg_type, storm_day, alb_v, alb_ir):
     """
-    Find a decrease in albedo due to litter acccumulation
+    Find a decrease in albedo due to litter accumulation
     using method from :cite:`Hardy:2000` with storm_day as input.
 
     .. math::
@@ -220,7 +214,7 @@ def decay_alb_hardy(litter, veg_type, storm_day, alb_v, alb_ir):
         litter: A dictionary of values for default,albedo,41,42,43 veg types
         veg_type: An image of the basin's NLCD veg type
         storm_day: numpy array of decimal day since last storm
-        alb_v: numpy array of albedo for visibile spectrum
+        alb_v: numpy array of albedo for visible spectrum
         alb_ir: numpy array of albedo for IR spectrum
         alb_litter: albedo of pure litter
 
