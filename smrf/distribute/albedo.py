@@ -1,8 +1,6 @@
 from datetime import datetime
 from typing import Tuple
 
-from datetime import datetime
-
 import numpy as np
 import numpy.typing as npt
 
@@ -92,6 +90,8 @@ class Albedo(VariableBase):
         """
         super().initialize(metadata)
 
+        self.burn_mask = self.topo.burn_mask
+
         if (
             self.config.get("decay_method", None) is None
             and self.config["source_files"] is None
@@ -180,6 +180,17 @@ class Albedo(VariableBase):
                         alb_v,
                         alb_ir,
                     )
+                elif self.config["decay_method"] == "post_fire":
+                    current_hours, decay_hours = self.decay_window(current_time_step)
+                    if current_hours > 0:
+                        alb_v, alb_ir = albedo.decay_burned(
+                            alb_v,
+                            alb_ir,
+                            storm_day,
+                            self.burn_mask,
+                            self.config["post_fire_k_burned"],
+                            self.config["post_fire_k_unburned"],
+                        )
 
                 elif self.config["decay_method"] == "hardy2000":
                     alb_v, alb_ir = albedo.decay_alb_hardy(
