@@ -87,6 +87,7 @@ class Albedo(ImageData):
 
         self._logger.debug("Initializing distribute.albedo")
         self.veg_type = topo.veg_type
+        self.burn_mask = topo.burn_mask
         self.date_time = date_time
         self._initialize(topo, data.metadata)
 
@@ -130,6 +131,17 @@ class Albedo(ImageData):
                         self.config["date_method_decay_power"],
                         alb_v,
                         alb_ir,
+                    )
+            elif self.config["decay_method"] == "post_fire":
+                current_hours, decay_hours = self.decay_window(current_time_step)
+                if current_hours > 0:
+                    alb_v, alb_ir = albedo.decay_burned(
+                        alb_v,
+                        alb_ir,
+                        storm_day,
+                        self.burn_mask,
+                        self.config["post_fire_k_burned"],
+                        self.config["post_fire_k_unburned"],
                     )
 
             elif self.config["decay_method"] == "hardy2000":
