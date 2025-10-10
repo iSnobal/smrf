@@ -36,12 +36,6 @@ class Albedo(VariableBase):
     }
 
     def __init__(self, config: dict, topo):
-        """
-        Initialize albedo()
-
-        Args:
-            config: configuration from [albedo] section
-        """
         super().__init__(config, topo)
 
         # Get the veg values for the decay methods. Date method uses self.veg
@@ -74,7 +68,7 @@ class Albedo(VariableBase):
             self._logger.warning("No decay method is set!")
 
     def distribute(
-        self, current_time_step: datetime, cosz: np.ndarray, storm_day: np.ndarray
+        self, current_time_step: datetime, cos_z: np.ndarray, storm_day: np.ndarray
     ) -> None:
         """
         Distribute air temperature given a Panda's dataframe for a single time
@@ -82,17 +76,17 @@ class Albedo(VariableBase):
 
         Args:
             current_time_step: Current time step in datetime object
-            cosz: Llumination angle for the current time step
+            cos_z: Illumination angle for the current time step
             storm_day: Decimal days since it last snowed at a grid cell
         """
 
         self._logger.debug("%s Distributing albedo" % current_time_step)
 
         # only need to calculate albedo if the sun is up
-        if cosz is not None:
+        if cos_z is not None:
             alb_v, alb_ir = albedo.albedo(
                 storm_day,
-                cosz,
+                cos_z,
                 self.config["grain_size"],
                 self.config["max_grain"],
                 self.config["dirt"],
