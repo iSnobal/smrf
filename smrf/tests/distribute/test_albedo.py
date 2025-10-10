@@ -158,6 +158,7 @@ CONFIG = {
 DECAY_TIME = pd.to_datetime("2025-04-30")
 NO_DECAY_TIME = pd.to_datetime("2025-03-01")
 STORM_DAYS = np.array([[0.0, 1.0], [1.0, 0.0]])
+COS_Z = np.array([[10.0, 10.0], [10.0, 10.0]])
 TOPO = MagicMock(
     veg_type=MagicMock("veg_type"),
 )
@@ -184,11 +185,11 @@ class TestAlbedo(unittest.TestCase):
     @patch('smrf.distribute.albedo.albedo.albedo', return_value=(ALBEDO_VIS, ALBEDO_IR))
     @patch('smrf.distribute.albedo.albedo.decay_alb_power')
     def test_distribute_date_method_not_in_window(self, decay_alb_power, envphys_albedo):
-        self.subject.distribute(NO_DECAY_TIME, 1, STORM_DAYS)
+        self.subject.distribute(NO_DECAY_TIME, COS_Z, STORM_DAYS)
 
         envphys_albedo.assert_called()
         envphys_albedo.assert_called_with(
-            STORM_DAYS, 1, CONFIG["grain_size"], CONFIG["max_grain"], CONFIG["dirt"]
+            STORM_DAYS, COS_Z, CONFIG["grain_size"], CONFIG["max_grain"], CONFIG["dirt"]
         )
         decay_alb_power.assert_not_called()
 
@@ -197,7 +198,7 @@ class TestAlbedo(unittest.TestCase):
     def test_distribute_date_method_in_window(self, decay_alb_power, _envphys_albedo):
         self.subject.config["date_method_decay_power"] = 0.7
         self.subject.config["date_method_veg_default"] = 0.2
-        self.subject.distribute(DECAY_TIME, 1, STORM_DAYS)
+        self.subject.distribute(DECAY_TIME, COS_Z, STORM_DAYS)
 
         decay_alb_power.assert_called_with(
             {"default": 0.2}, TOPO.veg_type, 696.0, 2184.0, 0.7, ALBEDO_VIS, ALBEDO_IR
@@ -207,11 +208,11 @@ class TestAlbedo(unittest.TestCase):
     @patch('smrf.distribute.albedo.albedo.decay_burned')
     def test_distribute_post_fire_not_in_window(self, decay_burned, envphys_albedo):
         self.subject.config["decay_method"] = "post_fire"
-        self.subject.distribute(NO_DECAY_TIME, 1, STORM_DAYS)
+        self.subject.distribute(NO_DECAY_TIME, COS_Z, STORM_DAYS)
 
         envphys_albedo.assert_called()
         envphys_albedo.assert_called_with(
-            STORM_DAYS, 1, CONFIG["grain_size"], CONFIG["max_grain"], CONFIG["dirt"]
+            STORM_DAYS, COS_Z, CONFIG["grain_size"], CONFIG["max_grain"], CONFIG["dirt"]
         )
         decay_burned.assert_not_called()
 
@@ -221,7 +222,7 @@ class TestAlbedo(unittest.TestCase):
         self.subject.config["decay_method"] = "post_fire"
         self.subject.config["post_fire_k_burned"] = 0.06
         self.subject.config["post_fire_k_unburned"] = 0.02
-        self.subject.distribute(DECAY_TIME, 1, STORM_DAYS)
+        self.subject.distribute(DECAY_TIME, COS_Z, STORM_DAYS)
 
         decay_burned.assert_called_with(
             ALBEDO_VIS, ALBEDO_IR, STORM_DAYS, TOPO.burn_mask, 0.06, 0.02
