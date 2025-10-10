@@ -35,11 +35,6 @@ class cf(ImageData):
         }
     }
 
-
-    BASE_THREAD_VARIABLES = frozenset([
-        'cloud_factor'
-    ])
-
     def __init__(self, config):
         # extend the base class
         super().__init__(self.variable)

@@ -187,11 +187,6 @@ class Thermal(ImageData):
         }
     }
 
-    BASE_THREAD_VARIABLES = frozenset([
-        'thermal',
-        'thermal_clear'
-    ])
-
     def __init__(self, thermal_config):
         # extend the base class
         super().__init__(self.variable)
@@ -241,12 +236,6 @@ class Thermal(ImageData):
         if not self.correct_terrain:
             self.sky_view_factor = None
         self.dem = topo.dem
-
-        if self.correct_cloud:
-            self.add_thread_variables('thermal_cloud')
-
-        if self.correct_veg:
-            self.add_thread_variables('thermal_veg')
 
     def distribute(self, date_time, air_temp, vapor_pressure=None,
                    dew_point=None, cloud_factor=None):

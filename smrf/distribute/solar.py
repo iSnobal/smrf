@@ -180,35 +180,6 @@ class Solar(ImageData):
         }
     }
 
-    CLEAR_SKY_THREAD_VARIABLES = [
-        'clear_ir_beam',
-        'clear_ir_diffuse',
-        'clear_vis_beam',
-        'clear_vis_diffuse'
-    ]
-
-    VEG_THREAD_VARIABLES = [
-        'veg_ir_beam',
-        'veg_ir_diffuse',
-        'veg_vis_beam',
-        'veg_vis_diffuse'
-    ]
-
-    CLOUD_THREAD_VARIABLES = [
-        'cloud_ir_beam',
-        'cloud_ir_diffuse',
-        'cloud_vis_beam',
-        'cloud_vis_diffuse'
-    ]
-
-    BASE_THREAD_VARIABLES = frozenset(
-        CLEAR_SKY_THREAD_VARIABLES +
-        CLOUD_THREAD_VARIABLES +
-        VEG_THREAD_VARIABLES +
-        ['net_solar']
-    )
-
-
     def __init__(self, config, topo):
 
         # extend the base class

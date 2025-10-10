@@ -57,13 +57,6 @@ class vp(ImageData):
         }
     }
 
-
-    BASE_THREAD_VARIABLES = frozenset([
-        'vapor_pressure',
-        'dew_point',
-        'precip_temp'
-    ])
-
     def __init__(self, vpConfig, precip_temp_method):
         # extend the base class
         super().__init__(self.variable)

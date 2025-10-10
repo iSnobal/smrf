@@ -36,11 +36,6 @@ class ta(ImageData):
         }
     }
 
-    BASE_THREAD_VARIABLES = frozenset([
-        'air_temp'
-    ])
-
-
     def __init__(self, taConfig):
         # extend the base class
         super().__init__(self.variable)

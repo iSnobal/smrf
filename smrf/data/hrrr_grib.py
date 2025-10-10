@@ -99,24 +99,6 @@ class InputGribHRRR(GriddedInput):
         self.start_date = date_time
         self.load()
 
-    def load_timestep_thread(self, date_times, data_queue):
-        """Load HRRR within a thread and add the data to the data
-        queue.
-
-        Args:
-            date_times (list): list of the simulation date_times
-            data_queue (dict): dict of the data queues
-        """
-
-        for date_time in date_times[1:]:
-            self.load_timestep(date_time)
-
-            for variable in self.data_variables:
-                data_queue[variable].put(
-                    [date_time, getattr(self, variable).iloc[0]])
-
-        self._logger.debug('Finished loading data')
-
     def parse_data(self, metadata, data):
         """
         Parse the data from HRRR into dataframes for SMRF
