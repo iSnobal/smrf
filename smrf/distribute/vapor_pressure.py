@@ -123,10 +123,12 @@ class vp(ImageData):
 
         # use the core_c to calculate the dew point
         dpt = np.zeros_like(self.vapor_pressure, dtype=np.float64)
-        envphys_c.cdewpt(self.vapor_pressure,
-                         dpt,
-                         self.config['dew_point_tolerance'],
-                         self.config['dew_point_nthreads'])
+        envphys_c.cdewpt(
+            self.vapor_pressure,
+            dpt,
+            self.config["dew_point_tolerance"],
+            self.config["threads"],
+        )
 
         # find where dpt > ta
         ind = dpt >= ta
@@ -141,9 +143,14 @@ class vp(ImageData):
             # initialize timestep wet_bulb
             wet_bulb = np.zeros_like(self.vapor_pressure, dtype=np.float64)
             # calculate wet_bulb
-            envphys_c.cwbt(ta, dpt, self.dem,
-                           wet_bulb, self.config['dew_point_tolerance'],
-                           self.config['dew_point_nthreads'])
+            envphys_c.cwbt(
+                ta,
+                dpt,
+                self.dem,
+                wet_bulb,
+                self.config["dew_point_tolerance"],
+                self.config["threads"],
+            )
             # # store last time step of wet_bulb
             # self.wet_bulb_old = wet_bulb.copy()
             # store in precip temp for use in precip
