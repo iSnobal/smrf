@@ -241,7 +241,7 @@ def decay_alb_hardy(litter, veg_type, storm_day, alb_v, alb_ir):
 def decay_burned(
     alb_v: np.ndarray,
     alb_ir: np.ndarray,
-    last_snow: float,
+    last_snow: np.ndarray,
     burn_mask: np.ndarray,
     k_burned: float,
     k_unburned: float,
@@ -262,22 +262,22 @@ def decay_burned(
         alb_v_d, alb_ir_d : numpy arrays of decayed albedo
     """
     # initialize output
-    alb_v_d = np.copy(alb_v)
-    alb_ir_d = np.copy(alb_ir)
+    alb_v_d = np.empty_like(alb_v)
+    alb_ir_d = np.empty_like(alb_ir)
 
     # masks
     burned = burn_mask == 1
     unburned = burn_mask == 0
 
     # exponential decay factors depending on burn condition
-    decay_burned = np.exp(-k_burned * last_snow)
-    decay_unburned = np.exp(-k_unburned * last_snow)
+    burned_exp = np.exp(-k_burned * last_snow)
+    unburned_exp = np.exp(-k_unburned * last_snow)
 
     # apply decay rates to vis and infrared albedo
-    alb_v_d[burned] = alb_v[burned] * decay_burned[burned]
-    alb_ir_d[burned] = alb_ir[burned] * decay_burned[burned]
+    alb_v_d[burned] = alb_v[burned] * burned_exp[burned]
+    alb_ir_d[burned] = alb_ir[burned] * burned_exp[burned]
 
-    alb_v_d[unburned] = alb_v[unburned] * decay_unburned[unburned]
-    alb_ir_d[unburned] = alb_ir[unburned] * decay_unburned[unburned]
+    alb_v_d[unburned] = alb_v[unburned] * unburned_exp[unburned]
+    alb_ir_d[unburned] = alb_ir[unburned] * unburned_exp[unburned]
 
     return alb_v_d, alb_ir_d
