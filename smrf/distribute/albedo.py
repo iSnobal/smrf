@@ -206,7 +206,7 @@ class Albedo(VariableBase):
 
     def decay_window(self, current_timestep: datetime) -> Tuple[float, float]:
         # Calculate hour past start of decay
-        current_difference = current_timestep - self.config["start_decay"]
+        current_difference = current_timestep - self.config["decay_start"]
         current_hours = (
             current_difference.days * 24.0 + current_difference.seconds / 3600.0
         )
@@ -216,7 +216,7 @@ class Albedo(VariableBase):
             return -1, 0
 
         # Calculate total time of decay
-        decay_difference = self.config["end_decay"] - self.config["start_decay"]
+        decay_difference = self.config["decay_end"] - self.config["decay_start"]
         decay_hours = (
             decay_difference.days * 24.0 + decay_difference.seconds / 3600.0
         )
