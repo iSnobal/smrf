@@ -61,11 +61,6 @@ class Wind(ImageData):
         }
     }
 
-    BASE_THREAD_VARIABLES = frozenset([
-        'wind_speed',
-        'wind_direction'
-    ])
-
     def __init__(self, config):
         ImageData.__init__(self, self.VARIABLE)
         self._logger = logging.getLogger(__name__)
@@ -131,9 +126,6 @@ class Wind(ImageData):
         self._logger.debug('Initializing distribute.wind')
         self.date_time = date_time
         self.wind_model._initialize(topo, data.metadata)
-
-        if self.model_type(WinstralWindModel.MODEL_TYPE):
-            self.add_thread_variables(self.wind_model.thread_variables)
 
         if not self.model_type(self.INTERP):
             self.wind_model.initialize(topo, data)

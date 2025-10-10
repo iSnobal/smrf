@@ -46,11 +46,6 @@ class Albedo(ImageData):
         }
     }
 
-    BASE_THREAD_VARIABLES = frozenset([
-        'albedo_vis',
-        'albedo_ir'
-    ])
-
     def __init__(self, albedoConfig):
         """
         Initialize albedo()

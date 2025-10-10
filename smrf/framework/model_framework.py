@@ -140,6 +140,17 @@ class SMRF:
                 "date_method_end_decay"
             ].replace(tzinfo=self.time_zone)
 
+        # Add thread configuration to all distribute sections. Used by DK method.
+        for section in [
+            "air_temp",
+            "vapor_pressure",
+            "precip",
+            "cloud_factor",
+            "thermal",
+            "wind",
+        ]:
+            self.config[section]["threads"] = self.config["system"]["threads"]
+
         # if a gridded dataset will be used
         self.forecast_flag = False
         self.gridded = True if GriddedInput.TYPE in self.config else False

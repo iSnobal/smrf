@@ -95,15 +95,6 @@ class ppt(ImageData):
         }
     }
 
-
-    BASE_THREAD_VARIABLES = frozenset([
-        'precip',
-        'percent_snow',
-        'snow_density',
-        'storm_days',
-        'storm_total'
-    ])
-
     def __init__(self, pptConfig, start_date, time_step=60):
         # extend the base class
         super().__init__(self.variable)
@@ -178,8 +169,6 @@ class ppt(ImageData):
             """ model:  """.format(self.nasde_model))
 
         if self.nasde_model == 'marks2017':
-            self.add_thread_variables('storm_id')
-
             self.storm_total = np.zeros((topo.ny, topo.nx))
 
             self.storms = []

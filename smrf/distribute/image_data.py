@@ -43,7 +43,6 @@ class ImageData:
 
     """
 
-    BASE_THREAD_VARIABLES = frozenset()
     OUTPUT_VARIABLES = {}
 
     def __init__(self, variable):
@@ -54,30 +53,6 @@ class ImageData:
         self.gridded = False
 
         self._logger = logging.getLogger(self.__class__.__module__)
-        self._thread_variables = None
-
-    @property
-    def thread_variables(self):
-        if self._thread_variables is None:
-            self._thread_variables = list(self.BASE_THREAD_VARIABLES)
-
-        return self._thread_variables
-
-    @thread_variables.setter
-    def thread_variables(self, value):
-        self._thread_variables = value
-
-    def add_thread_variables(self, variables):
-        """Add a list or single variable to the thread variables
-
-        Args:
-            variables (list or str): List or string of variables to add
-        """
-
-        if isinstance(variables, str):
-            variables = list((variables, ))
-
-        self.thread_variables = self.thread_variables + variables
 
     @property
     def output_variables(self):

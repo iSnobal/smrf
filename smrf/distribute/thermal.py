@@ -187,11 +187,6 @@ class Thermal(ImageData):
         }
     }
 
-    BASE_THREAD_VARIABLES = frozenset([
-        'thermal',
-        'thermal_clear'
-    ])
-
     def __init__(self, thermal_config):
         # extend the base class
         super().__init__(self.variable)
@@ -242,12 +237,6 @@ class Thermal(ImageData):
             self.sky_view_factor = None
         self.dem = topo.dem
 
-        if self.correct_cloud:
-            self.add_thread_variables('thermal_cloud')
-
-        if self.correct_veg:
-            self.add_thread_variables('thermal_veg')
-
     def distribute(self, date_time, air_temp, vapor_pressure=None,
                    dew_point=None, cloud_factor=None):
         """
@@ -269,33 +258,38 @@ class Thermal(ImageData):
                 measured/modeled
         """
 
-        self._logger.debug('%s Distributing thermal' % date_time)
+        self._logger.debug("%s Distributing thermal" % date_time)
 
         # calculate clear sky thermal
-        if self.clear_sky_method == 'marks1979':
+        if self.clear_sky_method == "marks1979":
             cth = np.zeros_like(air_temp, dtype=np.float64)
             envphys_c.ctopotherm(
-                air_temp, dew_point,
+                air_temp,
+                dew_point,
                 self.dem,
                 self.sky_view_factor,
                 cth,
-                self.config['marks1979_nthreads'])
+                self.config["threads"],
+            )
 
-        elif self.clear_sky_method == 'dilley1998':
-            cth = clear_sky.Dilly1998(air_temp, vapor_pressure/1000)
+        elif self.clear_sky_method == "dilley1998":
+            cth = clear_sky.Dilly1998(air_temp, vapor_pressure / 1000)
 
-        elif self.clear_sky_method == 'prata1996':
-            cth = clear_sky.Prata1996(air_temp, vapor_pressure/1000)
+        elif self.clear_sky_method == "prata1996":
+            cth = clear_sky.Prata1996(air_temp, vapor_pressure / 1000)
 
-        elif self.clear_sky_method == 'angstrom1918':
-            cth = clear_sky.Angstrom1918(air_temp, vapor_pressure/1000)
+        elif self.clear_sky_method == "angstrom1918":
+            cth = clear_sky.Angstrom1918(air_temp, vapor_pressure / 1000)
 
         # terrain factor correction
-        if (self.sky_view_factor is not None) and \
-                (self.clear_sky_method != 'marks1979'):
+        if (self.sky_view_factor is not None) and (
+            self.clear_sky_method != "marks1979"
+        ):
             # apply (emiss * skvfac) + (1.0 - skvfac) to the longwave
-            cth = cth * self.sky_view_factor + (1.0 - self.sky_view_factor) * \
-                STEF_BOLTZ * air_temp**4
+            cth = (
+                cth * self.sky_view_factor
+                + (1.0 - self.sky_view_factor) * STEF_BOLTZ * air_temp**4
+            )
 
         # make output variable
         self.thermal_clear = cth.copy()
