@@ -146,8 +146,8 @@ from smrf.distribute.albedo import Albedo
 
 CONFIG = {
     "decay_method": "date_method",
-    "start_decay": pd.to_datetime("2025-04-01"),
-    "end_decay": pd.to_datetime("2025-07-01"),
+    "decay_start": pd.to_datetime("2025-04-01"),
+    "decay_end": pd.to_datetime("2025-07-01"),
     "grain_size": 100.0,
     "max_grain": 800.0,
     "max": 1.0,
