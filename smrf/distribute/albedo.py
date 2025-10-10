@@ -52,12 +52,6 @@ class Albedo(VariableBase):
     )
 
     def __init__(self, config: dict, topo):
-        """
-        Initialize albedo()
-
-        Args:
-            config: configuration from [albedo] section
-        """
         super().__init__(config, topo)
 
         # Variables for calculations of external files
@@ -99,7 +93,7 @@ class Albedo(VariableBase):
             self._logger.warning("No decay method is set!")
 
     def distribute(
-        self, current_time_step: datetime, cosz: npt.NDArray, storm_day: npt.NDArray
+        self, current_time_step: datetime, cos_z: npt.NDArray, storm_day: npt.NDArray
     ):
         """
         Calculate or load snow albedo for given time step. When calculated, the configured
@@ -119,13 +113,13 @@ class Albedo(VariableBase):
 
         Args:
             current_time_step: Current time step in datetime object
-            cosz: Llumination angle for the current time step
+            cos_z: Illumination angle for the current time step
             storm_day: Decimal days since it last snowed at a grid cell
         """
         self._logger.debug("%s Distributing albedo" % current_time_step)
 
         # Only calculated when the sun is up
-        if cosz is not None:
+        if cos_z is not None:
             if self.source_files is not None:
                 # For files with VIS and IR values (typically a previous run)
                 if (
@@ -162,7 +156,7 @@ class Albedo(VariableBase):
             else:
                 alb_v, alb_ir = albedo.albedo(
                     storm_day,
-                    cosz,
+                    cos_z,
                     self.config["grain_size"],
                     self.config["max_grain"],
                     self.config["dirt"],
