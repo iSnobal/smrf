@@ -109,13 +109,13 @@ class SMRF:
         self._setup_date_and_time()
 
         # need to align date time
-        if self.config[Albedo.DISTRIBUTION_KEY].get("start_decay", None):
-            self.config[Albedo.DISTRIBUTION_KEY]["start_decay"] = self.config[
+        if self.config[Albedo.DISTRIBUTION_KEY].get("decay_start", None):
+            self.config[Albedo.DISTRIBUTION_KEY]["decay_start"] = self.config[
                 Albedo.DISTRIBUTION_KEY
-            ]["start_decay"].replace(tzinfo=self.time_zone)
-            self.config[Albedo.DISTRIBUTION_KEY]["end_decay"] = self.config[
+            ]["decay_start"].replace(tzinfo=self.time_zone)
+            self.config[Albedo.DISTRIBUTION_KEY]["decay_end"] = self.config[
                 Albedo.DISTRIBUTION_KEY
-            ]["end_decay"].replace(tzinfo=self.time_zone)
+            ]["decay_end"].replace(tzinfo=self.time_zone)
 
         # Add thread configuration to all distribute sections. Used by DK method.
         for section in [
