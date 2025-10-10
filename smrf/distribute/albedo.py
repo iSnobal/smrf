@@ -22,7 +22,7 @@ class Albedo(ImageData):
     basin and have the albedo decay at different rates for each pixel.
 
     Args:
-        albedoConfig: The [albedo] section of the configuration file
+        albedo_config: The [albedo] section of the configuration file
 
     Attributes:
         albedo_vis: numpy array of the visible albedo
@@ -49,12 +49,12 @@ class Albedo(ImageData):
         },
     }
 
-    def __init__(self, albedoConfig):
+    def __init__(self, albedo_config):
         """
         Initialize albedo()
 
         Args:
-            albedoConfig: configuration from [albedo] section
+            albedo_config: configuration from [albedo] section
         """
         # extend the base class
         super().__init__(self.variable)
@@ -63,15 +63,15 @@ class Albedo(ImageData):
         for d in ["veg", "litter"]:
             v = {}
 
-            matching = [s for s in albedoConfig.keys() if "{0}_".format(d) in s]
+            matching = [s for s in albedo_config.keys() if "{0}_".format(d) in s]
             for m in matching:
                 ms = m.split("_")
-                v[ms[-1]] = albedoConfig[m]
+                v[ms[-1]] = albedo_config[m]
 
             # Create self.litter,self.veg
             setattr(self, d, v)
 
-        self.getConfig(albedoConfig)
+        self.getConfig(albedo_config)
 
         self._logger.debug("Created distribute.albedo")
 
@@ -95,7 +95,7 @@ class Albedo(ImageData):
             self._logger.warning("No decay method is set!")
 
     def distribute(
-        self, current_time_step: datetime, cosz: np.ndarray, storm_day: np.ndarray
+        self, current_time_step: datetime, cos_z: np.ndarray, storm_day: np.ndarray
     ) -> None:
         """
         Distribute air temperature given a Panda's dataframe for a single time
@@ -103,17 +103,17 @@ class Albedo(ImageData):
 
         Args:
             current_time_step: Current time step in datetime object
-            cosz: Llumination angle for the current time step
+            cos_z: Illumination angle for the current time step
             storm_day: Decimal days since it last snowed at a grid cell
         """
 
         self._logger.debug("%s Distributing albedo" % current_time_step)
 
         # only need to calculate albedo if the sun is up
-        if cosz is not None:
+        if cos_z is not None:
             alb_v, alb_ir = albedo.albedo(
                 storm_day,
-                cosz,
+                cos_z,
                 self.config["grain_size"],
                 self.config["max_grain"],
                 self.config["dirt"],
