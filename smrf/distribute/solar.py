@@ -30,7 +30,7 @@ class Solar(VariableBase):
     the daily integrated modeled radiation.  This helps to reduce the problems
     that may be encountered from instrument shading, instrument calibration, or
     a time shift in the data. The calculated cloud factor at each station can
-    then be distrubted using any of the method available in
+    then be distributed using any of the method available in
     :mod:`smrf.spatial`. Since the cloud factor is not explicitly controlled
     by elevation like other variables, the values may be distributed without
     detrending to elevation. The modeled clear sky radiation (both beam and
@@ -61,7 +61,7 @@ class Solar(VariableBase):
 
     The final step for calculating the net solar radiation requires the surface
     albedo from :mod:`smrf.distribute.albedo`. The net radiation is the sum of
-    the of beam and diffuse canopy adjusted radiation multipled by one minus
+    the of beam and diffuse canopy adjusted radiation multiple by one minus
     the albedo.
     """
 
@@ -140,7 +140,7 @@ class Solar(VariableBase):
     def distribute(self, date_time, cloud_factor, illum_ang, cosz, azimuth,
                    albedo_vis, albedo_ir):
         """
-        Distribute air temperature given a Panda's dataframe for a single time
+        Distribute solar radiation given a Panda's dataframe for a single time
         step. Calls :mod:`smrf.distribute.ImageData._distribute`.
 
         If the sun is up, i.e. ``cosz > 0``, then the following steps are
@@ -166,7 +166,6 @@ class Solar(VariableBase):
                 :mod:`smrf.distribute.albedo.Albedo.albedo_vis`
             albedo_ir: numpy array for infrared albedo, from
                 :mod:`smrf.distribute.albedo.Albedo.albedo_ir`
-
         """
 
         self._logger.debug(f'{date_time} Distributing solar')
@@ -276,7 +275,6 @@ class Solar(VariableBase):
         Args:
             illum_ang: numpy array of the illumination angle over the DEM, from
                 :mod:`smrf.envphys.radiation.sunang`
-
         """
 
         self._logger.debug('Correcting radiation for vegetation')
