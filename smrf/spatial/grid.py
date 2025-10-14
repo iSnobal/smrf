@@ -116,6 +116,14 @@ class GRID:
 
         return rtrend
 
+    @staticmethod
+    def get_fit_params(group: pd.DataFrame) -> pd.Series:
+        """
+        Perform polyfit on each group and return the slope and intercept
+        """
+        slope, intercept = np.polyfit(group.elevation, group.data, 1)
+        return pd.Series({"slope": slope, "intercept": intercept})
+
     def detrendedInterpolationLocal(self, data, flag=0, grid_method='linear'):
         """
         Interpolate using a detrended approach
@@ -127,17 +135,17 @@ class GRID:
 
         # take the new full_df and fill a data column
         df = self.full_df.copy()
-        df['data'] = data[df['cell_local']].values
-        df = df.set_index('cell_id')
-        df['fit'] = df.groupby('cell_id').apply(
-            lambda x: np.polyfit(x.elevation, x.data, 1))
+        df["data"] = data[df["cell_local"]].values
 
-        # drop all the duplicates
-        df.reset_index(inplace=True)
-        df.drop_duplicates(subset=['cell_id'], keep='first', inplace=True)
-        df.set_index('cell_id', inplace=True)
-        df[['slope', 'intercept']] = df.fit.apply(pd.Series)
-        # df = df.drop(columns='fit').reset_index()
+        # Apply the custom function and aggregate the results
+        df_fit_params = df.groupby("cell_id").apply(self.get_fit_params)
+
+        # Merge the fit parameters with the original data,
+        # ensuring only unique cell_id entries remain
+        df = df.drop_duplicates(subset=["cell_id"], keep="first").set_index(
+            "cell_id"
+        )
+        df = df.merge(df_fit_params, left_index=True, right_index=True)
 
         # apply trend constraints
         if flag == 1:
@@ -148,7 +156,8 @@ class GRID:
         # get triangulation
         if self.tri is None:
             xy = _ndim_coords_from_arrays(
-                (self.metadata.utm_x, self.metadata.utm_y))
+                (self.metadata.utm_x, self.metadata.utm_y)
+            )
             self.tri = Delaunay(xy)
 
         # interpolate the slope/intercept
