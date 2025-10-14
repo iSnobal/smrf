@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from scipy.interpolate import griddata
 from scipy.interpolate.interpnd import _ndim_coords_from_arrays
-from scipy.spatial import Delaunay
+from scipy.spatial import Delaunay, KDTree
 
 from smrf.utils.utils import grid_interpolate_deconstructed
 
@@ -52,16 +52,20 @@ class GRID:
 
         # local elevation gradient, precalculte the distance dataframe
         if config['grid_local']:
-            k = config['grid_local_n']
-            dist_df = pd.DataFrame(index=metadata.index, columns=range(k))
-            dist_df.index.name = 'cell_id'
-            for i, row in metadata.iterrows():
+            k = config["grid_local_n"]
 
-                d = np.sqrt((metadata.latitude - row.latitude) **
-                            2 + (metadata.longitude - row.longitude)**2)
-                dist_df.loc[row.name] = d.sort_values()[:k].index
+            coords = metadata[["latitude", "longitude"]].to_numpy()
+            tree = KDTree(coords, leafsize=k + 5)
 
-            self.dist_df = dist_df
+            # Query k nearest neighbors.
+            _distances, indices = tree.query(coords, k=k, workers=-1)
+
+            dist_df = pd.DataFrame(
+                metadata.index.to_numpy()[indices],
+                index=metadata.index,
+                columns=range(k),
+            )
+            dist_df.index.name = "cell_id"
 
             # stack and reset index
             df = dist_df.stack().reset_index()
