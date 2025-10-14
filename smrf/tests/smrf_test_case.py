@@ -33,6 +33,7 @@ class SMRFTestCase(unittest.TestCase):
     test_dir = Path(smrf.__file__).parent.joinpath('tests')
     basin_dir = test_dir.joinpath('basins', 'RME')
     config_file = os.path.join(basin_dir, BASE_INI_FILE_NAME)
+    gold_dir = basin_dir.joinpath("gold_hrrr")
 
     @property
     def dist_variables(self):

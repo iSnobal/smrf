@@ -1,6 +1,7 @@
 
 class CheckSMRFOutputs(object):
-    """Check the SMRF test case for all the variables. To be used as a
+    """
+    Check the SMRF test case for all the variables. To be used as a
     mixin for tests to avoid these tests running more than once.
 
     Example:
