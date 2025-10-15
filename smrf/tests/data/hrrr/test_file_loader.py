@@ -71,7 +71,9 @@ class TestFileLoader(unittest.TestCase):
     @mock.patch.object(FileLoader, 'xarray', return_value=xarray_mock_return())
     @mock.patch.object(FileLoader, 'gdal', return_value={'var2': mock.Mock(name='GDAL')})
     def test_data_for_time_and_topo_with_gdal(self, gdal_mock, xarray_mock):
-        subject = FileLoader(FILE_DIR, 1, ['precip_int'], load_gdal=['HRRR_VAR'])
+        subject = FileLoader(
+            FILE_DIR, 1, ['precip_int'], load_gdal=['HRRR_VAR'], external_logger=LOGGER
+        )
         metadata, data = subject.data_for_time_and_topo(
             START_DT, BBOX, TOPO, UTM_NUMBER
         )
