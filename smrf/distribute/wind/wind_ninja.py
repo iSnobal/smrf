@@ -1,61 +1,56 @@
-import logging
 import os
 
 import numpy as np
 import pytz
 from scipy.interpolate import interp1d
 
-from smrf.distribute.image_data import ImageData
 from smrf.utils import utils
 
 
-class WindNinjaModel(ImageData):
-    """The `WindNinjaModel` loads data from a WindNinja simulation.
+class WindNinjaModel:
+    """
+    The `WindNinjaModel` loads data from a WindNinja simulation.
     The WindNinja is ran externally to SMRF and the configuration
     points to the location of the output ascii files. SMRF takes the
     files and interpolates to the model domain.
     """
 
-    MODEL_TYPE = 'wind_ninja'
-    VARIABLE = 'wind'
-    WN_DATE_FORMAT = '%m-%d-%Y_%H%M'
-    DATE_FORMAT = '%Y%m%d'
+    MODEL_TYPE = "wind_ninja"
+    VARIABLE = "wind"
+    WN_DATE_FORMAT = "%m-%d-%Y_%H%M"
+    DATE_FORMAT = "%Y%m%d"
 
-    def __init__(self, smrf_config):
-        """Initialize the WinstralWindModel
+    def __init__(self, wind_distribution):
+        """
+        Initialize the WinstralWindModel
 
         Arguments:
-            smrf_config {UserConfig.Dictionary} -- entire smrf config
-            distribute_drifts {bool} -- not used
+            wind_distribution: Instance of :mod:`smrf.distribute.wind.wind`
 
         Raises:
             IOError: if maxus file does not match topo size
         """
-
-        super().__init__(self.VARIABLE)
-
-        self._logger = logging.getLogger(__name__)
-        self._logger.debug('Creating the WindNinjaModel')
-
-        self.smrf_config = smrf_config
-        self.getConfig(smrf_config['wind'])
+        self.wind_distribution = wind_distribution
 
         # wind ninja parameters
-        self.wind_ninja_dir = self.config['wind_ninja_dir']
-        self.wind_ninja_dxy = self.config['wind_ninja_dxdy']
-        self.wind_ninja_pref = self.config['wind_ninja_pref']
-        if self.config['wind_ninja_tz'] is not None:
-            self.wind_ninja_tz = pytz.timezone(
-                self.config['wind_ninja_tz'].title())
-
-        # self.start_date = pd.to_datetime(
-        #     self.smrf_config['time']['start_date'])
-        # self.grid_data = self.smrf_config['gridded']['data_type']
+        self.wind_ninja_dir = self.config["wind_ninja_dir"]
+        self.wind_ninja_dxy = self.config["wind_ninja_dxdy"]
+        self.wind_ninja_pref = self.config["wind_ninja_pref"]
+        if self.config["wind_ninja_tz"] is not None:
+            self.wind_ninja_tz = pytz.timezone(self.config["wind_ninja_tz"].title())
 
         self.init_interp = True
         self.flatwind = None
         self.dir_round_cell = None
         self.cellmaxus = None
+
+    @property
+    def config(self):
+        return self.wind_distribution.config
+
+    @property
+    def topo(self):
+        return self.wind_distribution.topo
 
     def wind_ninja_path(self, dt, file_type):
         """Generate the path to the wind ninja data and ensure
@@ -85,19 +80,19 @@ class WindNinjaModel(ImageData):
 
         return f_path
 
-    def initialize(self, topo, data=None):
-        """Initialize the model with data
+    def initialize(self):
+        """
+        Initialize the model with data
 
         Arguments:
             topo {topo class} -- Topo class
             data {None} -- Not used but needs to be there
         """
-
         # meshgrid points
-        self.X = topo.X
-        self.Y = topo.Y
+        self.X = self.topo.X
+        self.Y = self.topo.Y
 
-        self.model_dxdy = np.mean(np.diff(topo.x))
+        self.model_dxdy = np.mean(np.diff(self.topo.x))
 
         # WindNinja output height in meters
         self.wind_height = float(self.config['wind_ninja_height'])
@@ -105,13 +100,13 @@ class WindNinjaModel(ImageData):
         # set roughness that was used in WindNinja simulation
         # WindNinja uses 0.01m for grass, 0.43 for shrubs, and 1.0 for forest
         self.wn_roughness = float(self.config['wind_ninja_roughness']) * \
-            np.ones_like(topo.dem)
+            np.ones_like(self.topo.dem)
 
         # get our effective veg surface roughness
         # to use in log law scaling of WindNinja data
         # using the relationship in
         # https://www.jstage.jst.go.jp/article/jmsj1965/53/1/53_1_96/_pdf
-        self.veg_roughness = topo.veg_height / 7.39
+        self.veg_roughness = self.topo.veg_height / 7.39
 
         # make sure roughness stays reasonable using bounds from
         # http://www.iawe.org/Proceedings/11ACWE/11ACWE-Cataldo3.pdf
@@ -177,7 +172,7 @@ class WindNinjaModel(ImageData):
     def convert_wind_ninja(self, t):
         """
         Convert the WindNinja ascii grids back to the SMRF grids and into the
-        SMRF data streamself.
+        SMRF data.
 
         Args:
             t: datetime of timestep
@@ -198,9 +193,11 @@ class WindNinjaModel(ImageData):
             data_vel_int, self.vtx,
             self.wts, self.X.shape)
 
-        # There will be NaN's around the edge, hanlde those first
+        # There will be NaN's around the edge, handle those first
         if self.model_dxdy != self.wind_ninja_dxy:
-            self._logger.debug('Wind speed from WindNinja has NaN, filling')
+            self.wind_distribution._logger.debug(
+                "Wind speed from WindNinja has NaN, filling"
+            )
 
             g_vel = self.fill_data(g_vel)
 

@@ -1,12 +1,11 @@
 from smrf.framework.model_framework import run_smrf
-from smrf.tests.check_mixin import CheckSMRFOutputs
+from smrf.tests.smrf_output_test import CheckSMRFOutputs
 from smrf.tests.smrf_test_case import SMRFTestCase
 
 
 class TestRME(CheckSMRFOutputs, SMRFTestCase):
     """
-    Integration test for SMRF.
-    Runs the short simulation over reynolds mountain east.
+    Integration test using test data from basins -> RME
     """
     @classmethod
     def setUpClass(cls):

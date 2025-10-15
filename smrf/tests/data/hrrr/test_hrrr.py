@@ -62,7 +62,6 @@ class TestLoadHRRR(SMRFTestCase):
         config = cast_all_variables(config, config.mcfg)
 
         cls.config = config
-        cls.gold_dir = cls.basin_dir.joinpath('gold_hrrr')
 
     def test_load_timestep(self):
         run_smrf(self.config)

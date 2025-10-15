@@ -1,26 +1,24 @@
-# -*- coding: utf-8 -*-
-# flake8: noqa
-from .air_temp import ta
+from .air_temp import AirTemperature
 from .albedo import Albedo
-from .cloud_factor import cf
+from .cloud_factor import CloudFactor
 from .image_data import ImageData
-from .precipitation import ppt
-from .soil_temp import ts
+from .precipitation import Precipitation
+from .soil_temp import SoilTemperature
 from .solar import Solar
 from .thermal import Thermal, ThermalHRRR
-from .vapor_pressure import vp
+from .vapor_pressure import VaporPressure
 from .wind import Wind
 
 __all__ = [
-    "ta",
+    "AirTemperature",
     "Albedo",
-    "cf",
+    "CloudFactor",
     "ImageData",
-    "ppt",
-    "ts",
+    "Precipitation",
+    "SoilTemperature",
     "Solar",
     "Thermal",
     "ThermalHRRR",
-    "vp",
+    "VaporPressure",
     "Wind",
 ]

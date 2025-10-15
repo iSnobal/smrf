@@ -11,12 +11,9 @@ from .image_data import ImageData
 
 class Thermal(ImageData):
     """
-    The :mod:`~smrf.distribute.thermal.Thermal` class allows for variable specific
-    distributions that go beyond the base class.
-
     Thermal radiation, or long-wave radiation, is calculated based on the clear
     sky radiation emitted by the atmosphere. Multiple methods for calculating
-    thermal radition exist and SMRF has 4 options for estimating clear sky
+    thermal radiation exist and SMRF has 4 options for estimating clear sky
     thermal radiation. Selecting one of the options below will change the
     equations used. The methods were chosen based on the study by Flerchinger
     et al (2009) :cite:`Flerchinger&al:2009` who performed a model comparison
@@ -126,7 +123,7 @@ class Thermal(ImageData):
     The thermal radiation is further adjusted for canopy cover after the work
     of Link and Marks (1999) :cite:`Link&Marks:1999`. The correction is based
     on the vegetation's transmissivity, with the canopy temperature assumed to
-    be the air temperature for vegetation greater than 2 meters.  The thermal
+    be the air temperature for vegetation greater than 2 meters. The thermal
     radiation is adjusted by
 
     .. math::
@@ -135,107 +132,47 @@ class Thermal(ImageData):
 
     where :math:`\\tau_d` is the optical transmissivity, :math:`L_{cloud}` is
     the cloud corrected thermal radiation, :math:`\\epsilon` is the emissivity
-    of the canopy (0.96), :math:`\\sigma` is the Stephan-Boltzmann constant,
+    of the canopy (0.96), :math:`\\sigma` is the Stefan-Boltzmann constant,
     and :math:`T_a` is the distributed air temperature.
-
-    Args:
-        thermal_config: The [thermal] section of the configuration file
-
-    Attributes:
-        config: configuration from [thermal] section
-        thermal: numpy array of the precipitation
-        min: minimum value of thermal is -600 W/m^2
-        max: maximum value of thermal is 600 W/m^2
-        stations: stations to be used in alphabetical order
-        dem: numpy array for the DEM, from
-            :py:attr:`smrf.data.loadTopo.Topo.dem`
-        veg_type: numpy array for the veg type, from
-            :py:attr:`smrf.data.loadTopo.Topo.veg_type`
-        veg_height: numpy array for the veg height, from
-            :py:attr:`smrf.data.loadTopo.Topo.veg_height`
-        veg_k: numpy array for the veg K, from
-            :py:attr:`smrf.data.loadTopo.Topo.veg_k`
-        veg_tau: numpy array for the veg transmissivity, from
-            :py:attr:`smrf.data.loadTopo.Topo.veg_tau`
-        sky_view_factor: numpy array for the sky view factor, from
-            :py:attr:`smrf.data.loadTopo.Topo.sky_view_factor`
     """
 
-    variable = 'thermal'
+    VARIABLE = "thermal"
 
     # these are variables that can be output
     OUTPUT_VARIABLES = {
-        'thermal': {
-            'units': 'watt/m2',
-            'standard_name': 'thermal_radiation',
-            'long_name': 'Thermal (longwave) radiation'
+        VARIABLE: {
+            "units": "watt/m2",
+            "standard_name": "thermal_radiation",
+            "long_name": "Thermal (longwave) radiation",
         },
-        'thermal_clear': {
-            'units': 'watt/m2',
-            'standard_name': 'thermal_radiation non-correct',
-            'long_name': 'Thermal (longwave) radiation non-corrected'
+        "thermal_clear": {
+            "units": "watt/m2",
+            "standard_name": "thermal_radiation non-correct",
+            "long_name": "Thermal (longwave) radiation non-corrected",
         },
-        'thermal_cloud': {
-            'units': 'watt/m2',
-            'standard_name': 'thermal_radiation cloud corrected',
-            'long_name': 'Thermal (longwave) radiation cloud corrected'
+        "thermal_cloud": {
+            "units": "watt/m2",
+            "standard_name": "thermal_radiation cloud corrected",
+            "long_name": "Thermal (longwave) radiation cloud corrected",
         },
-        'thermal_veg': {
-            'units': 'watt/m2',
-            'standard_name': 'thermal_radiation veg corrected',
-            'long_name': 'Thermal (longwave) radiation veg corrected'
-        }
+        "thermal_veg": {
+            "units": "watt/m2",
+            "standard_name": "thermal_radiation veg corrected",
+            "long_name": "Thermal (longwave) radiation veg corrected",
+        },
     }
 
     def __init__(self, thermal_config):
-        # extend the base class
-        super().__init__(self.variable)
-        self.getConfig(thermal_config)
+        super().__init__(thermal_config)
 
-        self.min = thermal_config['min']
-        self.max = thermal_config['max']
-
-        self.correct_cloud = self.config['correct_cloud']
-        self.correct_veg = self.config['correct_veg']
-        self.correct_terrain = self.config['correct_terrain']
+        self.correct_cloud = self.config.get("correct_cloud", False)
+        self.correct_veg = self.config.get("correct_veg", False)
+        self.correct_terrain = self.config.get("correct_terrain", False)
 
         if self.correct_cloud:
-            self.cloud_method = self.config['cloud_method']
+            self.cloud_method = self.config["cloud_method"]
 
-        self.clear_sky_method = self.config['clear_sky_method']
-
-        self._logger.debug('Created distribute.thermal')
-
-    def initialize(self, topo, data, date_time=None):
-        """
-        Initialize the distribution, calls
-        :mod:`smrf.distribute.ImageData._initialize` for gridded
-        distirbution. Sets the following from :mod:`smrf.data.loadTopo.Topo`
-
-        * :py:attr:`veg_height`
-        * :py:attr:`veg_tau`
-        * :py:attr:`veg_k`
-        * :py:attr:`sky_view_factor`
-        * :py:attr:`dem`
-
-        Args:
-            topo: :mod:`smrf.data.loadTopo.Topo` instance contain topographic
-                data and infomation
-            data: data Pandas dataframe containing the station data,
-                from :mod:`smrf.data.loadData` or :mod:`smrf.data.loadGrid`
-        """
-
-        self._logger.debug('Initializing distribute.thermal')
-        self.date_time = date_time
-        self._initialize(topo, data.metadata)
-
-        self.veg_height = topo.veg_height
-        self.veg_tau = topo.veg_tau
-        self.veg_k = topo.veg_k
-        self.sky_view_factor = topo.sky_view_factor
-        if not self.correct_terrain:
-            self.sky_view_factor = None
-        self.dem = topo.dem
+        self.clear_sky_method = self.config["clear_sky_method"]
 
     def distribute(self, date_time, air_temp, vapor_pressure=None,
                    dew_point=None, cloud_factor=None):
@@ -260,6 +197,11 @@ class Thermal(ImageData):
 
         self._logger.debug("%s Distributing thermal" % date_time)
 
+        if not self.correct_terrain:
+            sky_view_factor = None
+        else:
+            sky_view_factor = self.sky_view_factor
+
         # calculate clear sky thermal
         if self.clear_sky_method == "marks1979":
             cth = np.zeros_like(air_temp, dtype=np.float64)
@@ -267,7 +209,7 @@ class Thermal(ImageData):
                 air_temp,
                 dew_point,
                 self.dem,
-                self.sky_view_factor,
+                sky_view_factor,
                 cth,
                 self.config["threads"],
             )
@@ -282,13 +224,11 @@ class Thermal(ImageData):
             cth = clear_sky.Angstrom1918(air_temp, vapor_pressure / 1000)
 
         # terrain factor correction
-        if (self.sky_view_factor is not None) and (
-            self.clear_sky_method != "marks1979"
-        ):
+        if (sky_view_factor is not None) and (self.clear_sky_method != "marks1979"):
             # apply (emiss * skvfac) + (1.0 - skvfac) to the longwave
             cth = (
-                cth * self.sky_view_factor
-                + (1.0 - self.sky_view_factor) * STEF_BOLTZ * air_temp**4
+                cth * sky_view_factor
+                + (1.0 - sky_view_factor) * STEF_BOLTZ * air_temp**4
             )
 
         # make output variable
@@ -297,35 +237,28 @@ class Thermal(ImageData):
         # correct for the cloud factor
         # ratio of measured/modeled solar indicates the thermal correction
         if self.correct_cloud:
-            if self.cloud_method == 'garen2005':
-                cth = cloud.Garen2005(cth,
-                                      cloud_factor)
+            if self.cloud_method == "garen2005":
+                cth = cloud.Garen2005(cth, cloud_factor)
 
-            elif self.cloud_method == 'unsworth1975':
-                cth = cloud.Unsworth1975(cth,
-                                         air_temp,
-                                         cloud_factor)
+            elif self.cloud_method == "unsworth1975":
+                cth = cloud.Unsworth1975(cth, air_temp, cloud_factor)
 
-            elif self.cloud_method == 'kimball1982':
-                cth = cloud.Kimball1982(cth,
-                                        air_temp,
-                                        vapor_pressure/1000,
-                                        cloud_factor)
+            elif self.cloud_method == "kimball1982":
+                cth = cloud.Kimball1982(
+                    cth, air_temp, vapor_pressure / 1000, cloud_factor
+                )
 
-            elif self.cloud_method == 'crawford1999':
-                cth = cloud.Crawford1999(cth,
-                                         air_temp,
-                                         cloud_factor)
+            elif self.cloud_method == "crawford1999":
+                cth = cloud.Crawford1999(cth, air_temp, cloud_factor)
 
             # make output variable
             self.thermal_cloud = cth.copy()
 
         # correct for vegetation
         if self.correct_veg:
-            cth = vegetation.thermal_correct_canopy(cth,
-                                                    air_temp,
-                                                    self.veg_tau,
-                                                    self.veg_height)
+            cth = vegetation.thermal_correct_canopy(
+                cth, air_temp, self.veg_tau, self.veg_height
+            )
 
             # make output variable
             self.thermal_veg = cth.copy()
@@ -345,16 +278,17 @@ class ThermalHRRR:
         \\epsilon = Emissivity of the terrain
         \\T_a = Air temperature in Kelvin
     """
-    OUT_VARIABLE = 'thermal'
-    INI_VARIABLE = 'hrrr_thermal'
-    GRIB_NAME = 'DLWRF'
+
+    VARIABLE = "thermal"
+    INI_VARIABLE = "hrrr_thermal"
+    GRIB_NAME = "DLWRF"
 
     OUTPUT_VARIABLES = {
-        OUT_VARIABLE: {
-            'units': 'watt/m2',
-            'standard_name': 'thermal_radiation',
-            'long_name': 'Thermal (longwave) radiation',
-            'module': 'hrrr_thermal',
+        VARIABLE: {
+            "units": "watt/m2",
+            "standard_name": "thermal_radiation",
+            "long_name": "Thermal (longwave) radiation",
+            "module": "hrrr_thermal",
         },
     }
 

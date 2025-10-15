@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 from smrf.data.hrrr.file_loader import FileLoader
 from smrf.data.hrrr.grib_file_gdal import GribFileGdal
-from smrf.distribute.wind import Wind
 from smrf.distribute.wind.wind_ninja import WindNinjaModel
 from smrf.envphys.solar.cloud import get_hrrr_cloud
 from smrf.envphys.vapor_pressure import rh2vp
@@ -17,18 +16,13 @@ class InputGribHRRR(GriddedInput):
     and returned as Pandas dataframes.
     """
 
-    DATA_TYPE = 'hrrr_grib'
+    DATA_TYPE = "hrrr_grib"
     GDAL_VARIABLE_KEY = "hrrr_gdal_variables"
 
-    VARIABLES = [
-        'air_temp',
-        'vapor_pressure',
-        'precip',
-        'cloud_factor'
-    ]
+    VARIABLES = ["air_temp", "vapor_pressure", "precip", "cloud_factor"]
     WIND_VARIABLES = [
-        'wind_speed',
-        'wind_direction',
+        "wind_speed",
+        "wind_direction",
     ]
 
     def __init__(self, *args, **kwargs):
@@ -36,9 +30,9 @@ class InputGribHRRR(GriddedInput):
 
         self.cloud_factor_memory = None
 
-        self._load_wind = not Wind.config_model_type(
-            kwargs['config'], WindNinjaModel.MODEL_TYPE
-        )
+        # Skip loading wind when WindNinja is used
+        wind_model = kwargs["config"].get("wind", {}).get("wind_model", None)
+        self._load_wind = wind_model != WindNinjaModel.MODEL_TYPE
 
         self._calculate_cloud_factor = (
             "hrrr_cloud" not in kwargs["config"]["output"]["variables"]
@@ -66,7 +60,7 @@ class InputGribHRRR(GriddedInput):
         The function will take the keys and load them into the appropriate
         objects within the `grid` class.
         """
-        self._logger.info(
+        self._logger.debug(
             "Reading data from from HRRR directory: {}".format(
                 self.config["hrrr_directory"]
             )
@@ -74,12 +68,12 @@ class InputGribHRRR(GriddedInput):
 
         metadata, data = FileLoader(
             external_logger=self._logger,
-            file_dir=self.config['hrrr_directory'],
-            forecast_hour=self.config['hrrr_forecast_hour'],
+            file_dir=self.config["hrrr_directory"],
+            forecast_hour=self.config["hrrr_forecast_hour"],
             load_gdal=self._load_gdal,
             gdal_algorithm=self._gdal_algorithm,
-            load_wind = self._load_wind,
-            sixth_hour_variables=self.config['hrrr_sixth_hour_variables'],
+            load_wind=self._load_wind,
+            sixth_hour_variables=self.config["hrrr_sixth_hour_variables"],
         ).data_for_time_and_topo(
             start_date=self.start_date,
             bbox=self.bbox,
@@ -118,31 +112,30 @@ class InputGribHRRR(GriddedInput):
 
         self.metadata = metadata
 
-        idx = data['air_temp'].index
-        cols = data['air_temp'].columns
+        idx = data["air_temp"].index
+        cols = data["air_temp"].columns
 
-        self._logger.debug('Loading air_temp')
-        self.air_temp = data['air_temp']
+        self._logger.debug("Loading air_temp")
+        self.air_temp = data["air_temp"]
 
         # calculate vapor pressure
-        self._logger.debug('Calculating vapor_pressure')
+        self._logger.debug("Calculating vapor_pressure")
         vp = rh2vp(data["air_temp"].values, data["relative_humidity"].values)
         self.vapor_pressure = pd.DataFrame(vp, index=idx, columns=cols)
 
         self.calculate_wind(data)
 
         # precip
-        self._logger.debug('Loading precip')
-        self.precip = pd.DataFrame(data['precip_int'], index=idx, columns=cols)
+        self._logger.debug("Loading precip")
+        self.precip = pd.DataFrame(data["precip_int"], index=idx, columns=cols)
 
         # cloud factor
         if self._calculate_cloud_factor:
-            self._logger.debug('Loading solar')
-            solar = pd.DataFrame(data['short_wave'], index=idx, columns=cols)
-            self._logger.debug('Calculating cloud factor')
+            self._logger.debug("Loading solar")
+            solar = pd.DataFrame(data["short_wave"], index=idx, columns=cols)
+            self._logger.debug("Calculating cloud factor")
             self.cloud_factor = get_hrrr_cloud(
-                solar, self.metadata,
-                self.topo.basin_lat, self.topo.basin_long
+                solar, self.metadata, self.topo.basin_lat, self.topo.basin_long
             )
             self.check_cloud_factor()
 
@@ -154,22 +147,19 @@ class InputGribHRRR(GriddedInput):
             data: Loaded data from weather_forecast_retrieval
         """
         dataframe_options = dict(
-            index=data['air_temp'].index,
-            columns=data['air_temp'].columns
+            index=data["air_temp"].index, columns=data["air_temp"].columns
         )
-        wind_speed = np.empty_like(data['air_temp'].values)
+        wind_speed = np.empty_like(data["air_temp"].values)
         wind_speed[:] = np.nan
-        wind_direction = np.empty_like(data['air_temp'].values)
+        wind_direction = np.empty_like(data["air_temp"].values)
         wind_direction[:] = np.nan
 
         if self._load_wind:
-            self._logger.debug('Loading wind_speed and wind_direction')
+            self._logger.debug("Loading wind_speed and wind_direction")
 
-            wind_speed = np.sqrt(data['wind_u']**2 + data['wind_v']**2)
+            wind_speed = np.sqrt(data["wind_u"] ** 2 + data["wind_v"] ** 2)
 
-            wind_direction = np.degrees(
-                np.arctan2(data['wind_v'], data['wind_u'])
-            )
+            wind_direction = np.degrees(np.arctan2(data["wind_v"], data["wind_u"]))
             ind = wind_direction < 0
             wind_direction[ind] = wind_direction[ind] + 360
 
@@ -202,6 +192,6 @@ class InputGribHRRR(GriddedInput):
         ).ffill()
 
         if self.cloud_factor_memory.isnull().values.any():
-            self._logger.error('There are NaN values in the cloud factor')
+            self._logger.error("There are NaN values in the cloud factor")
 
         self.cloud_factor = self.cloud_factor_memory.tail(1)

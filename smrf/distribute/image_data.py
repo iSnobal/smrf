@@ -1,192 +1,177 @@
 import logging
 
 import numpy as np
+import pandas as pd
+
+from smrf.data.load_topo import Topo
 from smrf.spatial import grid, idw, kriging
 from smrf.spatial.dk import dk
 
 
 class ImageData:
     """
-    A base distribution method in SMRF that will ensure all variables are
-    distributed in the same manner.  Other classes will be initialized
-    using this base class.
-
-    .. code-block:: Python
-
-    class ta(smrf.distribute.ImageData):
-            '''
-            This is the ta class extending the ImageData base class
-            '''
-
-    Args:
-        variable (str): Variable name for the class
-
-    Returns:
-    A :mod:`!smrf.distribute.ImageData` class instance
+    Base class that will ensure all variables are distributed in the same manner.
 
     Attributes:
-        variable: The name of the variable that this class will become
-        [variable_name]: The :py:attr:`variable` will have the distributed data
-        [other_attribute]: The distributed data can also be stored as another
-            attribute specified in
-            :mod:`~smrf.distribute.ImageData._distribute`
-        config: Parsed dictionary from the configuration file for the variable
+        VARIABLE: The name of the variable that a class will distribute
+        config:   Parsed dictionary from the configuration file for the variable
         stations: The stations to be used for the variable, if set, in
-            alphabetical order
+                  alphabetical order
         metadata: The metadata Pandas dataframe containing the station
-            information from :mod:`smrf.data.loadData` or
-            :mod:`smrf.data.loadGrid`
-        idw: Inverse distance weighting instance from
-            :mod:`smrf.spatial.idw.IDW`
-        dk: Detrended kriging instance from :mod:`smrf.spatial.dk.dk.DK`
-        grid: Gridded interpolation instance from :mod:`smrf.spatial.grid.GRID`
-
+                  information from :mod:`smrf.data.loadData` or :mod:`smrf.data.loadGrid`
+        topo:     Access to the variables stored in the Topo
+        gridded:  Boolean indicator of whether the variable is gridded or not
+        max:      Maximum allowed value for the variable
+        min:      Minimum allowed value for the variable
     """
-
+    VARIABLE = ''
     OUTPUT_VARIABLES = {}
 
-    def __init__(self, variable):
+    def __init__(self, config):
+        if self.VARIABLE != '':
+            setattr(self, self.VARIABLE, None)
 
-        self.variable = variable
-        setattr(self, variable, None)
+        self.topo = None
+        self.metadata = None
 
-        self.gridded = False
+        self.config = config[self.VARIABLE]
+
+        # check of gridded interpolation
+        self.gridded = config.get('distribution', None) == 'grid'
+
+        self.stations = None
+        if self.config.get("stations", None) is not None:
+            stations = self.config['stations']
+            stations.sort()
+            self.stations = stations
+
+        self.min = self.config.get('min', -np.Inf)
+        self.max = self.config.get('max', np.Inf)
 
         self._logger = logging.getLogger(self.__class__.__module__)
+        self._logger.debug(
+            "Created distribute.%s", self.__class__.__module__.replace("smrf.", "")
+        )
 
     @property
     def output_variables(self):
         ov = {}
         for key, value in self.OUTPUT_VARIABLES.items():
+            # Add the variable module name to the dict to identify outputs in NetCDF
             value['module'] = self.__class__.__module__.split('.')[-1]
             ov[key] = value
         return ov
 
-    def getConfig(self, cfg):
-        """
-        Check the configuration that was set by the user for the variable
-        that extended this class. Checks for standard distribution parameters
-        that are common across all variables and assigns to the class instance.
-        Sets the :py:attr:`config` and :py:attr:`stations` attributes.
+    # Add some accessor methods to topo information
+    @property
+    def dem(self):
+        return self.topo.dem
 
+    @property
+    def sky_view_factor(self):
+        return self.topo.sky_view_factor
+
+    @property
+    def veg_height(self):
+        return self.topo.veg_height
+
+    @property
+    def veg_tau(self):
+        return self.topo.veg_tau
+
+    @property
+    def veg_k(self):
+        return self.topo.veg_k
+
+    # END - Topo accessor methods
+
+    def initialize(self, topo: Topo, metadata: pd.DataFrame):
+        """
         Args:
-            cfg (dict): dict from the [variable]
-        """
-
-        # check of gridded interpolation
-        self.gridded = False
-        if 'distribution' in cfg.keys() and cfg['distribution'] == 'grid':
-            self.gridded = True
-
-        self.getStations(cfg)
-        self.config = cfg
-
-    def getStations(self, config):
-        """
-        Determines the stations from the [variable] section of the
-        configuration file.
-
-        Args:
-            config (dict): dict from the [variable]
-        """
-        stations = None
-
-        # determine the stations that will be used, alphabetical order
-        if "stations" in config.keys() and config["stations"] is not None:
-            stations = config['stations']
-            stations.sort()
-
-        self.stations = stations
-
-    def _initialize(self, topo, metadata):
-        """
-        Initialize the distribution based on the parameters in
-        :py:attr:`config`.
-
-        Args:
-            topo: :mod:`smrf.data.loadTopo.Topo` instance contain topographic
-                data and information
+            topo: Topo class instance
             metadata: metadata Pandas dataframe containing the station metadata
-                from :mod:`smrf.data.loadData` or :mod:`smrf.data.loadGrid`
+                  from :mod:`smrf.data.loadData` or :mod:`smrf.data.loadGrid
 
-        Raises:
-            Exception: If the distribution method could not be determined, must
-                be idw, dk, or grid
-
-        To do:
-            - make a single call to the distribution initialization
-            - each dist (idw, dk, grid) takes the same inputs and returns the
-                same
+        Attributes set:
+            * :py:attr:`date_time`
+            * :py:attr:`metadata`
+            * :py:attr:`topo`
         """
-
-        self.min = self.config['min']
-        if self.min is None:
-            self.min = -np.inf
-
-        self.max = self.config['max']
-        if self.max is None:
-            self.max = np.inf
+        self._logger.debug("Initializing")
+        self.metadata = metadata
+        self.topo = topo
 
         # pull out the metadata subset
         if self.stations is not None:
-            metadata = metadata.loc[self.stations]
+            self.metadata = metadata.loc[self.stations]
         else:
             self.stations = metadata.index.values
-        self.metadata = metadata
 
-        # Old DB used X and Y, New DB uses utm_x, utm_y
-        try:
-            self.mx = metadata.utm_x.values
-            self.my = metadata.utm_y.values
-        except Exception:
-            self.mx = metadata.X.values
-            self.my = metadata.Y.values
+        self._initialize()
 
-        self.mz = metadata.elevation.values
+    def _initialize(self):
+        """
+        Initialize the distribution based on the parameters in :py:attr:`config`.
+
+        Raises:
+            Exception: If the distribution method could not be determined
+        """
 
         if "distribution" in self.config.keys():
-            if self.config['distribution'] == 'idw':
+            if self.config["distribution"] == "idw":
                 # inverse distance weighting
                 self.idw = idw.IDW(
-                    self.mx,
-                    self.my,
-                    topo.X,
-                    topo.Y,
-                    mz=self.mz,
-                    GridZ=topo.dem,
+                    self.metadata.utm_x.values,
+                    self.metadata.utm_y.values,
+                    self.topo.X,
+                    self.topo.Y,
+                    mz=self.metadata.elevation.values,
+                    GridZ=self.topo.dem,
                     power=self.config["idw_power"],
                 )
 
-            elif self.config['distribution'] == 'dk':
+            elif self.config["distribution"] == "dk":
                 # detrended kriging
                 self.dk = dk.DK(
-                    self.mx, self.my, self.mz, topo.X, topo.Y, topo.dem, self.config
+                    self.metadata.utm_x.values,
+                    self.metadata.utm_y.values,
+                    self.metadata.elevation.values,
+                    self.topo.X,
+                    self.topo.Y,
+                    self.topo.dem,
+                    self.config,
                 )
 
-            elif self.config['distribution'] == 'grid':
+            elif self.config["distribution"] == "grid":
                 # linear interpolation between points
                 self.grid = grid.GRID(
                     self.config,
-                    self.mx,
-                    self.my,
-                    topo.X,
-                    topo.Y,
-                    mz=self.mz,
-                    GridZ=topo.dem,
-                    mask=topo.mask,
-                    metadata=metadata,
+                    self.metadata.utm_x.values,
+                    self.metadata.utm_y.values,
+                    self.topo.X,
+                    self.topo.Y,
+                    mz=self.metadata.elevation.values,
+                    GridZ=self.topo.dem,
+                    mask=self.topo.mask,
+                    metadata=self.metadata,
                 )
 
-            elif self.config['distribution'] == 'kriging':
+            elif self.config["distribution"] == "kriging":
                 # generic kriging
                 self.kriging = kriging.KRIGE(
-                    self.mx, self.my, self.mz, topo.X, topo.Y, topo.dem, self.config
+                    self.metadata.utm_x.values,
+                    self.metadata.utm_y.values,
+                    self.metadata.elevation.values,
+                    self.topo.X,
+                    self.topo.Y,
+                    self.topo.dem,
+                    self.config,
                 )
 
             else:
                 raise Exception(
                     "Could not determine the distribution method for {}".format(
-                        self.variable
+                        self.VARIABLE
                     )
                 )
 
@@ -210,7 +195,7 @@ class ImageData:
         data = data[self.stations]
 
         if np.sum(data.isnull()) == data.shape[0]:
-            raise Exception("{}: All data values are NaN".format(self.variable))
+            raise Exception("{}: All data values are NaN".format(self.VARIABLE))
 
         if self.config['distribution'] == 'idw':
             if self.config['detrend']:
@@ -240,9 +225,9 @@ class ImageData:
 
         elif self.config['distribution'] == 'kriging':
             v, ss = self.kriging.calculate(data.values)
-            setattr(self, '{}_variance'.format(self.variable), ss)
+            setattr(self, '{}_variance'.format(self.VARIABLE), ss)
 
         if other_attribute is not None:
             setattr(self, other_attribute, v)
         else:
-            setattr(self, self.variable, v)
+            setattr(self, self.VARIABLE, v)

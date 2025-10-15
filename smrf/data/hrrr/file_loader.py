@@ -77,12 +77,13 @@ class FileLoader:
         :return:
           Tuple - Dataframe with metadata and dictionary with variable names as keys
         """
+        self.log.debug("Reading GRIB file for date: {}".format(datetime))
+
         metadata, data = self.xarray(start_date, bbox, utm_zone_number)
         if len(self._load_gdal) > 0:
             data |= self.gdal(start_date, topo)
 
         return metadata, data
-
 
     def _get_file_path(self, file_time, forecast_hour):
         """
@@ -135,12 +136,10 @@ class FileLoader:
             List containing dataframe for the metadata and for each read
             variable.
         """
+        self.log.debug("Using Xarray")
+
         file_loader = GribFileXarray(external_logger=self.log)
         file_loader.bbox = bbox
-
-        self.log.info("Getting saved data")
-
-        self.log.debug("Reading file for date: {}".format(date))
 
         # Filename of the default configured forecast hour
         default_file = self._get_file_path(date, self._forecast_hour)
@@ -279,6 +278,8 @@ class FileLoader:
         :return
             Dict - Loaded variable data transformed to topo
         """
+        self.log.debug("Using GDAL")
+
         file_loader = GribFileGdal(topo, self._gdal_algorithm)
 
         return file_loader.load(

@@ -6,9 +6,6 @@ from smrf.utils import utils
 
 class Solar(ImageData):
     """
-    The :mod:`~smrf.distribute.solar.solar` class allows for variable specific
-    distributions that go beyond the base class.
-
     Multiple steps are required to estimate solar radiation:
 
     1. Terrain corrected clear sky radiation
@@ -66,49 +63,9 @@ class Solar(ImageData):
     albedo from :mod:`smrf.distribute.albedo`. The net radiation is the sum of
     the of beam and diffuse canopy adjusted radiation multipled by one minus
     the albedo.
-
-    Args:
-        config: full configuration dictionary contain at least the sections
-                albedo, and solar
-        topo: Topo class :mod:`smrf.data.loadTopo.Topo`
-
-    Attributes:
-        albedoConfig: configuration from [albedo] section
-        config: configuration from [albedo] section
-        clear_ir_beam: numpy array modeled clear sky infrared beam radiation
-        clear_ir_diffuse: numpy array modeled clear sky infrared diffuse
-            radiation
-        clear_vis_beam: numpy array modeled clear sky visible beam radiation
-        clear_vis_diffuse: numpy array modeled clear sky visible diffuse
-            radiation
-        cloud_factor: numpy array distributed cloud factor
-        cloud_ir_beam: numpy array cloud adjusted infrared beam radiation
-        cloud_ir_diffuse: numpy array cloud adjusted infrared diffuse radiation
-        cloud_vis_beam: numpy array cloud adjusted visible beam radiation
-        cloud_vis_diffuse: numpy array cloud adjusted visible diffuse radiation
-        ir_file: temporary file from ``stoporad`` for infrared clear sky
-            radiation
-        metadata: metadata for the station data
-        net_solar: numpy array for the calculated net solar radiation
-        stations: stations to be used in alphabetical order
-        veg_height: numpy array of vegetation heights from
-            :mod:`smrf.data.loadTopo.Topo`
-        veg_ir_beam: numpy array vegetation adjusted infrared beam radiation
-        veg_ir_diffuse: numpy array vegetation adjusted infrared diffuse
-            radiation
-        veg_k: numpy array of vegetation extinction coefficient from
-            :mod:`smrf.data.loadTopo.Topo`
-        veg_tau: numpy array of vegetation optical transmissivity from
-            :mod:`smrf.data.loadTopo.Topo`
-        veg_vis_beam: numpy array vegetation adjusted visible beam radiation
-        veg_vis_diffuse: numpy array vegetation adjusted visible diffuse
-            radiation
-        vis_file: temporary file from ``stoporad`` for visible clear sky
-            radiation
-
     """
 
-    variable = 'solar'
+    VARIABLE = 'solar'
 
     # these are variables that can be output
     OUTPUT_VARIABLES = {
@@ -179,45 +136,6 @@ class Solar(ImageData):
             'long_name': 'Vegetation corrected visible diffuse solar radiation'
         }
     }
-
-    def __init__(self, config, topo):
-
-        # extend the base class
-        super().__init__(self.variable)
-
-        self.config = config["solar"]
-        self.albedoConfig = config["albedo"]
-
-        self.topo = topo
-
-        self._logger.debug('Created distribute.solar')
-
-    def initialize(self, topo, data, date_time=None):
-        """
-        Initialize the distribution, soley calls
-        :mod:`smrf.distribute.ImageData._initialize`. Sets the
-        following attributes:
-
-        * :py:attr:`veg_height`
-        * :py:attr:`veg_tau`
-        * :py:attr:`veg_k`
-
-        Args:
-            topo: :mod:`smrf.data.loadTopo.Topo` instance contain topographic
-                data and infomation
-            data: data Pandas dataframe containing the station data,
-                from :mod:`smrf.data.loadData` or :mod:`smrf.data.loadGrid`
-
-        """
-
-        self._logger.debug('Initializing distribute.solar')
-        self.date_time = date_time
-        # Solar has no stations. Relies on Cloud factor
-        self.stations = None
-        self._initialize(topo, data.metadata)
-        self.veg_height = topo.veg_height
-        self.veg_tau = topo.veg_tau
-        self.veg_k = topo.veg_k
 
     def distribute(self, date_time, cloud_factor, illum_ang, cosz, azimuth,
                    albedo_vis, albedo_ir):
