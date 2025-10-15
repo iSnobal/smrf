@@ -123,7 +123,7 @@ class Thermal(ImageData):
     The thermal radiation is further adjusted for canopy cover after the work
     of Link and Marks (1999) :cite:`Link&Marks:1999`. The correction is based
     on the vegetation's transmissivity, with the canopy temperature assumed to
-    be the air temperature for vegetation greater than 2 meters.  The thermal
+    be the air temperature for vegetation greater than 2 meters. The thermal
     radiation is adjusted by
 
     .. math::
@@ -132,7 +132,7 @@ class Thermal(ImageData):
 
     where :math:`\\tau_d` is the optical transmissivity, :math:`L_{cloud}` is
     the cloud corrected thermal radiation, :math:`\\epsilon` is the emissivity
-    of the canopy (0.96), :math:`\\sigma` is the Stephan-Boltzmann constant,
+    of the canopy (0.96), :math:`\\sigma` is the Stefan-Boltzmann constant,
     and :math:`T_a` is the distributed air temperature.
     """
 

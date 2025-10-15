@@ -8,32 +8,11 @@ from .winstral import WinstralWindModel
 
 class Wind(ImageData):
     """
-    The :mod:`~smrf.distribute.wind.wind` class allows for variable specific
-    distributions that go beyond the base class.
-
     Three distribution methods are available for the Wind class:
 
     1. Winstral and Marks 2002 method for maximum upwind slope (maxus)
     2. Import WindNinja simulations
     3. Standard interpolation
-
-    Args:
-        self.config: The full SMRF configuration file
-
-    Attributes:
-        config: configuration from [wind] section
-        wind_speed: numpy matrix of the wind speed
-        wind_direction: numpy matrix of the wind direction
-        veg_type: numpy array for the veg type, from
-            :py:attr:`smrf.data.loadTopo.Topo.veg_type`
-        _maxus_file: the location of the maxus NetCDF file
-        maxus: the loaded library values from :py:attr:`_maxus_file`
-        maxus_direction: the directions associated with the :py:attr:`maxus`
-            values
-        min: minimum value of wind is 0.447
-        max: maximum value of wind is 35
-        stations: stations to be used in alphabetical order
-
     """
 
     INTERP = "interp"
@@ -98,8 +77,7 @@ class Wind(ImageData):
     def distribute(self, data_speed, data_direction, t):
         """
         Distribute given a Panda's dataframe for a single time step. Calls
-    :mod:`smrf.distribute.ImageData._distribute` for
-        the `wind_model` chosen.
+        :mod:`smrf.distribute.ImageData._distribute` for the `wind_model` chosen.
 
         Args:
             data_speed: Pandas dataframe for single time step from wind_speed

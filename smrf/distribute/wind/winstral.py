@@ -6,7 +6,8 @@ from smrf.utils import utils
 
 
 class WinstralWindModel:
-    """Estimating wind speed and direction is complex terrain can be difficult due
+    """
+    Estimating wind speed and direction in complex terrain can be difficult due
     to the interaction of the local topography with the wind. The methods
     described here follow the work developed by Winstral and Marks (2002) and
     Winstral et al. (2009) :cite:`Winstral&Marks:2002` :cite:`Winstral&al:2009`
