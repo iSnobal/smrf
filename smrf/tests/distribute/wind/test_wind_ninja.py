@@ -1,11 +1,10 @@
 import netCDF4 as nc
 import numpy as np
+import pandas as pd
 import pytz
 
-from unittest.mock import patch
-
 from smrf.data import Topo
-from smrf.distribute.wind.wind_ninja import WindNinjaModel
+from smrf.distribute.wind.wind import Wind
 from smrf.tests.smrf_test_case_lakes import SMRFTestCaseLakes
 from smrf.utils import utils
 from smrf.utils.utils import date_range
@@ -13,8 +12,7 @@ from smrf.utils.utils import date_range
 
 class TestWindNinja(SMRFTestCaseLakes):
 
-    @patch('smrf.distribute.wind.wind_ninja.logging')
-    def setup_wind_ninja(self, config, _mock_logging):
+    def setup_wind_ninja(self, config):
         """Setup the wind ninja class
 
         Args:
@@ -33,8 +31,9 @@ class TestWindNinja(SMRFTestCaseLakes):
             tzinfo
         )
 
-        wn = WindNinjaModel(config)
-        wn.initialize(topo, None)
+        wind = Wind(config)
+        wind.initialize(topo, pd.DataFrame())
+        wn = wind.wind_model
         wn.initialize_interp(date_time[0])
         g_vel, g_ang = wn.convert_wind_ninja(date_time[0])
 

@@ -1,20 +1,17 @@
-import logging
-
 import netCDF4 as nc
 import numpy as np
 import pandas as pd
 
-from smrf.distribute.image_data import ImageData
 from smrf.utils import utils
 
 
-class WinstralWindModel(ImageData):
+class WinstralWindModel:
     """Estimating wind speed and direction is complex terrain can be difficult due
     to the interaction of the local topography with the wind. The methods
     described here follow the work developed by Winstral and Marks (2002) and
     Winstral et al. (2009) :cite:`Winstral&Marks:2002` :cite:`Winstral&al:2009`
     which parameterizes the terrain based on the upwind direction. The
-    underlying method calulates the maximum upwind slope (maxus) within a
+    underlying method calculates the maximum upwind slope (maxus) within a
     search distance to determine if a cell is sheltered or exposed. See
     :mod:`smrf.utils.wind.model` for a more in depth description. A maxus file
     (library) is used to load the upwind direction and maxus values over the
@@ -28,14 +25,14 @@ class WinstralWindModel(ImageData):
        direction, and maxus values
 
     After the maxus is calculated for multiple wind directions over the entire
-    DEM, the measured wind speed and direction can be distirbuted. The first
+    DEM, the measured wind speed and direction can be distributed. The first
     step is to adjust the measured wind speeds to estimate the wind speed if
     the site were on a flat surface. The adjustment uses the maxus value at the
     station location and an enhancement factor for the site based on the
     sheltering of that site to wind. A special consideration is performed when
     the station is on a peak, as artificially high wind speeds can be
-    calcualted.  Therefore, if the station is on a peak, the minimum maxus
-    value is choosen for all wind directions. The wind direction is also broken
+    calculated.  Therefore, if the station is on a peak, the minimum maxus
+    value is chosen for all wind directions. The wind direction is also broken
     up into the u,v componenets.
 
     Next the flat wind speed, u wind direction component, and v wind direction
@@ -52,49 +49,25 @@ class WinstralWindModel(ImageData):
     distributed flat wind speed and each cell's maxus value.
     """
 
-    MODEL_TYPE = 'winstral'
-    VARIABLE = 'wind'
+    MODEL_TYPE = "winstral"
+    VARIABLE = "wind"
 
-    def __init__(self, smrf_config):
-        """Initialize the WinstralWindModel
+    def __init__(self, wind_distribution):
+        """
+        Initialize the WinstralWindModel
 
         Arguments:
-            smrf_config {UserConfig} -- entire smrf config
-            distribute_drifts {bool} -- distribute drifts if true
-
-        Raises:
-            IOError: if maxus file does not match topo size
+            wind_distribution: Instance of :mod:`smrf.distribute.wind.wind`
         """
-
-        super().__init__(self.VARIABLE)
-
-        self._logger = logging.getLogger(__name__)
-
-        self.smrf_config = smrf_config
-        self.getConfig(smrf_config['wind'])
-        # self.distribute_drifts = distribute_drifts
-
-        self._logger.debug('Creating the WinstralWindModel')
-
+        self.wind_distribution = wind_distribution
         # open the maxus netCDF
-        self._maxus_file = nc.Dataset(self.config['maxus_netcdf'], 'r')
-        self.maxus = self._maxus_file.variables['maxus'][:]
-        self.maxus_direction = self._maxus_file.variables['direction'][:]
-        self._maxus_file.close()
+        with nc.Dataset(self.config['maxus_netcdf'], 'r') as maxus_file:
+            self.maxus = maxus_file.variables['maxus'][:]
+            self.maxus_direction = maxus_file.variables['direction'][:]
 
-        # Maxus must be the the same size as the topo.
-        topo_nc = nc.Dataset(self.smrf_config['topo']['filename'], 'r')
-        t_shape = topo_nc.variables['dem'].shape
-        topo_nc.close()
-
-        if t_shape != self.maxus[0].shape:
-            raise IOError("\nMaxus file must be generated using the topo to"
-                          " be valid. Maxus netcdf shape = {} and topo"
-                          " netcdf shape = {}".format(t_shape,
-                                                      self.maxus.shape))
-
-        self._logger.debug('Read data from {}'
-                           .format(self.config['maxus_netcdf']))
+        self.wind_distribution._logger.debug(
+            "Read data from {}".format(self.config["maxus_netcdf"])
+        )
 
         # get the veg values
         matching = [s for s in self.config.keys() if "veg_" in s]
@@ -108,23 +81,28 @@ class WinstralWindModel(ImageData):
 
         self.veg = v
 
-    def initialize(self, topo, data):
-        """Initialize the model with data
+    @property
+    def config(self):
+        return self.wind_distribution.config
 
-        Arguments:
-            topo {topo class} -- Topo class
-            data {data object} -- SMRF data object
+    @property
+    def topo(self):
+        return self.wind_distribution.topo
+
+    @property
+    def metadata(self):
+        return self.wind_distribution.metadata
+
+    def initialize(self):
         """
+        See :mod:`smrf.distribute.ImageData.initialize` for documentation
 
-        self._logger.debug('Initializing the WinstralWindModel')
-
-        self._initialize(topo, data.metadata)
-
-        self.veg_type = topo.veg_type
-
+        Raises:
+            IOError: if maxus file does not match topo size
+        """
         # meshgrid points
-        self.X = topo.X
-        self.Y = topo.Y
+        self.X = self.topo.X
+        self.Y = self.topo.Y
 
         # get the enhancements for the stations
         if 'enhancement' not in self.metadata.columns:
@@ -141,6 +119,14 @@ class WinstralWindModel(ImageData):
 
                     self.metadata.loc[m, 'enhancement'] = \
                         float(enhancement)
+
+        # Maxus must be the the same size as the topo.
+        if self.topo.dem.shape != self.maxus[0].shape:
+            raise IOError(
+                "Maxus file must be generated using the topo to"
+                " be valid. Maxus netcdf shape = {} and topo"
+                " netcdf shape = {}".format(self.topo.dem.shape, self.maxus.shape)
+            )
 
         # if not self.distribute_drifts:
         # we have to pass these to precip, so make them none
@@ -169,14 +155,21 @@ class WinstralWindModel(ImageData):
         self.stationMaxus(data_speed, data_direction)
 
         # distribute the flatwind
-        self._distribute(self.flatwind_point,
-                         other_attribute='flatwind')
+        self.wind_distribution._distribute(
+            self.flatwind_point, other_attribute="flatwind"
+        )
+        self.flatwind = self.wind_distribution.flatwind
 
         # distribute u_direction and v_direction
-        self._distribute(self.u_direction,
-                         other_attribute='u_direction_distributed')
-        self._distribute(self.v_direction,
-                         other_attribute='v_direction_distributed')
+        self.wind_distribution._distribute(
+            self.u_direction, other_attribute="u_direction_distributed"
+        )
+        self.u_direction_distributed = self.wind_distribution.u_direction_distributed
+
+        self.wind_distribution._distribute(
+            self.v_direction, other_attribute="v_direction_distributed"
+        )
+        self.v_direction_distributed = self.wind_distribution.v_direction_distributed
 
         # Calculate simulated wind speed at each cell from flatwind
         self.simulateWind(data_speed)
@@ -195,8 +188,14 @@ class WinstralWindModel(ImageData):
         """
 
         # combine u and v to azimuth
-        az = np.arctan2(self.u_direction_distributed,
-                        self.v_direction_distributed)*180/np.pi
+        az = (
+            np.arctan2(
+                self.u_direction_distributed,
+                self.v_direction_distributed,
+            )
+            * 180
+            / np.pi
+        )
         az[az < 0] = az[az < 0] + 360
 
         dir_round_cell = np.ceil((az - self.nstep/2) / self.nstep) * self.nstep
@@ -220,7 +219,7 @@ class WinstralWindModel(ImageData):
         for k, v in self.veg.items():
             # Adjust veg types that were specified by the user
             if k != 'default':
-                ind = self.veg_type == int(k)
+                ind = self.topo.veg_type == int(k)
                 dynamic_mask[ind] = 0
                 cellmaxus[ind] += v
 
@@ -276,7 +275,7 @@ class WinstralWindModel(ImageData):
         if np.sum(nans) > 0:
             cellwind[nans] = np.interp(x(nans), x(~nans), cellwind[~nans])
 
-        self.wind_speed = utils.set_min_max(cellwind, self.min, self.max)
+        self.wind_speed = cellwind
         self.wind_direction = az
         self.cellmaxus = cellmaxus
         self.dir_round_cell = dir_round_cell

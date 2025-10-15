@@ -1,12 +1,9 @@
-
-import logging
-
 import numpy as np
 from smrf.utils import utils
 
 from smrf.distribute.image_data import ImageData
-from smrf.distribute.wind.wind_ninja import WindNinjaModel
-from smrf.distribute.wind.winstral import WinstralWindModel
+from .wind_ninja import WindNinjaModel
+from .winstral import WinstralWindModel
 
 
 class Wind(ImageData):
@@ -39,35 +36,30 @@ class Wind(ImageData):
 
     """
 
-    INTERP = 'interp'
-    VARIABLE = 'wind'
+    INTERP = "interp"
+    VARIABLE = "wind"
 
     # these are variables that can be output
     OUTPUT_VARIABLES = {
-        'flatwind': {
-            'units': 'm/s',
-            'standard_name': 'flatwind_wind_speed',
-            'long_name': 'Simulated wind on a flat surface'
+        "flatwind": {
+            "units": "m/s",
+            "standard_name": "flatwind_wind_speed",
+            "long_name": "Simulated wind on a flat surface",
         },
-        'wind_speed': {
-            'units': 'm/s',
-            'standard_name': 'wind_speed',
-            'long_name': 'Wind speed'
+        "wind_speed": {
+            "units": "m/s",
+            "standard_name": "wind_speed",
+            "long_name": "Wind speed",
         },
-        'wind_direction': {
-            'units': 'degrees',
-            'standard_name': 'wind_direction',
-            'long_name': 'Wind direction'
-        }
+        "wind_direction": {
+            "units": "degrees",
+            "standard_name": "wind_direction",
+            "long_name": "Wind direction",
+        },
     }
 
     def __init__(self, config):
-        ImageData.__init__(self, self.VARIABLE)
-        self._logger = logging.getLogger(__name__)
-
-        # check and assign the configuration
-        self.smrf_config = config
-        self.getConfig(config['wind'])
+        super().__init__(config)
 
         if self.model_type(self.INTERP):
             # Straight interpolation of the wind
@@ -77,58 +69,31 @@ class Wind(ImageData):
             self.wind_model.dir_round_cell = None
 
         elif self.model_type(WindNinjaModel.MODEL_TYPE):
-            self.wind_model = WindNinjaModel(self.smrf_config)
+            self.wind_model = WindNinjaModel(self)
 
         elif self.model_type(WinstralWindModel.MODEL_TYPE):
-            self.wind_model = WinstralWindModel(self.smrf_config)
+            self.wind_model = WinstralWindModel(self)
 
-        self._logger.debug('Created distribute.wind')
-
-    def model_type(self, wind_model):
-        """Check if given model is set on config
+    def model_type(self, wind_model: str) -> bool:
+        """
+        Check if given model is set on config
 
         Args:
-            wind_model (str): name of the wind model
+            wind_model (str): name of the wind model to look up
 
         Returns:
             bool: True/False
         """
-        return Wind.config_model_type(self.smrf_config, wind_model)
+        return self.config.get('wind_model', None) == wind_model
 
-    @staticmethod
-    def config_model_type(config, wind_model):
-        """Check if the wind model is of a given type for given config
-
-        Args:
-            config (dict): run configuration for SMRF
-            wind_model (str): name of the wind model
-
-        Returns:
-            bool: True/False if the wind_model is set in the config
+    def initialize(self, topo, metadata):
         """
-
-        return config.get('wind', {}).get('wind_model', None) == wind_model
-
-    def initialize(self, topo, data, date_time=None):
+        See :mod:`smrf.distribute.ImageData.initialize` for documentation
         """
-        Initialize the distribution, calls
-    :mod:`smrf.distribute.ImageData._initialize`. Checks for
-        the enhancement factors for the stations and vegetation.
-
-        Args:
-            topo: :mod:`smrf.data.loadTopo.Topo` instance contain topographic
-                data and infomation
-            data: data Pandas dataframe containing the station data,
-                from :mod:`smrf.data.loadData` or :mod:`smrf.data.loadGrid`
-
-        """
-
-        self._logger.debug('Initializing distribute.wind')
-        self.date_time = date_time
-        self.wind_model._initialize(topo, data.metadata)
+        super().initialize(topo, metadata)
 
         if not self.model_type(self.INTERP):
-            self.wind_model.initialize(topo, data)
+            self.wind_model.initialize()
 
     def distribute(self, data_speed, data_direction, t):
         """
@@ -174,6 +139,4 @@ class Wind(ImageData):
             setattr(self, v, getattr(self.wind_model, v))
 
         # set min and max
-        self.wind_speed = utils.set_min_max(self.wind_speed,
-                                            self.wind_model.min,
-                                            self.wind_model.max)
+        self.wind_speed = utils.set_min_max(self.wind_speed, self.min, self.max)

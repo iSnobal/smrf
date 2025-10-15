@@ -2,62 +2,27 @@ from .image_data import ImageData
 from smrf.utils import utils
 
 
-class cf(ImageData):
+class CloudFactor(ImageData):
     """
-    The :mod:`~smrf.distribute.cloud_factor.cf` class allows for variable
-    specific distributions that go beyond the base class. Cloud factor is
-    a relatively simple variable to distribute as it does not rely on any
+    Cloud factor is a relatively simple variable to distribute as it does not rely on any
     other variables.
 
     Cloud factor is calculated as the ratio between measured incoming
     solar radiation and modeled clear sky radiation. A value of 0 means
     no incoming solar radiation (or very cloudy) and a value of 1 means
     sunny.
-
-    Args:
-        config: The [cloud_factor] section of the configuration file
-
-    Attributes:
-        config: configuration from [cloud_factor] section
-        cloud_factor: numpy array of the cloud factor
-        stations: stations to be used in alphabetical order
-
     """
 
-    variable = 'cloud_factor'
+    VARIABLE = "cloud_factor"
 
     # these are variables that can be output
     OUTPUT_VARIABLES = {
-        'cloud_factor': {
-            'units': 'None',
-            'standard_name': 'cloud_factor',
-            'long_name': 'cloud factor'
+        "cloud_factor": {
+            "units": "None",
+            "standard_name": "cloud_factor",
+            "long_name": "cloud factor",
         }
     }
-
-    def __init__(self, config):
-        # extend the base class
-        super().__init__(self.variable)
-        # check and assign the configuration
-        self.getConfig(config)
-        self._logger.debug('Created distribute.cloud_factor')
-
-    def initialize(self, topo, data, date_time=None):
-        """
-            Initialize the distribution, solely calls
-        :mod:`smrf.distribute.ImageData._initialize`.
-
-            Args:
-                topo: :mod:`smrf.data.loadTopo.Topo` instance contain topographic
-                    data and infomation
-                metadata: metadata Pandas dataframe containing the station metadata
-                    from :mod:`smrf.data.loadData` or :mod:`smrf.data.loadGrid`
-
-        """
-
-        self._logger.debug('Initializing distribute.cloud_factor')
-        self.date_time = date_time
-        self._initialize(topo, data.metadata)
 
     def distribute(self, data):
         """

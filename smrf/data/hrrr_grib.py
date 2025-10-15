@@ -36,9 +36,9 @@ class InputGribHRRR(GriddedInput):
 
         self.cloud_factor_memory = None
 
-        self._load_wind = not Wind.config_model_type(
-            kwargs['config'], WindNinjaModel.MODEL_TYPE
-        )
+        # Skip loading wind when WindNinja is used
+        wind_model = kwargs['config'].get('wind', {}).get('wind_model', None)
+        self._load_wind = wind_model != WindNinjaModel.MODEL_TYPE
 
         self._calculate_cloud_factor = (
             "hrrr_cloud" not in kwargs["config"]["output"]["variables"]

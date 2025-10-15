@@ -251,17 +251,13 @@ class SMRF:
         # Always process air temperature and vapor pressure together since
         # both are related to each other.
         wants_vp = set(output_variables).intersection(
-            distribute.vp.OUTPUT_VARIABLES.keys()
+            distribute.VaporPressure.OUTPUT_VARIABLES.keys()
         )
         if "air_temp" in output_variables or len(wants_vp) > 0:
             # Air temperature
-            self.distribute["air_temp"] = distribute.ta(self.config["air_temp"])
-
+            self.distribute["air_temp"] = distribute.AirTemperature(self.config)
             # Vapor pressure
-            self.distribute["vapor_pressure"] = distribute.vp(
-                self.config["vapor_pressure"],
-                self.config["precip"]["precip_temp_method"],
-            )
+            self.distribute["vapor_pressure"] = distribute.VaporPressure(self.config)
 
         # Wind
         wants_wind = set(output_variables).intersection(
@@ -272,19 +268,13 @@ class SMRF:
 
         # Precipitation
         wants_precip = set(output_variables).intersection(
-            distribute.ppt.OUTPUT_VARIABLES.keys()
+            distribute.Precipitation.OUTPUT_VARIABLES.keys()
         )
         if len(wants_precip) > 0:
             # Need air temp and vapor pressure for precip phase
-            if "air_temp" not in self.distribute:
-                self.distribute["air_temp"] = distribute.ta(self.config["air_temp"])
-
-            if "vapor_pressure" not in self.distribute:
-                # Vapor pressure
-                self.distribute["vapor_pressure"] = distribute.vp(
-                    self.config["vapor_pressure"],
-                    self.config["precip"]["precip_temp_method"],
-                )
+            self.distribute["air_temp"] = distribute.AirTemperature(self.config)
+            # Vapor pressure
+            self.distribute["vapor_pressure"] = distribute.VaporPressure(self.config)
 
             if (
                 self.config["precip"]["precip_rescaling_model"] == "winstral"
@@ -292,15 +282,15 @@ class SMRF:
             ):
                 self.distribute["wind"] = distribute.Wind(self.config)
 
-            self.distribute["precipitation"] = distribute.ppt(
-                self.config["precip"],
+            self.distribute["precipitation"] = distribute.Precipitation(
+                self.config,
                 self.start_date,
                 self.config["time"]["time_step"],
             )
 
         # Cloud_factor
         if "cloud_factor" in output_variables:
-            self.distribute["cloud_factor"] = distribute.cf(self.config["cloud_factor"])
+            self.distribute["cloud_factor"] = distribute.CloudFactor(self.config)
 
         # Solar radiation; requires albedo and clouds
         wants_albedo = set(output_variables).intersection(
@@ -311,21 +301,17 @@ class SMRF:
         )
         if len(wants_solar) > 0 or len(wants_albedo) > 0:
             # Need precip for albedo:
-            if "precipitation" not in self.distribute:
-                self.distribute["precipitation"] = distribute.ppt(
-                    self.config["precip"],
-                    self.start_date,
-                    self.config["time"]["time_step"],
-                )
-            # Need clouds for solar, either use external one or add to
-            # distributed list
+            self.distribute["precipitation"] = distribute.Precipitation(
+                self.config,
+                self.start_date,
+                self.config["time"]["time_step"],
+            )
+            # Need clouds for solar, either use external one or add to distributed list
             if "hrrr_cloud" not in output_variables:
-                self.distribute["cloud_factor"] = distribute.cf(
-                    self.config["cloud_factor"]
-                )
+                self.distribute["cloud_factor"] = distribute.CloudFactor(self.config)
 
-            self.distribute["albedo"] = distribute.Albedo(self.config["albedo"])
-            self.distribute["solar"] = distribute.Solar(self.config, self.topo)
+            self.distribute["albedo"] = distribute.Albedo(self.config)
+            self.distribute["solar"] = distribute.Solar(self.config)
         else:
             self._logger.info("Using HRRR solar in iSnobal")
 
@@ -336,29 +322,19 @@ class SMRF:
         if len(wants_thermal) > 0:
             # Need air temp, vapor pressure, and clouds
             # Air temperature
-            if "air_temp" not in self.distribute:
-                self.distribute["air_temp"] = distribute.ta(self.config["air_temp"])
-
+            self.distribute["air_temp"] = distribute.AirTemperature(self.config)
             # Vapor pressure
-            if "vapor_pressure" not in self.distribute:
-                self.distribute["vapor_pressure"] = distribute.vp(
-                    self.config["vapor_pressure"],
-                    self.config["precip"]["precip_temp_method"],
-                )
-            # Need clouds for solar, either use external one or add to
-            # distributed list
+            self.distribute["vapor_pressure"] = distribute.VaporPressure(self.config)
+            # Need clouds for solar, either use external one or add to distributed list
             if "hrrr_cloud" not in output_variables:
-                self.distribute["cloud_factor"] = distribute.cf(
-                    self.config["cloud_factor"]
-                )
+                self.distribute["cloud_factor"] = distribute.CloudFactor(self.config)
             else:
                 self._logger.info("Using HRRR cloud file for thermal.")
 
-            self.distribute["thermal"] = distribute.Thermal(self.config["thermal"])
+            self.distribute["thermal"] = distribute.Thermal(self.config)
         elif distribute.ThermalHRRR.INI_VARIABLE in output_variables:
             # Air temperature
-            if "air_temp" not in self.distribute:
-                self.distribute["air_temp"] = distribute.ta(self.config["air_temp"])
+            self.distribute["air_temp"] = distribute.AirTemperature(self.config)
 
             # Trigger loading of longwave from HRRR
             self.config["gridded"].setdefault(
@@ -370,7 +346,7 @@ class SMRF:
             )
 
         # Soil temperature
-        self.distribute["soil_temp"] = distribute.ts(self.config["soil_temp"])
+        self.distribute["soil_temp"] = distribute.SoilTemperature(self.config)
 
     def load_data(self):
         """
@@ -414,17 +390,6 @@ class SMRF:
             self._logger.info("Backing up input data...")
             backup_input(self.data, self.ucfg)
 
-    def initialize_distribution(self, date_time=None):
-        """Call the initialize method for each distribute module
-
-        Args:
-            date_time (list, optional): initialize with the datetime list
-                or not. Defaults to None.
-        """
-
-        for v in self.distribute:
-            self.distribute[v].initialize(self.topo, self.data, date_time)
-
     def distribute_data(self):
         """
         Distribute the measurement point data for all variables in serial. Each
@@ -446,8 +411,14 @@ class SMRF:
             10. Soil temperature
             11. Output time step if needed
         """
-
-        self.initialize_distribution()
+        # Initialize method for each distribute module
+        for v in self.distribute:
+            # TODO: Marks 2017 requires the raw parsed data to be passed instead of
+            #       just the metadata.
+            if v == "precipitation":
+                self.distribute[v].initialize(self.topo, self.data)
+            else:
+                self.distribute[v].initialize(self.topo, self.data.metadata)
 
         # -------------------------------------
         # Distribute the data
@@ -610,7 +581,7 @@ class SMRF:
                 if output_variable in ["hrrr_cloud"]:
                     continue
                 elif output_variable in distribute.ThermalHRRR.INI_VARIABLE:
-                    output_variable = distribute.ThermalHRRR.OUT_VARIABLE
+                    output_variable = distribute.ThermalHRRR.VARIABLE
                     module = distribute.ThermalHRRR.INI_VARIABLE
 
             if output_variable in self.possible_output_variables.keys():

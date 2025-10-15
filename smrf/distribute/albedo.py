@@ -7,9 +7,6 @@ from smrf.utils import utils
 
 class Albedo(ImageData):
     """
-    The :mod:`~smrf.distribute.albedo.Albedo` class allows for variable
-    specific distributions that go beyond the base class.
-
     The visible (280-700nm) and infrared (700-2800nm) albedo follows the
     relationships described in Marks et al. (1992) :cite:`Marks&al:1992`. The
     albedo is a function of the time since last storm, the solar zenith angle,
@@ -17,76 +14,59 @@ class Albedo(ImageData):
     basis and is based on where there is significant accumulated distributed
     precipitation. This allows for storms to only affect a small part of the
     basin and have the albedo decay at different rates for each pixel.
-
-    Args:
-        albedoConfig: The [albedo] section of the configuration file
-
-    Attributes:
-        albedo_vis: numpy array of the visible albedo
-        albedo_ir: numpy array of the infrared albedo
-        config: configuration from [albedo] section
-        min: minimum value of albedo is 0
-        max: maximum value of albedo is 1
-        stations: stations to be used in alphabetical order
     """
 
-    variable = 'albedo'
+    VARIABLE = "albedo"
 
     # these are variables that can be output
     OUTPUT_VARIABLES = {
-        'albedo_vis': {
-            'units': 'None',
-            'standard_name': 'visible_albedo',
-            'long_name': 'Visible wavelength albedo'
+        "albedo_vis": {
+            "units": "None",
+            "standard_name": "visible_albedo",
+            "long_name": "Visible wavelength albedo",
         },
-        'albedo_ir': {
-            'units': 'None',
-            'standard_name': 'infrared_albedo',
-            'long_name': 'Infrared wavelength albedo'
-        }
+        "albedo_ir": {
+            "units": "None",
+            "standard_name": "infrared_albedo",
+            "long_name": "Infrared wavelength albedo",
+        },
     }
 
-    def __init__(self, albedoConfig):
+    def __init__(self, config):
         """
         Initialize albedo()
 
         Args:
-            albedoConfig: configuration from [albedo] section
+            config: configuration from [albedo] section
         """
-        # extend the base class
-        super().__init__(self.variable)
+        super().__init__(config)
+
         # Get the veg values for the decay methods. Date method uses self.veg
         # Hardy2000 uses self.litter
         for d in ['veg', 'litter']:
             v = {}
 
-            matching = [s for s in albedoConfig.keys()
+            matching = [s for s in config.keys()
                         if "{0}_".format(d) in s]
             for m in matching:
                 ms = m.split('_')
-                v[ms[-1]] = albedoConfig[m]
+                v[ms[-1]] = config[m]
 
             # Create self.litter,self.veg
             setattr(self, d, v)
 
-        self.getConfig(albedoConfig)
-
-        self._logger.debug('Created distribute.albedo')
-
-    def initialize(self, topo, data, date_time=None):
+    def initialize(self, topo, metadata):
         """
         Initialize the distribution, calls ImageData._initialize()
 
         Args:
             topo: smrf.data.loadTopo.Topo instance contain topo data/info
-            data: data dataframe containing the station data
+            metadata: data dataframe containing the station data
 
         """
+        super().initialize(topo, metadata)
 
-        self._logger.debug('Initializing distribute.albedo')
         self.veg_type = topo.veg_type
-        self.date_time = date_time
-        self._initialize(topo, data.metadata)
 
         if self.config["decay_method"] is None:
             self._logger.warning("No decay method is set!")

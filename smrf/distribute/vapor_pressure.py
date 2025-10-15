@@ -6,11 +6,8 @@ from smrf.envphys.core import envphys_c
 from smrf.utils import utils
 
 
-class vp(ImageData):
+class VaporPressure(ImageData):
     """
-    The :mod:`~smrf.distribute.vapor_pressure.vp` class allows for variable
-    specific distributions that go beyond the base class
-
     Vapor pressure is provided as an argument and is calculated from coincident
     air temperature and relative humidity measurements using utilities such as
     :mod:`smrf.envphys.vapor_pressure.rh2vp`. The vapor pressure is distributed
@@ -21,73 +18,33 @@ class vp(ImageData):
     pressure, the dew point is calculated for use by other distribution
     methods. The dew point temperature is further corrected to ensure that it
     does not exceed the distributed air temperature.
-
-    Args:
-        vpConfig: The [vapor_pressure] section of the configuration file
-
-    Attributes:
-        config: configuration from [vapor_pressure] section
-        vapor_pressure: numpy matrix of the vapor pressure
-        dew_point: numpy matrix of the dew point, calculated from
-            vapor_pressure and corrected for dew_point greater than air_temp
-        min: minimum value of vapor pressure is 10 Pa
-        max: maximum value of vapor pressure is 7500 Pa
-        stations: stations to be used in alphabetical order
-
     """
 
-    variable = 'vapor_pressure'
+    VARIABLE = "vapor_pressure"
 
     # these are variables that can be output
     OUTPUT_VARIABLES = {
-        'vapor_pressure': {
-            'units': 'pascal',
-            'standard_name': 'vapor_pressure',
-            'long_name': 'Vapor pressure'
+        "vapor_pressure": {
+            "units": "pascal",
+            "standard_name": "vapor_pressure",
+            "long_name": "Vapor pressure",
         },
-        'dew_point': {
-            'units': 'degree_Celcius',
-            'standard_name': 'dew_point_temperature',
-            'long_name': 'Dew point temperature'
+        "dew_point": {
+            "units": "degree_Celsius",
+            "standard_name": "dew_point_temperature",
+            "long_name": "Dew point temperature",
         },
-        'precip_temp': {
-            'units': 'degree_Celcius',
-            'standard_name': 'precip_temperature',
-            'long_name': 'Precip temperature'
-        }
+        "precip_temp": {
+            "units": "degree_Celsius",
+            "standard_name": "precip_temperature",
+            "long_name": "Precip temperature",
+        },
     }
 
-    def __init__(self, vpConfig, precip_temp_method):
-        # extend the base class
-        super().__init__(self.variable)
+    def __init__(self, config):
+        super().__init__(config)
 
-        # check and assign the configuration
-        self.getConfig(vpConfig)
-        # assign precip temp method
-        self.precip_temp_method = precip_temp_method
-
-        self._logger.debug('Created distribute.vapor_pressure')
-
-    def initialize(self, topo, data, date_time=None):
-        """
-        Initialize the distribution, calls
-        :mod:`smrf.distribute.ImageData._initialize`. Preallocates
-        the following class attributes to zeros:
-
-        Args:
-            topo: :mod:`smrf.data.loadTopo.Topo` instance contain topographic
-                data and infomation
-            data: data Pandas dataframe containing the station data,
-                from :mod:`smrf.data.loadData` or :mod:`smrf.data.loadGrid`
-
-        """
-
-        self._logger.debug('Initializing distribute.vapor_pressure')
-        self.date_time = date_time
-        self._initialize(topo, data.metadata)
-
-        # get dem to pass to wet_bulb
-        self.dem = topo.dem
+        self.precip_temp_method = config["precip"]["precip_temp_method"]
 
     def distribute(self, data, ta):
         """

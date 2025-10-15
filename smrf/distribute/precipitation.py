@@ -8,11 +8,8 @@ from smrf.envphys import precip, Snow, storms
 from smrf.utils import utils
 
 
-class ppt(ImageData):
+class Precipitation(ImageData):
     """
-    The :mod:`~smrf.distribute.precip.ppt` class allows for variable specific
-    distributions that go beyond the base class.
-
     The instantaneous precipitation typically has a positive trend with
     elevation due to orographic effects. However, the precipitation
     distribution can be further complicated for storms that have isolated
@@ -34,7 +31,7 @@ class ppt(ImageData):
 
     After the precipitation phase is calculated, the storm information can be
     determined. The spatial resolution for which storm definitions are applied
-    is based on the snow model thats selected.
+    is based on the snow model that's selected.
 
     The time since last storm is based on an accumulated precipitation mass
     threshold, the time elapsed since it last snowed, and the precipitation
@@ -42,78 +39,66 @@ class ppt(ImageData):
     has produced enough precipitation as snow to change the surface albedo.
 
     Args:
-        pptConfig: The [precip] section of the configuration file
+        config: The [precip] section of the configuration file
         time_step: The time step in minutes of the data, defaults to 60
-
-    Attributes:
-        config: configuration from [precip] section
-        precip: numpy array of the precipitation
-        percent_snow: numpy array of the percent of time step that was snow
-        snow_density: numpy array of the snow density
-        storm_days: numpy array of the days since last storm
-        storm_total: numpy array of the precipitation mass for the storm
-        last_storm_day: numpy array of the day of the last storm (decimal day)
-        min: minimum value of precipitation is 0
-        max: maximum value of precipitation is infinite
-        stations: stations to be used in alphabetical order
-
     """
 
-    variable = 'precip'
+    VARIABLE = "precip"
 
     # these are variables that can be output
     OUTPUT_VARIABLES = {
-        'precip': {
-            'units': 'mm',
-            'standard_name': 'precipitation_mass',
-            'long_name': 'Precipitation mass'
+        VARIABLE: {
+            "units": "mm",
+            "standard_name": "precipitation_mass",
+            "long_name": "Precipitation mass",
         },
-        'percent_snow': {
-            'units': '%',
-            'standard_name': 'percent_snow',
-            'long_name': 'Percent of precipitation as snow'
+        "percent_snow": {
+            "units": "%",
+            "standard_name": "percent_snow",
+            "long_name": "Percent of precipitation as snow",
         },
-        'snow_density': {
-            'units': 'kg/m3',
-            'standard_name': 'snow_density',
-            'long_name': 'Precipitation snow density'
+        "snow_density": {
+            "units": "kg/m3",
+            "standard_name": "snow_density",
+            "long_name": "Precipitation snow density",
         },
-        'storm_days': {
-            'units': 'day',
-            'standard_name': 'days_since_last_storm',
-            'long_name': 'Days since the last storm'
+        "storm_days": {
+            "units": "day",
+            "standard_name": "days_since_last_storm",
+            "long_name": "Days since the last storm",
         },
-        'storm_total': {
-            'units': 'mm',
-            'standard_name': 'precipitation_mass_storm',
-            'long_name': 'Precipitation mass for the storm period'
+        "storm_total": {
+            "units": "mm",
+            "standard_name": "precipitation_mass_storm",
+            "long_name": "Precipitation mass for the storm period",
         },
-        'last_storm_day': {
-            'units': 'day',
-            'standard_name': 'day_of_last_storm',
-            'long_name': 'Decimal day of the last storm since Oct 1'
-        }
+        "last_storm_day": {
+            "units": "day",
+            "standard_name": "day_of_last_storm",
+            "long_name": "Decimal day of the last storm since Oct 1",
+        },
     }
 
-    def __init__(self, pptConfig, start_date, time_step=60):
-        # extend the base class
-        super().__init__(self.variable)
-        # check and assign the configuration
-        self.getConfig(pptConfig)
+    def __init__(self, config, start_date, time_step=60):
+        super().__init__(config)
+
         self.time_step = float(time_step)
         self.start_date = start_date
 
-    def initialize(self, topo, data, date_time=None):
+    def initialize(self, topo, data):
+        """
+        See :mod:`smrf.distribute.ImageData.initialize` for documentation on the base
+        initialization.
 
-        self._logger.debug('Initializing distribute.precip')
+        Precipitation is the only class that needs both the data and metadata to
+        do the below modifications.
+        """
+        super().initialize(topo, data.metadata)
 
-        self.date_time = date_time
-        self._initialize(topo, data.metadata)
         self.percent_snow = np.zeros((topo.ny, topo.nx))
         self.snow_density = np.zeros((topo.ny, topo.nx))
         self.storm_days = np.zeros((topo.ny, topo.nx))
         self.storm_total = np.zeros((topo.ny, topo.nx))
-        self.dem = topo.dem
 
         # Assign storm_days array if given
         if self.config["storm_days_restart"] is not None:
@@ -263,27 +248,26 @@ class ppt(ImageData):
 
         if self.config['distribution'] != 'grid':
             if self.nasde_model == 'marks2017':
-                # Adjust the precip for undercatchment
-                if self.config['station_adjust_for_undercatch']:
+                # Adjust the precip for undercatch
+                if self.config["station_adjust_for_undercatch"]:
                     self._logger.debug(
-                        '%s Adjusting precip for undercatch...' % data.name)
-                    self.corrected_precip.loc[time] = \
-                        precip.adjust_for_undercatch(
-                            self.corrected_precip.loc[time],
+                        "%s Adjusting precip for undercatch..." % data.name
+                    )
+                    self.corrected_precip.loc[time] = precip.adjust_for_undercatch(
+                        self.corrected_precip.loc[time],
                         wind,
                         temp,
                         self.config,
-                        self.metadata)
+                        self.metadata,
+                    )
 
                 # Use the clipped and corrected precip
                 self.distribute_for_marks2017(
-                    self.corrected_precip.loc[time],
-                    precip_temp,
-                    ta,
-                    time)
+                    self.corrected_precip.loc[time], precip_temp, ta, time
+                )
 
             else:
-                # Adjust the precip for undercatchment
+                # Adjust the precip for undercatch
                 if self.config['station_adjust_for_undercatch']:
                     self._logger.debug(
                         '%s Adjusting precip for undercatch...' % data.name)
@@ -321,8 +305,6 @@ class ppt(ImageData):
         snow density model Marks2017 requires storm total and a corrected
         precipitation as to avoid precip between storms.
         """
-        # self.corrected_precip # = data.mul(self.storm_correction)
-
         if data.sum() > 0.0:
             # Check for time in every storm
             for i, s in self.storms.iterrows():
