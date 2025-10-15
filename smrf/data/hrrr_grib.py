@@ -60,7 +60,7 @@ class InputGribHRRR(GriddedInput):
         The function will take the keys and load them into the appropriate
         objects within the `grid` class.
         """
-        self._logger.info(
+        self._logger.debug(
             "Reading data from from HRRR directory: {}".format(
                 self.config["hrrr_directory"]
             )
