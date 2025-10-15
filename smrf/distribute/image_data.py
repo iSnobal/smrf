@@ -57,6 +57,7 @@ class ImageData:
     def output_variables(self):
         ov = {}
         for key, value in self.OUTPUT_VARIABLES.items():
+            # Add the variable module name to the dict to identify outputs in NetCDF
             value['module'] = self.__class__.__module__.split('.')[-1]
             ov[key] = value
         return ov
