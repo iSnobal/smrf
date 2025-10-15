@@ -7,7 +7,6 @@ from smrf.utils.utils import backup_input
 
 
 class TestBackupInput(SMRFTestCase):
-
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -17,13 +16,13 @@ class TestBackupInput(SMRFTestCase):
         cls.smrf.load_data()
 
     def test_backup_version(self):
-
         backup_input(self.smrf.data, self.base_config)
 
         backup_config = os.path.join(
-            self.base_config.cfg['output']['out_location'],
-            'input_backup',
-            'backup_config.ini')
+            self.base_config.cfg["output"]["out_location"],
+            "input_backup",
+            "backup_config.ini",
+        )
 
         with open(backup_config) as f:
             lines = f.readlines()

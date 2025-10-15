@@ -169,7 +169,11 @@ class SMRFTestCase(unittest.TestCase):
             for att in gold.variables[var_name].ncattrs():
                 self.assertEqual(
                     getattr(gold.variables[var_name], att),
-                    getattr(test.variables[var_name], att))
+                    getattr(test.variables[var_name], att),
+                    msg="Variable `{0}` attribute `{1}` did not match gold standard in file {2}".format(
+                        var_name, att, output_file
+                    ),
+                )
 
             # only compare those that are floats
             if gold.variables[var_name].datatype != np.dtype('S1'):
