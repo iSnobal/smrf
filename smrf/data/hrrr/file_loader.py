@@ -21,6 +21,8 @@ class FileLoader:
     SIXTH_HOUR = 6
     NAME_SUFFIX = 'grib2'
 
+    META_VARIABLES = ["latitude", "longitude", "elevation"]
+
     def __init__(
         self,
         file_dir,
@@ -189,31 +191,29 @@ class FileLoader:
         Returns
             Tuple of metadata and dataframe
         """
+        # convert from a row multi-index to a column multi-index
+        df_full = data.to_dataframe().unstack(level=[1, 2])
+
         metadata = None
         dataframe = {}
 
         for variable in list(data.data_vars):
-            df = data[variable].to_dataframe()
-
-            # convert from a row multi-index to a column multi-index
-            df = df.unstack(level=[1, 2])
-
             # Get the metadata using the elevation variables
             if variable == "elevation":
                 metadata = []
-                for mm in ["latitude", "longitude", variable]:
-                    dftmp = df[mm].copy()
-                    dftmp.columns = self.format_column_names(dftmp)
-                    dftmp = dftmp.iloc[0]
-                    dftmp.name = mm
-                    metadata.append(dftmp)
+                for mm in self.META_VARIABLES:
+                    df_meta = df_full[mm].copy()
+                    df_meta.columns = self.format_column_names(df_meta)
+                    df_meta = df_meta.iloc[0]
+                    df_meta.name = mm
+                    metadata.append(df_meta)
 
                 metadata = pd.concat(metadata, axis=1)
-                metadata = metadata.apply(
-                    FileLoader.apply_utm, args=(utm_zone_number,), axis=1
+                metadata = FileLoader.apply_utm(
+                    metadata, utm_zone_number=utm_zone_number
                 )
             else:
-                df = df.loc[:, variable]
+                df = df_full.loc[:, variable].copy()
 
                 df.columns = self.format_column_names(df)
                 df.index.rename("date_time", inplace=True)
@@ -222,11 +222,11 @@ class FileLoader:
                 df.sort_index(axis=0, inplace=True)
                 dataframe[variable] = df
 
-                # manipulate data in necessary ways
+                # Manipulate data in necessary ways
                 if variable == "air_temp":
-                    dataframe["air_temp"] -= 273.15
+                    dataframe[variable] -= 273.15
                 if variable == "cloud_factor":
-                    dataframe["cloud_factor"] = 1 - dataframe["cloud_factor"] / 100
+                    dataframe[variable] = 1 - dataframe[variable] / 100
 
         return metadata, dataframe
 
@@ -247,23 +247,32 @@ class FileLoader:
     @staticmethod
     def apply_utm(dataframe, utm_zone_number):
         """
-        Ufunc to calculate the utm from lat/lon for a series
+        Calculate the utm from lat/lon for a dataframe.
 
         Args:
-            dataframe: pandas series with fields latitude and longitude
+            dataframe: Dataframe with latitude and longitude column
             utm_zone_number: Zone number to force to
 
         Returns:
-            Pandas series entry with fields 'utm_x' and 'utm_y' filled
+            Dataframe with 'utm_x' and 'utm_y' added
         """
         # HRRR has longitude reporting in degrees from the east
-        dataframe['longitude'] -= 360
+        dataframe["longitude"] -= 360
+        utm_x = []
+        utm_y = []
 
-        (dataframe['utm_x'], dataframe['utm_y'], *unused) = utm.from_latlon(
-            dataframe['latitude'],
-            dataframe['longitude'],
-            force_zone_number=utm_zone_number
-        )
+        # NOTE: Faster to iterate over numpu than using pandas .apply() method
+        for lat, lon in zip(
+            dataframe["latitude"].to_numpy(), dataframe["longitude"].to_numpy()
+        ):
+            easting, northing, *unused = utm.from_latlon(
+                lat, lon, force_zone_number=utm_zone_number
+            )
+            utm_x.append(easting)
+            utm_y.append(northing)
+
+        dataframe["utm_x"] = utm_x
+        dataframe["utm_y"] = utm_y
 
         return dataframe
 
