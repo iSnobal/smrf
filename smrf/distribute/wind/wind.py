@@ -113,7 +113,7 @@ class Wind(ImageData):
         else:
             self.wind_model.distribute(data_speed, data_direction)
 
-        for v in self.output_variables.keys():
+        for v in self.OUTPUT_OPTIONS:
             setattr(self, v, getattr(self.wind_model, v))
 
         # set min and max
