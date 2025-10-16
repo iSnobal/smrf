@@ -590,15 +590,9 @@ class SMRF:
                     module or self.possible_output_variables[output_variable]["module"]
                 )
 
-                # TODO this is a hack to not have to redo the gold files
-                if module == "precipitation":
-                    nc_module = "precip"
-                else:
-                    nc_module = module
-
                 variable_dict[output_variable] = {
                     "variable": output_variable,
-                    "module": nc_module,
+                    "module": module,
                     "out_location": fname,
                     "info": self.distribute[module].output_variables[output_variable],
                 }
@@ -638,7 +632,6 @@ class SMRF:
             self.out_func = output_netcdf.OutputNetcdf(
                 variable_dict, self.topo, self.config["time"], self.config["output"]
             )
-
         else:
             raise Exception("Could not determine type of file for output")
 
