@@ -28,6 +28,25 @@ class ImageData:
     OUTPUT_VARIABLES = {}
 
     def __init__(self, config):
+        """
+        Initialize the class and parse out the relevant section from the configuration
+        when given. The section name of the configuration needs to match the VARIABLE
+        for this class to recognize it.
+
+        Example:
+        * .ini file
+           ```
+           [air_temp]
+           max: 100
+           min: -100
+           ```
+        * The corresponding class
+           ```
+           class AirTemp(ImageData):
+               VARIABLE = 'air_temp'
+           ```
+
+        """
         if self.VARIABLE != '':
             setattr(self, self.VARIABLE, None)
 
