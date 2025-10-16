@@ -75,6 +75,13 @@ class TestImageData(unittest.TestCase):
         self.assertEqual(self.subject.max, 100)
         self.assertTrue(self.subject.gridded)
 
+    def test_init_no_config_section(self):
+        base_class = ImageData()
+
+        self.assertIsNone(base_class.config)
+        self.assertIsNone(base_class.topo)
+        self.assertIsNone(base_class.metadata)
+
     def test_output_variables(self):
         self.assertTrue('module' in self.subject.output_variables['test_variable'])
 

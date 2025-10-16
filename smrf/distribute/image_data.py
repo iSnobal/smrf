@@ -27,7 +27,7 @@ class ImageData:
     VARIABLE = ''
     OUTPUT_VARIABLES = {}
 
-    def __init__(self, config):
+    def __init__(self, config: dict = None):
         """
         Initialize the class and parse out the relevant section from the configuration
         when given. The section name of the configuration needs to match the VARIABLE
@@ -46,26 +46,29 @@ class ImageData:
                VARIABLE = 'air_temp'
            ```
 
+        :param config: Parsed configuration file
         """
         if self.VARIABLE != '':
             setattr(self, self.VARIABLE, None)
 
+        self.config = None
         self.topo = None
         self.metadata = None
 
-        self.config = config[self.VARIABLE]
+        if config and config.get(self.VARIABLE, False):
+            self.config = config[self.VARIABLE]
 
-        # check of gridded interpolation
-        self.gridded = config.get('distribution', None) == 'grid'
+            # Check of gridded interpolation
+            self.gridded = self.config.get("distribution", None) == "grid"
 
-        self.stations = None
-        if self.config.get("stations", None) is not None:
-            stations = self.config['stations']
-            stations.sort()
-            self.stations = stations
+            self.stations = None
+            if self.config.get("stations", None) is not None:
+                stations = self.config['stations']
+                stations.sort()
+                self.stations = stations
 
-        self.min = self.config.get('min', -np.Inf)
-        self.max = self.config.get('max', np.Inf)
+            self.min = self.config.get('min', -np.Inf)
+            self.max = self.config.get('max', np.Inf)
 
         self._logger = logging.getLogger(self.__class__.__module__)
         self._logger.debug(
