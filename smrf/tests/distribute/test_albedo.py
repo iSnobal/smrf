@@ -7,15 +7,17 @@ import pandas as pd
 from smrf.distribute.albedo import Albedo
 
 CONFIG = {
-    "decay_method": "date_method",
-    "decay_start": pd.to_datetime("2025-04-01"),
-    "decay_end": pd.to_datetime("2025-07-01"),
-    "grain_size": 100.0,
-    "max_grain": 800.0,
-    "max": 1.0,
-    "min": 0.0,
-    "dirt": 2,
-    "date_method_veg_default": 0.2,
+    "albedo": {
+        "decay_method": "date_method",
+        "decay_start": pd.to_datetime("2025-04-01"),
+        "decay_end": pd.to_datetime("2025-07-01"),
+        "grain_size": 100.0,
+        "max_grain": 800.0,
+        "max": 1.0,
+        "min": 0.0,
+        "dirt": 2,
+        "date_method_veg_default": 0.2,
+    }
 }
 DECAY_TIME = pd.to_datetime("2025-04-30")
 NO_DECAY_TIME = pd.to_datetime("2025-03-01")
@@ -51,7 +53,11 @@ class TestAlbedo(unittest.TestCase):
 
         envphys_albedo.assert_called()
         envphys_albedo.assert_called_with(
-            STORM_DAYS, COS_Z, CONFIG["grain_size"], CONFIG["max_grain"], CONFIG["dirt"]
+            STORM_DAYS,
+            COS_Z,
+            CONFIG["albedo"]["grain_size"],
+            CONFIG["albedo"]["max_grain"],
+            CONFIG["albedo"]["dirt"]
         )
         decay_alb_power.assert_not_called()
 
@@ -74,7 +80,11 @@ class TestAlbedo(unittest.TestCase):
 
         envphys_albedo.assert_called()
         envphys_albedo.assert_called_with(
-            STORM_DAYS, COS_Z, CONFIG["grain_size"], CONFIG["max_grain"], CONFIG["dirt"]
+            STORM_DAYS,
+            COS_Z,
+            CONFIG["albedo"]["grain_size"],
+            CONFIG["albedo"]["max_grain"],
+            CONFIG["albedo"]["dirt"]
         )
         decay_burned.assert_not_called()
 

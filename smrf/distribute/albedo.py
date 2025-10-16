@@ -43,10 +43,10 @@ class Albedo(ImageData):
         for d in ["veg", "litter"]:
             v = {}
 
-            matching = [s for s in config.keys() if "{0}_".format(d) in s]
+            matching = [s for s in self.config.keys() if "{0}_".format(d) in s]
             for m in matching:
                 ms = m.split("_")
-                v[ms[-1]] = config[m]
+                v[ms[-1]] = self.config[m]
 
             # Create self.litter,self.veg
             setattr(self, d, v)
