@@ -142,6 +142,10 @@ class VariableBase:
     def veg_k(self):
         return self.topo.veg_k
 
+    @property
+    def veg_type(self):
+        return self.topo.veg_type
+
     # END - Topo accessor methods
 
     # START - config accessors
