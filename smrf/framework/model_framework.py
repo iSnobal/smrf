@@ -132,12 +132,12 @@ class SMRF:
         self._setup_date_and_time()
 
         # need to align date time
-        if "date_method_start_decay" in self.config["albedo"].keys():
-            self.config["albedo"]["date_method_start_decay"] = self.config["albedo"][
-                "date_method_start_decay"
+        if self.config["albedo"].get("decay_start", None):
+            self.config["albedo"]["decay_start"] = self.config["albedo"][
+                "decay_start"
             ].replace(tzinfo=self.time_zone)
-            self.config["albedo"]["date_method_end_decay"] = self.config["albedo"][
-                "date_method_end_decay"
+            self.config["albedo"]["decay_end"] = self.config["albedo"][
+                "decay_end"
             ].replace(tzinfo=self.time_zone)
 
         # Add thread configuration to all distribute sections. Used by DK method.
