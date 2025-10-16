@@ -107,6 +107,15 @@ class ImageData:
 
     # END - Topo accessor methods
 
+    # This sets two constants based on the OUT_VARIABLES dictionary defined in the
+    # child class and the name of the class itself (in module formatting). The latter
+    # is used when writing output to NetCDF files.
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+
+        setattr(cls, "OUTPUT_OPTIONS", set(cls.OUTPUT_VARIABLES.keys()))
+        setattr(cls, "MODULE_NAME", cls.__module__.split(".")[-1])
+
     def initialize(self, topo: Topo, metadata: pd.DataFrame):
         """
         Args:

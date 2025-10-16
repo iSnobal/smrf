@@ -82,8 +82,13 @@ class TestImageData(unittest.TestCase):
         self.assertIsNone(base_class.topo)
         self.assertIsNone(base_class.metadata)
 
-    def test_output_variables(self):
-        self.assertTrue('module' in self.subject.output_variables['test_variable'])
+    def test_output_variable_options(self):
+        npt.assert_equal(
+            set(TestVariable.OUTPUT_VARIABLES.keys()), self.subject.OUTPUT_OPTIONS
+        )
+
+    def test_module_name(self):
+        self.assertEqual("test_image_data", self.subject.MODULE_NAME)
 
     def test_initialize(self):
         self.subject.initialize(TOPO, METADATA)
