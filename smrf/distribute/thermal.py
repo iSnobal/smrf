@@ -4,10 +4,10 @@ from smrf.envphys.core import envphys_c
 from smrf.envphys.thermal import clear_sky, cloud, vegetation
 from smrf.utils import utils
 
-from .image_data import ImageData
+from .variable_base import VariableBase
 
 
-class Thermal(ImageData):
+class Thermal(VariableBase):
     """
     Thermal radiation, or long-wave radiation, is calculated based on the clear
     sky radiation emitted by the atmosphere. Multiple methods for calculating

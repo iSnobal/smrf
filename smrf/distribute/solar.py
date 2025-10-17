@@ -1,10 +1,10 @@
-from .image_data import ImageData
+from .variable_base import VariableBase
 from smrf.envphys.constants import IR_WAVELENGTHS, VISIBLE_WAVELENGTHS
 from smrf.envphys.solar import cloud, toporad, vegetation
 from smrf.utils import utils
 
 
-class Solar(ImageData):
+class Solar(VariableBase):
     """
     Multiple steps are required to estimate solar radiation:
 

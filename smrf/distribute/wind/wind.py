@@ -1,12 +1,12 @@
 import numpy as np
 from smrf.utils import utils
 
-from smrf.distribute.image_data import ImageData
+from smrf.distribute.variable_base import VariableBase
 from .wind_ninja import WindNinjaModel
 from .winstral import WinstralWindModel
 
 
-class Wind(ImageData):
+class Wind(VariableBase):
     """
     Three distribution methods are available for the Wind class:
 

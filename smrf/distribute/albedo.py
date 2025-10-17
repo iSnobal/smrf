@@ -1,11 +1,11 @@
 import numpy as np
 
-from .image_data import ImageData
+from .variable_base import VariableBase
 from smrf.envphys import albedo
 from smrf.utils import utils
 
 
-class Albedo(ImageData):
+class Albedo(VariableBase):
     """
     The visible (280-700nm) and infrared (700-2800nm) albedo follows the
     relationships described in Marks et al. (1992) :cite:`Marks&al:1992`. The

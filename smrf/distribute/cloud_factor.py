@@ -1,8 +1,8 @@
-from .image_data import ImageData
+from .variable_base import VariableBase
 from smrf.utils import utils
 
 
-class CloudFactor(ImageData):
+class CloudFactor(VariableBase):
     """
     Cloud factor is a relatively simple variable to distribute as it does not rely on any
     other variables.

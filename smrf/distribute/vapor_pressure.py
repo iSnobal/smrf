@@ -1,12 +1,12 @@
 
 import numpy as np
 
-from .image_data import ImageData
+from .variable_base import VariableBase
 from smrf.envphys.core import envphys_c
 from smrf.utils import utils
 
 
-class VaporPressure(ImageData):
+class VaporPressure(VariableBase):
     """
     Vapor pressure is provided as an argument and is calculated from coincident
     air temperature and relative humidity measurements using utilities such as

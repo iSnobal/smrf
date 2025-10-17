@@ -3,12 +3,12 @@ from datetime import timedelta
 import netCDF4 as nc
 import numpy as np
 from dateutil.parser import parse
-from .image_data import ImageData
+from .variable_base import VariableBase
 from smrf.envphys import precip, Snow, storms
 from smrf.utils import utils
 
 
-class Precipitation(ImageData):
+class Precipitation(VariableBase):
     """
     The instantaneous precipitation typically has a positive trend with
     elevation due to orographic effects. However, the precipitation

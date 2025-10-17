@@ -1,9 +1,9 @@
 import numpy as np
 
-from .image_data import ImageData
+from .variable_base import VariableBase
 
 
-class SoilTemperature(ImageData):
+class SoilTemperature(VariableBase):
     """
     Soil temperature is simply set to a constant value during initialization.
     If soil temperature measurements are available, the values can be
