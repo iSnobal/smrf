@@ -19,12 +19,12 @@ class ThermalHRRR(VariableBase):
         \\T_a = Air temperature in Kelvin
     """
 
-    VARIABLE = "thermal"
+    DISTRIBUTION_KEY = "thermal"
     INI_VARIABLE = "hrrr_thermal"
     GRIB_NAME = "DLWRF"
 
     OUTPUT_VARIABLES = {
-        VARIABLE: {
+        'thermal': {
             "units": "watt/m2",
             "standard_name": "thermal_radiation",
             "long_name": "Thermal (longwave) radiation",

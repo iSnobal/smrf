@@ -20,7 +20,7 @@ class VaporPressure(VariableBase):
     does not exceed the distributed air temperature.
     """
 
-    VARIABLE = "vapor_pressure"
+    DISTRIBUTION_KEY = "vapor_pressure"
 
     # these are variables that can be output
     OUTPUT_VARIABLES = {

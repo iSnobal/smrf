@@ -13,12 +13,13 @@ class VariableBase:
     Base class that will ensure all variables are distributed in the same manner.
 
     A child class needs to define the following constants:
-      * VARIABLE: A unique key for distributing the class
+      * DISTRIBUTION_KEY A unique key for distributing the class.
       * OUTPUT_VARIABLES: A dictionary defining the key as the output file name and
                          the value as a dictionary of the NetCDF variable attributes
-                         that are used upon writing the file
+                         that are used upon writing the file. The variable will be named
+                         the same as the key (filename).
       * LOADED_DATA: A list of the input data that is loaded by the from the input source
-                     By default, this is just the VARIABLE
+                     By default, this is matches the DISTRIBUTION_KEY
 
     The following constants are set automatically based on the above:
       * OUTPUT_OPTIONS: A set of the variables set from the OUTPUT_VARIABLES keys
@@ -34,7 +35,7 @@ class VariableBase:
         max:      Maximum allowed value for the variable
         min:      Minimum allowed value for the variable
     """
-    VARIABLE = ''
+    DISTRIBUTION_KEY = ''
     OUTPUT_VARIABLES = {}
 
     def __init__(self, config: dict = None):
@@ -58,15 +59,15 @@ class VariableBase:
 
         :param config: Parsed configuration file
         """
-        if self.VARIABLE != '':
-            setattr(self, self.VARIABLE, None)
+        if self.DISTRIBUTION_KEY != '':
+            setattr(self, self.DISTRIBUTION_KEY, None)
 
         self.config = None
         self.topo = None
         self.metadata = None
 
-        if config and config.get(self.VARIABLE, False):
-            self.config = config[self.VARIABLE]
+        if config and config.get(self.DISTRIBUTION_KEY, False):
+            self.config = config[self.DISTRIBUTION_KEY]
 
             # Check of gridded interpolation
             self.gridded = self.config.get("distribution", None) == "grid"
@@ -127,7 +128,7 @@ class VariableBase:
 
         setattr(cls, "OUTPUT_OPTIONS", set(cls.OUTPUT_VARIABLES.keys()))
         if not hasattr(cls, "LOADED_DATA"):
-            setattr(cls, "LOADED_DATA", [cls.VARIABLE])
+            setattr(cls, "LOADED_DATA", [cls.DISTRIBUTION_KEY])
 
     @classmethod
     def is_requested(cls, config_variables: set) -> bool:
@@ -229,7 +230,7 @@ class VariableBase:
             else:
                 raise Exception(
                     "Could not determine the distribution method for {}".format(
-                        self.VARIABLE
+                        self.DISTRIBUTION_KEY
                     )
                 )
 
@@ -253,7 +254,7 @@ class VariableBase:
         data = data[self.stations]
 
         if np.sum(data.isnull()) == data.shape[0]:
-            raise Exception("{}: All data values are NaN".format(self.VARIABLE))
+            raise Exception("{}: All data values are NaN".format(self.DISTRIBUTION_KEY))
 
         if self.config['distribution'] == 'idw':
             if self.config['detrend']:
@@ -283,9 +284,9 @@ class VariableBase:
 
         elif self.config['distribution'] == 'kriging':
             v, ss = self.kriging.calculate(data.values)
-            setattr(self, '{}_variance'.format(self.VARIABLE), ss)
+            setattr(self, '{}_variance'.format(self.DISTRIBUTION_KEY), ss)
 
         if other_attribute is not None:
             setattr(self, other_attribute, v)
         else:
-            setattr(self, self.VARIABLE, v)
+            setattr(self, self.DISTRIBUTION_KEY, v)

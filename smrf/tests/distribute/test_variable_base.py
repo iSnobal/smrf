@@ -30,9 +30,9 @@ METADATA = pd.DataFrame({
 
 
 class TestVariable(VariableBase):
-    VARIABLE = "test_variable"
+    DISTRIBUTION_KEY = "test_variable"
     OUTPUT_VARIABLES = {
-        VARIABLE: {
+        DISTRIBUTION_KEY: {
             "units": "Unit",
             "standard_name": "CF Name",
             "long_name": "Long Name",

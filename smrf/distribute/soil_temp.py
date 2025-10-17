@@ -10,11 +10,11 @@ class SoilTemperature(VariableBase):
     distributed using the distribution methods.
     """
 
-    VARIABLE = "soil_temp"
+    DISTRIBUTION_KEY = "soil_temp"
 
     # these are variables that can be output
     OUTPUT_VARIABLES = {
-        VARIABLE: {
+        DISTRIBUTION_KEY: {
             "units": "degree_Celsius",
             "standard_name": "soil_temperature",
             "long_name": "Soil temperature",
