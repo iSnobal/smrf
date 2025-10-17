@@ -283,13 +283,14 @@ class ThermalHRRR:
     INI_VARIABLE = "hrrr_thermal"
     GRIB_NAME = "DLWRF"
     LOADED_DATA = [VARIABLE]
+    OUTPUT_OPTIONS = {VARIABLE}
+    MODULE_NAME = 'thermal_hrrr'
 
     OUTPUT_VARIABLES = {
         VARIABLE: {
             "units": "watt/m2",
             "standard_name": "thermal_radiation",
             "long_name": "Thermal (longwave) radiation",
-            "module": "hrrr_thermal",
         },
     }
 
@@ -300,6 +301,14 @@ class ThermalHRRR:
         self._date_time = None
 
         self._logger = logging.getLogger(self.__class__.__module__)
+
+    def __str__(self) -> str:
+        """
+        Name of the class (in module formatting) used when writing output to NetCDF files
+
+        :return: str
+        """
+        return "thermal_hrrr"
 
     @property
     def output_variables(self) -> dict:

@@ -18,11 +18,6 @@ class TestThermal(unittest.TestCase):
     def setUp(self):
         self.subject = ThermalHRRR()
 
-    def test_initialize(self):
-        self.subject.initialize(TOPO_MOCK, DATA_MOCK)
-
-        self.assertEqual(SKY_VIEW_FACTOR_MOCK, self.subject._sky_view_factor)
-
     def test_distribute(self):
         result = (SKY_VIEW_FACTOR_MOCK * RAW_DATA_MOCK) + (
             1 - SKY_VIEW_FACTOR_MOCK

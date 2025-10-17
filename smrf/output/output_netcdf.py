@@ -7,140 +7,140 @@ import numpy as np
 from spatialnc.proj import add_proj, add_proj_from_file
 
 from smrf import __version__
-
+from smrf.data.load_topo import Topo
 
 class OutputNetcdf:
     """
     Class OutputNetcdf() to output values to a netCDF file
     """
 
-    type = 'netcdf'
-    fmt = '%Y-%m-%d %H:%M:%S'
+    type = "netcdf"
+    FILE_EXTENSION = ".nc"
+    fmt = "%Y-%m-%d %H:%M:%S"
     COMPRESSION = dict(compression="zlib", complevel=4)
     DIMENSIONS = ("time", "y", "x")
 
-    def __init__(self, variable_dict, topo, time, outConfig):
+    def __init__(self, variable_info: dict, topo: Topo, time: dict, out_config: dict):
         """
         Initialize the OutputNetcdf() class
 
         Args:
-            variable_dict: dict of variable information
+            variable_info: dict of variable information
             topo: loadTopo instance
             time: time configuration
-            outConfig: out configuration
+            out_config: out configuration
         """
 
         self._logger = logging.getLogger(__name__)
 
-        # go through the variable list and make full file names
-        for v in variable_dict:
-            variable_dict[v]['file_name'] = \
-                str(variable_dict[v]['out_location'] + '.nc')
+        self.variables_info = variable_info
+        self.topo = topo
+        self.out_config = out_config
 
-        self.variable_dict = variable_dict
-
-        # process the time section
-        self.run_time_step = int(time['time_step'])
-        self.out_frequency = int(outConfig['frequency'])
-        self.outConfig = outConfig
-
-        # determine the x,y vectors for the netCDF file
-        x = topo.x
-        y = topo.y
-        self.mask = topo.mask
-
-        self.date_time = {}
-        now_str = datetime.now().strftime(self.fmt)
+        self.run_time_step = int(time["time_step"])
+        self.out_frequency = int(out_config["frequency"])
+        self.create_time = datetime.now().strftime(self.fmt)
 
         # Retrieve projection information from topo
-        map_meta = add_proj_from_file(topo.topoConfig["filename"])
+        self.map_meta = add_proj_from_file(topo.file)
 
-        precision = self.outConfig["netcdf_output_precision"][0]
+        for output_variable, variable_info in self.variables_info.items():
+            file_name = variable_info["out_location"] + self.FILE_EXTENSION
+            # Write the name back to the property for writing the actual with the `output` method
+            variable_info["out_location"] = file_name
 
-        for v in self.variable_dict:
-            f = self.variable_dict[v]
-
-            if os.path.isfile(f["file_name"]):
-                self._logger.warning(
-                    "Opening {}, data may be overwritten!".format(
-                        f["file_name"]
-                    )
-                )
-
-                # open in append mode
-                s = nc.Dataset(f["file_name"], "a")
-                h = "[{}] Data added or updated".format(now_str)
-                setattr(s, "last_modified", h)
-
-                if "projection" not in s.variables.keys():
-                    s = add_proj(s, map_meta=map_meta)
-
+            if os.path.isfile(file_name):
+                self.append_to_existing_file(file_name)
             else:
-                self._logger.debug("Creating %s" % f["file_name"])
-                s = nc.Dataset(
-                    f["file_name"], "w", format="NETCDF4", clobber=True
-                )
+                self.create_new_file(file_name, variable_info, time)
 
-                # Dimensions
-                s.createDimension(self.DIMENSIONS[0], None)
-                s.createDimension(self.DIMENSIONS[1], y.shape[0])
-                s.createDimension(self.DIMENSIONS[2], x.shape[0])
+    @property
+    def topo_x(self):
+        return self.topo.x
 
-                # Variables
-                time_var = s.createVariable(
-                    "time", "f4", (self.DIMENSIONS[0]), **self.COMPRESSION
-                )  # type: ignore
-                y_var = s.createVariable(
-                    "y", "f", self.DIMENSIONS[1], **self.COMPRESSION
-                )  # type: ignore
-                x_var = s.createVariable(
-                    "x", "f", self.DIMENSIONS[2], **self.COMPRESSION
-                )  # type: ignore
-                variable = s.createVariable(
-                    f["variable"],
-                    precision,
-                    self.DIMENSIONS,
-                    least_significant_digit=4,
-                    **self.COMPRESSION,
-                )  # type: ignore
+    @property
+    def topo_y(self):
+        return self.topo.y
 
-                # Attributes
-                time_var.units = "hours since {}".format(time["start_date"])
-                time_var.calendar = "standard"
-                time_var.time_zone = time["time_zone"]
-                time_var.long_name = "time"
+    def append_to_existing_file(self, file_name):
+        self._logger.warning("Opening {}, data may be overwritten!".format(file_name))
 
-                y_var.units = "meters"
-                y_var.description = "UTM, north south"
-                y_var.long_name = "y coordinate"
+        # open in append mode
+        with nc.Dataset(file_name, "a") as file:
+            setattr(
+                file,
+                "last_modified",
+                "[{}] Data added or updated".format(self.create_time),
+            )
 
-                x_var.units = "meters"
-                x_var.description = "UTM, east west"
-                x_var.long_name = "x coordinate"
+            if "projection" not in file.variables.keys():
+                file = add_proj(file, map_meta=self.map_meta)
 
-                variable.module = f["module"]
-                variable.units = f["info"]["units"]
-                variable.long_name = f["info"]["long_name"]
+            file.setncattr_string("SMRF_version", __version__)
 
-                # Global attribute
-                s.setncattr_string("Conventions", "CF-1.6")
-                s.setncattr_string("dateCreated", now_str)
-                s.setncattr_string(
-                    "title",
-                    "Distributed {0} data from SMRF".format(
-                        f["info"]["long_name"]
-                    ),
-                )
-                s.setncattr_string(
-                    "history", "[{}] Create netCDF4 file".format(now_str)
-                )
-                s = add_proj(s, map_meta=map_meta)
+    def create_new_file(self, file_name, variable_info: dict, time: dict):
+        self._logger.debug("Creating %s" % file_name)
 
-                s.variables['y'][:] = y
-                s.variables['x'][:] = x
+        with nc.Dataset(file_name, "w", format="NETCDF4", clobber=True) as new_file:
+            # Dimensions
+            new_file.createDimension(self.DIMENSIONS[0], None)
+            new_file.createDimension(self.DIMENSIONS[1], self.topo_y.shape[0])
+            new_file.createDimension(self.DIMENSIONS[2], self.topo_x.shape[0])
 
-            s.setncattr_string('SMRF_version', __version__)
-            s.close()
+            # Variables
+            time_var = new_file.createVariable(
+                "time", "f4", (self.DIMENSIONS[0]), **self.COMPRESSION
+            )  # type: ignore
+            y_var = new_file.createVariable(
+                "y", "f", self.DIMENSIONS[1], **self.COMPRESSION
+            )  # type: ignore
+            x_var = new_file.createVariable(
+                "x", "f", self.DIMENSIONS[2], **self.COMPRESSION
+            )  # type: ignore
+            variable = new_file.createVariable(
+                variable_info["variable"],
+                self.out_config["netcdf_output_precision"][0],
+                self.DIMENSIONS,
+                least_significant_digit=4,
+                **self.COMPRESSION,
+            )  # type: ignore
+
+            # Attributes
+            time_var.units = "hours since {}".format(time["start_date"])
+            time_var.calendar = "standard"
+            time_var.time_zone = time["time_zone"]
+            time_var.long_name = "time"
+
+            y_var.units = "meters"
+            y_var.description = "UTM, north south"
+            y_var.long_name = "y coordinate"
+
+            x_var.units = "meters"
+            x_var.description = "UTM, east west"
+            x_var.long_name = "x coordinate"
+
+            variable.module = str(variable_info["module"])
+            variable.units = variable_info["nc_attributes"]["units"]
+            variable.long_name = variable_info["nc_attributes"]["long_name"]
+
+            # Global attribute
+            new_file.setncattr_string("Conventions", "CF-1.6")
+            new_file.setncattr_string("dateCreated", self.create_time)
+            new_file.setncattr_string(
+                "title",
+                "Distributed {0} data from SMRF".format(
+                    variable_info["nc_attributes"]["long_name"]
+                ),
+            )
+            new_file.setncattr_string(
+                "history", "[{}] Create netCDF4 file".format(self.create_time)
+            )
+            new_file = add_proj(new_file, map_meta=self.map_meta)
+
+            new_file.variables['y'][:] = self.topo_y
+            new_file.variables['x'][:] = self.topo_x
+
+            new_file.setncattr_string("SMRF_version", __version__)
 
     def output(self, variable, data, date_time):
         """
@@ -153,34 +153,26 @@ class OutputNetcdf:
         """
 
         self._logger.debug(
-            '{0} Writing variable {1} to netCDF'.format(date_time, variable)
+            "{0} Writing variable {1} to netCDF".format(date_time, variable)
         )
 
-        f = nc.Dataset(
-            self.variable_dict[variable]['file_name'], 'a', 'NETCDF4'
-        )
+        with nc.Dataset(
+            self.variables_info[variable]["out_location"], mode="a", format="NETCDF4"
+        ) as file:
+            # the current time integer
+            times = file.variables["time"]
+            t = nc.date2num(date_time.replace(tzinfo=None), times.units, times.calendar)
 
-        # the current time integer
-        times = f.variables['time']
-        t = nc.date2num(
-            date_time.replace(tzinfo=None), times.units, times.calendar
-        )
-
-        if len(times) != 0:
-            index = np.where(times[:] == t)[0]
-            if index.size == 0:
-                index = len(times)
+            existing_times = np.where(times[:] == t)[0]
+            if existing_times.size > 0:
+                index = existing_times[0]
             else:
-                index = index[0]
-        else:
-            index = len(times)
+                index = len(times)
 
-        # insert the time and data
-        f.variables['time'][index] = t
+            # insert the time and data
+            file.variables["time"][index] = t
 
-        if self.outConfig['mask_output']:
-            f.variables[variable][index, :] = data*self.mask
-        else:
-            f.variables[variable][index, :] = data
+            if self.out_config["mask_output"]:
+                data = data * self.topo.mask
 
-        f.close()
+            file.variables[variable][index, :] = data

@@ -193,14 +193,6 @@ class SMRF:
         self._logger.info("SMRF closed --> %s" % datetime.now())
         logging.shutdown()
 
-    @property
-    def possible_output_variables(self):
-        # Collect the potential output variables
-        variables = {}
-        for variable, module in self.distribute.items():
-            variables.update(module.output_variables)
-        return variables
-
     def load_topo(self):
         """
         Load the information from the configFile in the ['topo'] section. See
@@ -248,8 +240,7 @@ class SMRF:
             self.distribute[AirTemperature.VARIABLE] = AirTemperature(self.config)
             self.distribute[VaporPressure.VARIABLE] = VaporPressure(self.config)
 
-            if self.config["precip"]["precip_rescaling_model"] == "winstral":
-                self.distribute[Wind.VARIABLE] = Wind(self.config)
+            if self.config[Precipitation.VARIABLE]["precip_rescaling_model"] == "winstral":
                 self.distribute[Wind.VARIABLE] = Wind(self.config)
 
             self.distribute[Precipitation.VARIABLE] = Precipitation(
@@ -303,7 +294,12 @@ class SMRF:
                 InputGribHRRR.GDAL_VARIABLE_KEY, []
             ).append(ThermalHRRR.GRIB_NAME)
 
-            self.distribute[ThermalHRRR.INI_VARIABLE] = ThermalHRRR()
+            self.distribute[ThermalHRRR.VARIABLE] = ThermalHRRR()
+
+            # Also swap out the ini variable to treat running HRRR as the standard
+            # 'thermal' variable
+            self.output_variables.remove(ThermalHRRR.INI_VARIABLE)
+            self.output_variables.add(Thermal.VARIABLE)
 
         # Soil temperature
         self.distribute[SoilTemperature.VARIABLE] = SoilTemperature(self.config)
@@ -325,8 +321,7 @@ class SMRF:
 
         self.data = InputData(self.config, self.start_date, self.end_date, self.topo)
 
-        # Pre-filter the data to the desired stations in
-        # each [variable] section
+        # Pre-filter the data to the desired stations in each [variable] section
         self._logger.debug("Filter data to those specified in each variable section")
         for module in self.distribute.values():
             # Skip variable classes that don't work with stations such as HRRRThermal
@@ -519,7 +514,10 @@ class SMRF:
             )
 
         # Thermal radiation
-        if Thermal.VARIABLE in self.distribute:
+        if (
+            Thermal.VARIABLE in self.distribute and
+            isinstance(self.distribute[Thermal.VARIABLE], Thermal)
+        ):
             self.distribute[Thermal.VARIABLE].distribute(
                 t,
                 self.distribute[AirTemperature.VARIABLE].air_temp,
@@ -527,8 +525,11 @@ class SMRF:
                 self.distribute[VaporPressure.VARIABLE].dew_point,
                 cloud_factor,
             )
-        elif ThermalHRRR.INI_VARIABLE in self.distribute:
-            self.distribute[ThermalHRRR.INI_VARIABLE].distribute(
+        elif (
+            Thermal.VARIABLE in self.distribute and
+            isinstance(self.distribute[Thermal.VARIABLE], ThermalHRRR)
+        ):
+            self.distribute[ThermalHRRR.VARIABLE].distribute(
                 t,
                 self.data.thermal,
                 self.distribute[AirTemperature.VARIABLE].air_temp,
@@ -537,45 +538,6 @@ class SMRF:
         # Soil temperature
         self.distribute[SoilTemperature.VARIABLE].distribute()
 
-    def create_output_variable_dict(self, output_variables, out_location):
-        # determine which variables belong where
-        variable_dict = {}
-
-        for output_variable in output_variables:
-            module = None
-            lookup_value = None
-            # Mapping the HRRR special cases back to standard naming or skip
-            if output_variable.startswith("hrrr"):
-                if output_variable in ["hrrr_cloud"]:
-                    continue
-                elif output_variable in ThermalHRRR.INI_VARIABLE:
-                    output_variable = ThermalHRRR.VARIABLE
-                    module = ThermalHRRR.INI_VARIABLE
-            # TODO: https://github.com/iSnobal/smrf/issues/32
-            elif output_variable in Precipitation.OUTPUT_OPTIONS:
-                lookup_value = Precipitation.VARIABLE
-
-            if output_variable in self.possible_output_variables.keys():
-                fname = join(out_location, output_variable)
-                module = (
-                    module or self.possible_output_variables[output_variable]["module"]
-                )
-                lookup_value = (
-                    lookup_value or self.possible_output_variables[output_variable]["module"]
-                )
-
-                variable_dict[output_variable] = {
-                    "variable": output_variable,
-                    "module": module,
-                    "out_location": fname,
-                    "info": self.distribute[lookup_value].output_variables[output_variable],
-                }
-
-            else:
-                self._logger.error("{} not an output variable".format(output_variable))
-
-        return variable_dict
-
     def initialize_output(self):
         """
         Initialize the output files based on the configFile section ['output'].
@@ -583,43 +545,33 @@ class SMRF:
         <smrf.output.output_netcdf.OutputNetcdf>` are supported.
         """
         out_location = self.config["output"]["out_location"]
+        variable_dict = {}
 
-        # determine the variables to be output
-        self._logger.info(
-            "Configured output variables: \n {}".format(
-                ", ".join(self.config["output"]["variables"])
-            )
-        )
+        for module_variable, module in self.distribute.items():
+            requested_variables = self.output_variables & module.OUTPUT_OPTIONS
 
-        variable_dict = self.create_output_variable_dict(
-            self.output_variables, out_location
-        )
-
-        self._logger.debug(
-            "{} of {} variables are saved in output files".format(
-                len(self.output_variables), len(self.possible_output_variables)
-            )
-        )
+            for variable in requested_variables:
+                variable_dict[variable] = {
+                    "variable": variable,
+                    "module": module,
+                    "out_location": join(out_location, variable),
+                    "nc_attributes": module.OUTPUT_VARIABLES[variable],
+                }
 
         # determine what type of file to output
         if self.config["output"]["file_type"].lower() == "netcdf":
-            self.out_func = output_netcdf.OutputNetcdf(
+            self.output_writer = output_netcdf.OutputNetcdf(
                 variable_dict, self.topo, self.config["time"], self.config["output"]
             )
         else:
             raise Exception("Could not determine type of file for output")
 
-    def output(self, current_time_step, module=None, out_var=None):
+    def output(self, current_time_step: datetime) -> None:
         """
         Output the forcing data or model outputs for the current_time_step.
 
         Args:
-            current_time_step (date_time): the current time step datetime
-                                            object
-
-            module (str): module name
-            out_var (str) - output a single variable
-
+            current_time_step (date_time): The current time step
         """
         output_count = self.date_time.index(current_time_step)
 
@@ -628,37 +580,17 @@ class SMRF:
         if (output_count % self.config["output"]["frequency"] == 0) or (
             output_count == len(self.date_time)
         ):
-            # User is attempting to output single variable
-            if module is not None and out_var is not None:
-                # add only one variable to the output list and proceed
-                var_vals = [self.out_func.variable_dict[out_var]]
-            # Incomplete request
-            elif module is not None or out_var is not None:
-                raise ValueError(
-                    "Function requires an output module and"
-                    " variable name when outputting a specific"
-                    " variables"
-                )
-            else:
-                # Output all the variables
-                var_vals = self.out_func.variable_dict.values()
-
             # Get the output variables then pass to the function
-            for variable in var_vals:
-                # TODO: https://github.com/iSnobal/smrf/issues/32
-                module = variable["info"]["module"]
-                if variable["variable"] in Precipitation.OUTPUT_OPTIONS:
-                     module = Precipitation.VARIABLE
-
-                # get the data desired
-                data = getattr(self.distribute[module], variable["variable"])
+            for variable in self.output_writer.variables_info.values():
+                 # Get the data from the distribution class
+                data = getattr(self.distribute[variable["module"].VARIABLE], variable["variable"])
 
                 if data is None:
                     data = np.zeros((self.topo.ny, self.topo.nx))
 
                 # output the time step
                 self._logger.debug("Outputting {0}".format(variable["module"]))
-                self.out_func.output(variable["variable"], data, current_time_step)
+                self.output_writer.output(variable["variable"], data, current_time_step)
 
     def title(self, option):
         """
