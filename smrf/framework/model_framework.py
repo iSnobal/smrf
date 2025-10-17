@@ -43,22 +43,9 @@ from topocalc.shade import shade
 class SMRF:
     """
     SMRF - Spatial Modeling for Resources Framework
-
-    Attributes:
-        start_date: start_date read from configFile
-        end_date: end_date read from configFile
-        date_time: Numpy array of date_time objects between start_date and
-            end_date
-        config: Configuration file read in as dictionary
-        distribute: Dictionary the contains all the desired variables to
-            distribute and is initialized in
-            :func:`~smrf.framework.model_framework.create_distribution`
     """
 
     def __init__(self, config, external_logger=None):
-        """
-        Initialize the model, read config file, start and end date, and logging
-        """
         # read the config file and store
         if isinstance(config, str):
             if not os.path.isfile(config):
