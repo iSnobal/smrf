@@ -282,6 +282,7 @@ class ThermalHRRR:
     VARIABLE = "thermal"
     INI_VARIABLE = "hrrr_thermal"
     GRIB_NAME = "DLWRF"
+    LOADED_DATA = [VARIABLE]
 
     OUTPUT_VARIABLES = {
         VARIABLE: {

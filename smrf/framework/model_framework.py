@@ -332,22 +332,24 @@ class SMRF:
         # Pre-filter the data to the desired stations in
         # each [variable] section
         self._logger.debug("Filter data to those specified in each variable section")
-        for variable, module in self.data.MODULE_VARIABLES.items():
-            if module not in self.distribute:
+        for module in self.distribute.values():
+            # Skip variable classes that don't work with stations such as HRRRThermal
+            if not hasattr(module, "stations"):
                 continue
 
-            # Check to find the matching stations
-            data = getattr(self.data, variable, pd.DataFrame())
-            if self.distribute[module].stations is not None:
-                match = data.columns.isin(self.distribute[module].stations)
-                sta_match = data.columns[match]
+            for variable in module.LOADED_DATA:
+                # Check to find the matching stations
+                data = getattr(self.data, variable, pd.DataFrame())
+                if module.stations is not None:
+                    match = data.columns.isin(module.stations)
+                    sta_match = data.columns[match]
 
-                # Update the dataframe and the distribute stations
-                self.distribute[module].stations = sta_match.tolist()
-                setattr(self.data, variable, data[sta_match])
+                    # Update the dataframe and the distribute stations
+                    module.stations = sta_match.tolist()
+                    setattr(self.data, variable, data[sta_match])
 
-            else:
-                self.distribute[module].stations = data.columns.tolist()
+                else:
+                    module.stations = data.columns.tolist()
 
         # Does the user want to create a CSV copy of the station data used.
         if self.config["output"]["input_backup"]:

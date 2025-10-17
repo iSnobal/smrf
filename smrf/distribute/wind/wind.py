@@ -17,6 +17,7 @@ class Wind(ImageData):
 
     INTERP = "interp"
     VARIABLE = "wind"
+    LOADED_DATA = ['wind_speed', 'wind_direction']
 
     # these are variables that can be output
     OUTPUT_VARIABLES = {
