@@ -55,19 +55,6 @@ class SMRF:
             :func:`~smrf.framework.model_framework.create_distribution`
     """
 
-    # These are the modules that the user can modify and use different methods
-    modules = [
-        "air_temp",
-        "albedo",
-        "precip",
-        "soil_temp",
-        "solar",
-        "cloud_factor",
-        "thermal",
-        "vapor_pressure",
-        "wind",
-    ]
-
     def __init__(self, config, external_logger=None):
         """
         Initialize the model, read config file, start and end date, and logging
