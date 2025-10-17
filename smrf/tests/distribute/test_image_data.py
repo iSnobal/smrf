@@ -88,7 +88,7 @@ class TestImageData(unittest.TestCase):
         )
 
     def test_module_name(self):
-        self.assertEqual("test_image_data", self.subject.MODULE_NAME)
+        self.assertEqual("test_image_data", str(self.subject))
 
     def test_loaded_data(self):
         self.assertEqual(["test_variable"], self.subject.LOADED_DATA)

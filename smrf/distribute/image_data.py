@@ -83,6 +83,13 @@ class ImageData:
             value['module'] = self.__class__.__module__.split('.')[-1]
             ov[key] = value
         return ov
+    def __str__(self) -> str:
+        """
+        Name of the class (in module formatting) used when writing output to NetCDF files
+
+        :return: str
+        """
+        return self.__module__.split(".")[-1]
 
     # Add some accessor methods to topo information
     @property
@@ -111,13 +118,11 @@ class ImageData:
 
     # This sets constants for:
     # * OUT_VARIABLES dictionary defined in the child class
-    # * Name of the class itself (in module formatting) used when writing output to NetCDF files
     # * List of LOADED_DATA from the input when not already defined on the child class
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
 
         setattr(cls, "OUTPUT_OPTIONS", set(cls.OUTPUT_VARIABLES.keys()))
-        setattr(cls, "MODULE_NAME", cls.__module__.split(".")[-1])
         if not hasattr(cls, "LOADED_DATA"):
             setattr(cls, "LOADED_DATA", [cls.VARIABLE])
 
