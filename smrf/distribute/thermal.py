@@ -134,11 +134,11 @@ class Thermal(VariableBase):
     and :math:`T_a` is the distributed air temperature.
     """
 
-    VARIABLE = "thermal"
+    DISTRIBUTION_KEY = "thermal"
 
     # these are variables that can be output
     OUTPUT_VARIABLES = {
-        VARIABLE: {
+        DISTRIBUTION_KEY: {
             "units": "watt/m2",
             "standard_name": "thermal_radiation",
             "long_name": "Thermal (longwave) radiation",

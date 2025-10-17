@@ -44,11 +44,11 @@ class Precipitation(VariableBase):
     """
 
     # TODO: https://github.com/iSnobal/smrf/issues/32
-    VARIABLE = "precip"
+    DISTRIBUTION_KEY = "precip"
 
     # these are variables that can be output
     OUTPUT_VARIABLES = {
-        VARIABLE: {
+        DISTRIBUTION_KEY: {
             "units": "mm",
             "standard_name": "precipitation_mass",
             "long_name": "Precipitation mass",

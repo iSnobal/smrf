@@ -13,7 +13,7 @@ class CloudFactor(VariableBase):
     sunny.
     """
 
-    VARIABLE = "cloud_factor"
+    DISTRIBUTION_KEY = "cloud_factor"
 
     # these are variables that can be output
     OUTPUT_VARIABLES = {

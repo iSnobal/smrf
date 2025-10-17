@@ -16,7 +16,7 @@ class Albedo(VariableBase):
     basin and have the albedo decay at different rates for each pixel.
     """
 
-    VARIABLE = "albedo"
+    DISTRIBUTION_KEY = "albedo"
 
     # these are variables that can be output
     OUTPUT_VARIABLES = {

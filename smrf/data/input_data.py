@@ -116,12 +116,12 @@ class InputData:
             if variable == 'metadata':
                 setattr(self, variable, d)
             elif (
-                variable == ThermalHRRR.VARIABLE
+                variable == ThermalHRRR.DISTRIBUTION_KEY
                 and getattr(self.load_class, ThermalHRRR.GRIB_NAME, None) is not None
             ):
                 setattr(
                     self,
-                    ThermalHRRR.VARIABLE,
+                    ThermalHRRR.DISTRIBUTION_KEY,
                     getattr(self.load_class, ThermalHRRR.GRIB_NAME),
                 )
             elif d is not None:

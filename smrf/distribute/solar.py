@@ -65,7 +65,7 @@ class Solar(VariableBase):
     the albedo.
     """
 
-    VARIABLE = 'solar'
+    DISTRIBUTION_KEY = 'solar'
 
     # these are variables that can be output
     OUTPUT_VARIABLES = {
