@@ -75,14 +75,6 @@ class ImageData:
             "Created distribute.%s", self.__class__.__module__.replace("smrf.", "")
         )
 
-    @property
-    def output_variables(self):
-        ov = {}
-        for key, value in self.OUTPUT_VARIABLES.items():
-            # Add the variable module name to the dict to identify outputs in NetCDF
-            value['module'] = self.__class__.__module__.split('.')[-1]
-            ov[key] = value
-        return ov
     def __str__(self) -> str:
         """
         Name of the class (in module formatting) used when writing output to NetCDF files
