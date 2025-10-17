@@ -93,6 +93,10 @@ class TestImageData(unittest.TestCase):
     def test_loaded_data(self):
         self.assertEqual(["test_variable"], self.subject.LOADED_DATA)
 
+    def test_is_requested(self):
+        self.assertTrue(self.subject.is_requested(set(["test_variable"])))
+        self.assertFalse(self.subject.is_requested(set(["not_a_variable"])))
+
     def test_initialize(self):
         self.subject.initialize(TOPO, METADATA)
 

@@ -107,6 +107,8 @@ class ImageData:
 
     # END - Topo accessor methods
 
+    # START - Class methods
+
     # This sets constants for:
     # * OUT_VARIABLES dictionary defined in the child class
     # * Name of the class itself (in module formatting) used when writing output to NetCDF files
@@ -118,6 +120,20 @@ class ImageData:
         setattr(cls, "MODULE_NAME", cls.__module__.split(".")[-1])
         if not hasattr(cls, "LOADED_DATA"):
             setattr(cls, "LOADED_DATA", [cls.VARIABLE])
+
+    @classmethod
+    def is_requested(cls, config_variables: set) -> bool:
+        """
+        Test if any of the available output variables are in the requested via the
+        [output] section `variables`
+
+        :param config_variables: Set - List of requested variables
+
+        :return: Boolean - True if one of the output variables is in the requested
+        """
+        return len(cls.OUTPUT_OPTIONS & config_variables) > 0
+
+    # END - Class methods
 
     def initialize(self, topo: Topo, metadata: pd.DataFrame):
         """
