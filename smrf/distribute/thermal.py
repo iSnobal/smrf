@@ -1,7 +1,5 @@
-import logging
-
 import numpy as np
-from smrf.envphys.constants import EMISS_TERRAIN, STEF_BOLTZ, FREEZE
+from smrf.envphys.constants import STEF_BOLTZ
 from smrf.envphys.core import envphys_c
 from smrf.envphys.thermal import clear_sky, cloud, vegetation
 from smrf.utils import utils
@@ -174,8 +172,14 @@ class Thermal(ImageData):
 
         self.clear_sky_method = self.config["clear_sky_method"]
 
-    def distribute(self, date_time, air_temp, vapor_pressure=None,
-                   dew_point=None, cloud_factor=None):
+    def distribute(
+        self,
+        date_time,
+        air_temp,
+        vapor_pressure=None,
+        dew_point=None,
+        cloud_factor=None,
+    ):
         """
         Distribute for a single time step.
 
@@ -264,76 +268,3 @@ class Thermal(ImageData):
             self.thermal_veg = cth.copy()
 
         self.thermal = utils.set_min_max(cth, self.min, self.max)
-
-
-class ThermalHRRR:
-    """
-    Calculate thermal radiation based of the HRRR
-    Downwelling Longwave Radiation Flux (DLWRF) and corrected by the sky view factor.
-
-    .. math::
-        LW_{in} = V_f \\times DLWRF + (1 - V_f) \\times \\epsilon \\sigma T_a^4
-
-        \\sigma = Stefan Boltzmann constant
-        \\epsilon = Emissivity of the terrain
-        \\T_a = Air temperature in Kelvin
-    """
-
-    VARIABLE = "thermal"
-    INI_VARIABLE = "hrrr_thermal"
-    GRIB_NAME = "DLWRF"
-    LOADED_DATA = [VARIABLE]
-    OUTPUT_OPTIONS = {VARIABLE}
-    MODULE_NAME = 'thermal_hrrr'
-
-    OUTPUT_VARIABLES = {
-        VARIABLE: {
-            "units": "watt/m2",
-            "standard_name": "thermal_radiation",
-            "long_name": "Thermal (longwave) radiation",
-        },
-    }
-
-    def __init__(self):
-        self.thermal = None
-        self._sky_view_factor = None
-        self._forcing_data = None
-        self._date_time = None
-
-        self._logger = logging.getLogger(self.__class__.__module__)
-
-    def __str__(self) -> str:
-        """
-        Name of the class (in module formatting) used when writing output to NetCDF files
-
-        :return: str
-        """
-        return "thermal_hrrr"
-
-    @property
-    def output_variables(self) -> dict:
-        """
-        Information for the output NetCDF file.
-
-        :return:
-            Dict - Attributes written to the NetCDF file.
-        """
-        return self.OUTPUT_VARIABLES
-
-    def initialize(self, topo, _data, _date_time=None) -> None:
-        """
-        Initialize the distribution.
-
-        :param topo: Topo instance
-        :param _data: UNUSED - Metadata from forcing inputs
-        :param _date_time: UNUSED - Present to conform with default method API
-        """
-        self._logger.debug(f"Initializing {self.__class__.__name__}")
-        self._sky_view_factor = topo.sky_view_factor
-
-    def distribute(self, date_time, forcing_data, air_temp):
-        self._logger.debug('%s Distributing HRRR thermal' % date_time)
-        self.thermal = (self._sky_view_factor * forcing_data) + (
-            1 - self._sky_view_factor
-        ) * EMISS_TERRAIN * STEF_BOLTZ * (air_temp + FREEZE) ** 4
-

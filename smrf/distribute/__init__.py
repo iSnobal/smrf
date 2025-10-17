@@ -5,7 +5,8 @@ from .image_data import ImageData
 from .precipitation import Precipitation
 from .soil_temp import SoilTemperature
 from .solar import Solar
-from .thermal import Thermal, ThermalHRRR
+from .thermal import Thermal
+from .thermal_hrrr import ThermalHRRR
 from .vapor_pressure import VaporPressure
 from .wind import Wind
 
