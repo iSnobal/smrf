@@ -90,6 +90,9 @@ class TestImageData(unittest.TestCase):
     def test_module_name(self):
         self.assertEqual("test_image_data", self.subject.MODULE_NAME)
 
+    def test_loaded_data(self):
+        self.assertEqual(["test_variable"], self.subject.LOADED_DATA)
+
     def test_initialize(self):
         self.subject.initialize(TOPO, METADATA)
 
