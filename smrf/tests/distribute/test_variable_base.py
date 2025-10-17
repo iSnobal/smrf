@@ -6,7 +6,7 @@ import numpy.testing as npt
 import pandas as pd
 import pandas.testing as pdt
 
-from smrf.distribute.image_data import ImageData
+from smrf.distribute.variable_base import VariableBase
 
 TOPO = MagicMock(
     name="Topo NC",
@@ -29,7 +29,7 @@ METADATA = pd.DataFrame({
 )
 
 
-class TestVariable(ImageData):
+class TestVariable(VariableBase):
     VARIABLE = "test_variable"
     OUTPUT_VARIABLES = {
         VARIABLE: {
@@ -55,9 +55,9 @@ class TestImageData(unittest.TestCase):
     }
 
     def setUp(self):
-        self.logger_patch = patch("smrf.distribute.image_data.logging")
+        self.logger_patch = patch("smrf.distribute.variable_base.logging")
         self.logger_patch.start()
-        self.grid_patch = patch("smrf.distribute.image_data.grid.GRID")
+        self.grid_patch = patch("smrf.distribute.variable_base.grid.GRID")
         self.grid = self.grid_patch.start()
 
         self.subject = TestVariable(self.CONFIG)
@@ -76,7 +76,7 @@ class TestImageData(unittest.TestCase):
         self.assertTrue(self.subject.gridded)
 
     def test_init_no_config_section(self):
-        base_class = ImageData()
+        base_class = VariableBase()
 
         self.assertIsNone(base_class.config)
         self.assertIsNone(base_class.topo)
@@ -88,7 +88,8 @@ class TestImageData(unittest.TestCase):
         )
 
     def test_module_name(self):
-        self.assertEqual("test_image_data", str(self.subject))
+        # Note this is the name of this file.
+        self.assertEqual("test_variable_base", str(self.subject))
 
     def test_loaded_data(self):
         self.assertEqual(["test_variable"], self.subject.LOADED_DATA)

@@ -3,10 +3,10 @@ import pandas as pd
 from smrf.data.load_topo import Topo
 from smrf.envphys.constants import EMISS_TERRAIN, STEF_BOLTZ, FREEZE
 
-from .image_data import ImageData
+from .variable_base import VariableBase
 
 
-class ThermalHRRR(ImageData):
+class ThermalHRRR(VariableBase):
     """
     Calculate thermal radiation based of the HRRR
     Downwelling Longwave Radiation Flux (DLWRF) and corrected by the sky view factor.

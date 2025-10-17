@@ -8,12 +8,22 @@ from smrf.spatial import grid, idw, kriging
 from smrf.spatial.dk import dk
 
 
-class ImageData:
+class VariableBase:
     """
     Base class that will ensure all variables are distributed in the same manner.
 
-    Attributes:
-        VARIABLE: The name of the variable that a class will distribute
+    A child class needs to define the following constants:
+      * VARIABLE: A unique key for distributing the class
+      * OUTPUT_VARIABLES: A dictionary defining the key as the output file name and
+                         the value as a dictionary of the NetCDF variable attributes
+                         that are used upon writing the file
+      * LOADED_DATA: A list of the input data that is loaded by the from the input source
+                     By default, this is just the VARIABLE
+
+    The following constants are set automatically based on the above:
+      * OUTPUT_OPTIONS: A set of the variables set from the OUTPUT_VARIABLES keys
+
+    Instance attributes:
         config:   Parsed dictionary from the configuration file for the variable
         stations: The stations to be used for the variable, if set, in
                   alphabetical order
@@ -77,9 +87,10 @@ class ImageData:
 
     def __str__(self) -> str:
         """
-        Name of the class (in module formatting) used when writing output to NetCDF files
+        Name of the file this class is defined in.
+        This used when writing output to NetCDF files.
 
-        :return: str
+        :return: str - Name of this file
         """
         return self.__module__.split(".")[-1]
 
@@ -109,7 +120,7 @@ class ImageData:
     # START - Class methods
 
     # This sets constants for:
-    # * OUT_VARIABLES dictionary defined in the child class
+    # * OUTPUT_OPTIONS dictionary defined in the child class
     # * List of LOADED_DATA from the input when not already defined on the child class
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
