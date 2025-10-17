@@ -545,19 +545,14 @@ class SMRF:
         Currently only :func:`NetCDF files
         <smrf.output.output_netcdf.OutputNetcdf>` are supported.
         """
-        out_location = self.config["output"]["out_location"]
         variable_dict = {}
 
-        for module_variable, module in self.distribute.items():
+        # Collect all requested variables and the module that provides them
+        for module in self.distribute.values():
             requested_variables = self.output_variables & module.OUTPUT_OPTIONS
 
             for variable in requested_variables:
-                variable_dict[variable] = {
-                    "variable": variable,
-                    "module": module,
-                    "out_location": join(out_location, variable),
-                    "nc_attributes": module.OUTPUT_VARIABLES[variable],
-                }
+                variable_dict[variable] = module
 
         # determine what type of file to output
         if self.config["output"]["file_type"].lower() == "netcdf":
@@ -581,17 +576,7 @@ class SMRF:
         if (output_count % self.config["output"]["frequency"] == 0) or (
             output_count == len(self.date_time)
         ):
-            # Get the output variables then pass to the function
-            for variable in self.output_writer.variables_info.values():
-                 # Get the data from the distribution class
-                data = getattr(self.distribute[variable["module"].DISTRIBUTION_KEY], variable["variable"])
-
-                if data is None:
-                    data = np.zeros((self.topo.ny, self.topo.nx))
-
-                # output the time step
-                self._logger.debug("Outputting {0}".format(variable["module"]))
-                self.output_writer.output(variable["variable"], data, current_time_step)
+            self.output_writer.output(current_time_step)
 
     def title(self, option):
         """
