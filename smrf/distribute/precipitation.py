@@ -43,6 +43,7 @@ class Precipitation(ImageData):
         time_step: The time step in minutes of the data, defaults to 60
     """
 
+    # TODO: https://github.com/iSnobal/smrf/issues/32
     VARIABLE = "precip"
 
     # these are variables that can be output
