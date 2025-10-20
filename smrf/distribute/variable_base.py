@@ -18,7 +18,7 @@ class VariableBase:
                          the value as a dictionary of the NetCDF variable attributes
                          that are used upon writing the file. The variable will be named
                          the same as the key (filename).
-      * LOADED_DATA: A list of the input data that is loaded by the from the input source
+      * LOADED_DATA: A list of the input data that is loaded from the input source
                      By default, this is matches the DISTRIBUTION_KEY
 
     The following constants are set automatically based on the above:
@@ -26,11 +26,11 @@ class VariableBase:
 
     Instance attributes:
         config:   Parsed dictionary from the configuration file for the variable
-        stations: The stations to be used for the variable, if set, in
-                  alphabetical order
+        topo:     Access to the variables stored in the Topo
         metadata: The metadata Pandas dataframe containing the station
                   information from :mod:`smrf.data.loadData` or :mod:`smrf.data.loadGrid`
-        topo:     Access to the variables stored in the Topo
+        stations: The stations to be used for the variable, if set, in
+                  alphabetical order
         gridded:  Boolean indicator of whether the variable is gridded or not
         max:      Maximum allowed value for the variable
         min:      Minimum allowed value for the variable
@@ -38,7 +38,7 @@ class VariableBase:
     DISTRIBUTION_KEY = ''
     OUTPUT_VARIABLES = {}
 
-    def __init__(self, config: dict = None):
+    def __init__(self, config: dict = None, topo: Topo = None):
         """
         Initialize the class and parse out the relevant section from the configuration
         when given. The section name of the configuration needs to match the VARIABLE
@@ -63,7 +63,7 @@ class VariableBase:
             setattr(self, self.DISTRIBUTION_KEY, None)
 
         self.config = None
-        self.topo = None
+        self.topo = topo
         self.metadata = None
 
         if config and config.get(self.DISTRIBUTION_KEY, False):
@@ -144,10 +144,9 @@ class VariableBase:
 
     # END - Class methods
 
-    def initialize(self, topo: Topo, metadata: pd.DataFrame):
+    def initialize(self, metadata: pd.DataFrame):
         """
         Args:
-            topo: Topo class instance
             metadata: metadata Pandas dataframe containing the station metadata
                   from :mod:`smrf.data.loadData` or :mod:`smrf.data.loadGrid
 
@@ -158,7 +157,6 @@ class VariableBase:
         """
         self._logger.debug("Initializing")
         self.metadata = metadata
-        self.topo = topo
 
         # pull out the metadata subset
         if self.stations is not None:

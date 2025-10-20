@@ -30,8 +30,8 @@ class TestWindNinja(SMRFTestCaseLakes):
             tzinfo
         )
 
-        wind = Wind(config)
-        wind.initialize(topo, pd.DataFrame())
+        wind = Wind(config=config, topo=topo)
+        wind.initialize(pd.DataFrame())
         wn = wind.wind_model
         wn.initialize_interp(date_time[0])
         g_vel, g_ang = wn.convert_wind_ninja(date_time[0])

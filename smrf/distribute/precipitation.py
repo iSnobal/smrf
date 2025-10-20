@@ -80,13 +80,13 @@ class Precipitation(VariableBase):
         },
     }
 
-    def __init__(self, config, start_date, time_step=60):
-        super().__init__(config)
+    def __init__(self, config, topo, start_date, time_step=60):
+        super().__init__(config=config, topo=topo)
 
         self.time_step = float(time_step)
         self.start_date = start_date
 
-    def initialize(self, topo, data):
+    def initialize(self, data):
         """
         See :mod:`smrf.distribute.ImageData.initialize` for documentation on the base
         initialization.
@@ -94,12 +94,12 @@ class Precipitation(VariableBase):
         Precipitation is the only class that needs both the data and metadata to
         do the below modifications.
         """
-        super().initialize(topo, data.metadata)
+        super().initialize(data.metadata)
 
-        self.percent_snow = np.zeros((topo.ny, topo.nx))
-        self.snow_density = np.zeros((topo.ny, topo.nx))
-        self.storm_days = np.zeros((topo.ny, topo.nx))
-        self.storm_total = np.zeros((topo.ny, topo.nx))
+        self.percent_snow = np.zeros((self.topo.ny, self.topo.nx))
+        self.snow_density = np.zeros((self.topo.ny, self.topo.nx))
+        self.storm_days = np.zeros((self.topo.ny, self.topo.nx))
+        self.storm_total = np.zeros((self.topo.ny, self.topo.nx))
 
         # Assign storm_days array if given
         if self.config["storm_days_restart"] is not None:
@@ -130,7 +130,7 @@ class Precipitation(VariableBase):
                 if delta_seconds > timedelta(seconds=(self.time_step*60)):
                     self._logger.warning(
                         'Invalid storm_days input! Setting to 0.0')
-                    self.storm_days = np.zeros((topo.ny, topo.nx))
+                    self.storm_days = np.zeros((self.topo.ny, self.topo.nx))
 
                 else:
                     # start at index of storm_days - 1
@@ -155,7 +155,7 @@ class Precipitation(VariableBase):
             """ model:  """.format(self.nasde_model))
 
         if self.nasde_model == 'marks2017':
-            self.storm_total = np.zeros((topo.ny, topo.nx))
+            self.storm_total = np.zeros((self.topo.ny, self.topo.nx))
 
             self.storms = []
             self.time_steps_since_precip = 0
@@ -198,7 +198,6 @@ class Precipitation(VariableBase):
                                .format(self.config['winstral_tbreak_netcdf']))
 
             # get the veg values
-            self.veg_type = topo.veg_type
             matching = [s for s in self.config.keys() if "winstral_veg_" in s]
             v = {}
             for m in matching:

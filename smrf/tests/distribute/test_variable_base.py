@@ -41,7 +41,7 @@ class TestVariable(VariableBase):
     }
 
 
-class TestImageData(unittest.TestCase):
+class TestVariableBase(unittest.TestCase):
     CONFIG = {
         "test_variable": {
             "stations": STATIONS,
@@ -60,7 +60,7 @@ class TestImageData(unittest.TestCase):
         self.grid_patch = patch("smrf.distribute.variable_base.grid.GRID")
         self.grid = self.grid_patch.start()
 
-        self.subject = TestVariable(self.CONFIG)
+        self.subject = TestVariable(config=self.CONFIG, topo=TOPO)
 
     def tearDown(self):
         self.grid_patch.stop()
@@ -99,7 +99,7 @@ class TestImageData(unittest.TestCase):
         self.assertFalse(self.subject.is_requested(set(["not_a_variable"])))
 
     def test_initialize(self):
-        self.subject.initialize(TOPO, METADATA)
+        self.subject.initialize(METADATA)
 
         (args, kwargs) = self.grid.call_args
 
@@ -118,14 +118,12 @@ class TestImageData(unittest.TestCase):
         config = self.CONFIG.copy()
         del config["test_variable"]["stations"]
 
-        self.subject = TestVariable(config)
-        self.subject.initialize(TOPO, METADATA)
+        self.subject = TestVariable(config=config, topo=TOPO)
+        self.subject.initialize(METADATA)
 
         npt.assert_equal(STATIONS, self.subject.stations)
 
     def test_topo_accessors(self):
-        self.subject.initialize(TOPO, METADATA)
-
         self.assertEqual(self.subject.topo, TOPO)
         npt.assert_equal(self.subject.dem, TOPO.dem)
         npt.assert_equal(self.subject.sky_view_factor, TOPO.sky_view_factor)
