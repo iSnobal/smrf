@@ -1,5 +1,4 @@
 import os
-from copy import copy
 from glob import glob
 
 from inicheck.tools import cast_all_variables
@@ -13,7 +12,7 @@ class TestOutputVariables(SMRFTestCase):
         self.remove_output_dir()
 
     def change_variables(self, new_variables):
-        config = copy(self.base_config)
+        config = self.base_config_copy()
         config.raw_cfg["output"].update({"variables": new_variables})
 
         config.apply_recipes()

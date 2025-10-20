@@ -12,7 +12,7 @@ class TestWindNinjaRecipes(SMRFTestCaseLakes, BaseRecipes):
         """
 
         # get the master config list
-        master_config = self.master_config(self.base_config)
+        master_config = self.master_config(self.base_config_copy())
 
         # make changes
         master_config['wind'] = [
@@ -27,7 +27,7 @@ class TestWindNinjaRecipes(SMRFTestCaseLakes, BaseRecipes):
             'max'
         ]
 
-        self.check_config_section(self.base_config, master_config, 'wind')
+        self.check_config_section(self.base_config_copy(), master_config, 'wind')
 
 
 class TestWinstralWindRecipes(SMRFTestCase, BaseRecipes):
@@ -39,7 +39,7 @@ class TestWinstralWindRecipes(SMRFTestCase, BaseRecipes):
         """
 
         # get the master config list
-        master_config = self.master_config(self.base_config)
+        master_config = self.master_config(self.base_config_copy())
 
         # make changes
         master_config['wind'] = [
@@ -63,7 +63,7 @@ class TestWinstralWindRecipes(SMRFTestCase, BaseRecipes):
             'veg_3061'
         ]
 
-        self.check_config_section(self.base_config, master_config, 'wind')
+        self.check_config_section(self.base_config_copy(), master_config, 'wind')
 
 
 class TestInterpWindRecipes(SMRFTestCase, BaseRecipes):

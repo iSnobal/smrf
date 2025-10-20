@@ -54,7 +54,7 @@ class TestLoadHRRR(SMRFTestCase):
         config.raw_cfg.update(adj_config)
 
         # set the distribution to grid, thermal defaults will be fine
-        for v in cls.DIST_VARIABLES:
+        for v in cls.DISTRIBUTION_VARIABLES:
             config.raw_cfg[v]['distribution'] = 'grid'
             config.raw_cfg[v]['grid_mask'] = 'False'
 

@@ -13,4 +13,4 @@ class TestRME(CheckSMRFOutputs, SMRFTestCase):
 
         cls.gold_dir = cls.basin_dir.joinpath('gold')
 
-        run_smrf(cls.run_config)
+        run_smrf(cls.base_config)

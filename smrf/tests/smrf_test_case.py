@@ -1,14 +1,14 @@
 import os
 import shutil
 import unittest
-from copy import deepcopy
 from pathlib import Path
 
 import netCDF4 as nc
 import numpy as np
+from inicheck.config import UserConfig
+
 import smrf
 from inicheck.tools import get_user_config
-from smrf.framework.model_framework import run_smrf
 
 
 class SMRFTestCase(unittest.TestCase):
@@ -17,9 +17,9 @@ class SMRFTestCase(unittest.TestCase):
     and store as the base config. Also will remove the output
     directory upon tear down.
 
-    Runs the short simulation over reynolds mountain east
+    Runs the short simulation over Reynolds Mountain East (RME)
     """
-    DIST_VARIABLES = frozenset([
+    DISTRIBUTION_VARIABLES = frozenset([
         'air_temp',
         'cloud_factor',
         'precip',
@@ -35,50 +35,41 @@ class SMRFTestCase(unittest.TestCase):
     config_file = os.path.join(basin_dir, BASE_INI_FILE_NAME)
     gold_dir = basin_dir.joinpath("gold_hrrr")
 
-    @property
-    def dist_variables(self):
-        if self._dist_variables is None:
-            self._dist_variables = list(self.DIST_VARIABLES)
-        return self._dist_variables
-
-    @property
-    def base_config(self):
-        return self.base_config_copy()
-
-    @classmethod
-    def configure(cls):
-        cls.run_config = cls.base_config_copy()
-
     @classmethod
     def topo_nc(cls):
         return cls.basin_dir.joinpath("topo", "topo.nc")
 
-    @property
-    def smrf_instance(self):
-        return smrf.framework.SMRF(self.config_file)
-
     @classmethod
-    def base_config_copy(cls):
-        return deepcopy(cls._base_config)
+    def base_config_copy(cls) -> UserConfig:
+        """
+        Return a copy of the default test config to manipulate for specific test
+        cases
 
-    @classmethod
-    def load_base_config(cls):
-        cls._base_config = get_user_config(cls.config_file, modules='smrf')
+        :return: UserConfig object
+        """
+        return get_user_config(cls.config_file, modules='smrf')
 
     @classmethod
     def setUpClass(cls):
-        cls.load_base_config()
+        """
+        Set up basic structure to run SMRF by parsing the `.ini` file, create
+        output folder logic, and create a copy of the unparsed `.ini` file for. The latter
+        can be used to configure a run differently, without having to redefine a whole
+        file.
+        """
+        cls.base_config = get_user_config(cls.config_file, modules='smrf')
         cls.create_output_dir()
-        cls.configure()
 
     @classmethod
     def tearDownClass(cls):
         cls.remove_output_dir()
         delattr(cls, 'output_dir')
 
+    # START - Required test setup folder structure methods
+
     @classmethod
     def create_output_dir(cls):
-        folder = os.path.join(cls._base_config.cfg['output']['out_location'])
+        folder = os.path.join(cls.base_config.cfg['output']['out_location'])
 
         # Remove any potential files to ensure fresh run
         if os.path.isdir(folder):
@@ -93,18 +84,7 @@ class SMRFTestCase(unittest.TestCase):
                 os.path.exists(cls.output_dir):
             shutil.rmtree(cls.output_dir)
 
-    @staticmethod
-    def can_i_run_smrf(config):
-        """
-        Test whether a config is possible to run
-        """
-        try:
-            run_smrf(config)
-            return True
-
-        except Exception as e:
-            print(e)
-            return False
+    # END
 
     @staticmethod
     def assert_gold_equal(gold, not_gold, error_msg):
@@ -130,9 +110,6 @@ class SMRFTestCase(unittest.TestCase):
                 decimal=3,
                 err_msg=error_msg
             )
-
-    def setUp(self):
-        self._dist_variables = None
 
     def compare_hrrr_gold(self):
         """
