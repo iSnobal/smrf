@@ -1,4 +1,3 @@
-
 from inicheck.tools import cast_all_variables
 
 from smrf.framework.model_framework import SMRF, run_smrf
@@ -11,7 +10,7 @@ class TestLoadCSVData(SMRFTestCase):
         """
         Test the start date not in the data
         """
-        config = self.base_config
+        config = self.base_config_copy()
 
         # Use dates not in the dataset, expecting an error
         config.raw_cfg['time']['start_date'] = '1900-01-01 00:00'
@@ -30,7 +29,7 @@ class TestLoadCSVData(SMRFTestCase):
         """
 
         # test the end date
-        config = self.base_config
+        config = self.base_config_copy()
         config.raw_cfg['csv']['stations'] = ['RMESP', 'RME_176']
 
         # apply the new recipies

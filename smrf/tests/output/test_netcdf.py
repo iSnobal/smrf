@@ -3,6 +3,7 @@ import numpy as np
 import numpy.testing as npt
 
 from smrf import __version__
+from smrf.framework.model_framework import SMRF
 from smrf.distribute import AirTemperature, CloudFactor
 from smrf.output.output_netcdf import OutputNetcdf
 from smrf.tests.smrf_test_case import SMRFTestCase
@@ -10,8 +11,7 @@ from smrf.tests.smrf_test_case import SMRFTestCase
 
 class TestOutputNetCDF(SMRFTestCase):
     def setUp(self):
-        super().setUpClass()
-        self.smrf = self.smrf_instance
+        self.smrf = SMRF(self.base_config_copy())
         self.smrf.load_topo()
         module = AirTemperature()
 

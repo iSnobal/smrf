@@ -11,7 +11,6 @@ from smrf.utils.utils import date_range
 
 
 class TestWindNinja(SMRFTestCaseLakes):
-
     def setup_wind_ninja(self, config):
         """Setup the wind ninja class
 
@@ -73,7 +72,7 @@ class TestWindNinja(SMRFTestCaseLakes):
 
     def test_wind_ninja_interpolation(self):
 
-        config = self.base_config.cfg
+        config = self.base_config_copy().cfg
         config['wind']['wind_ninja_dxdy'] = 50
         topo, wn, g_vel, g_ang = self.setup_wind_ninja(config)
 

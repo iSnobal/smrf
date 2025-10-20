@@ -1,6 +1,8 @@
 from unittest import mock
 
 import smrf.data as smrf_data
+
+from smrf.framework.model_framework import SMRF
 from smrf.tests.smrf_test_case import SMRFTestCase
 from smrf.tests.smrf_test_case_lakes import SMRFTestCaseLakes
 
@@ -22,8 +24,7 @@ def mock_for_data_load(test_case):
 
 class TestLoadData(SMRFTestCase):
     def setUp(self):
-        super(self.__class__, self).setUp()
-        self.smrf = self.smrf_instance
+        self.smrf = SMRF(self.base_config)
         self.smrf.load_topo()
 
     @mock.patch.object(smrf_data.InputCSV, 'check_colocation')
@@ -55,8 +56,7 @@ class TestLoadData(SMRFTestCase):
 
 class TestInputDataGridded(SMRFTestCaseLakes):
     def setUp(self):
-        super(self.__class__, self).setUp()
-        self.smrf = self.smrf_instance
+        self.smrf = SMRF(self.base_config_copy())
         self.smrf.load_topo()
 
     def assert_parameters(self, instance):

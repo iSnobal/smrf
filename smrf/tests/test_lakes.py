@@ -12,4 +12,4 @@ class TestLakes(CheckSMRFOutputs, SMRFTestCaseLakes):
     def setUpClass(cls):
         super().setUpClass()
 
-        cls.smrf = run_smrf(cls.run_config)
+        cls.smrf = run_smrf(cls.base_config)

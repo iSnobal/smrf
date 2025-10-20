@@ -16,10 +16,10 @@ class TestBackupInput(SMRFTestCase):
         cls.smrf.load_data()
 
     def test_backup_version(self):
-        backup_input(self.smrf.data, self.base_config)
+        backup_input(self.smrf.data, self.smrf.ucfg)
 
         backup_config = os.path.join(
-            self.base_config.cfg["output"]["out_location"],
+            self.smrf.config["output"]["out_location"],
             "input_backup",
             "backup_config.ini",
         )
