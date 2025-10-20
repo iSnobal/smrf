@@ -515,26 +515,21 @@ class SMRF:
             )
 
         # Thermal radiation
-        if (
-            Thermal.DISTRIBUTION_KEY in self.distribute and
-            isinstance(self.distribute[Thermal.DISTRIBUTION_KEY], Thermal)
-        ):
-            self.distribute[Thermal.DISTRIBUTION_KEY].distribute(
-                time,
-                self.distribute[AirTemperature.DISTRIBUTION_KEY].air_temp,
-                self.distribute[VaporPressure.DISTRIBUTION_KEY].vapor_pressure,
-                self.distribute[VaporPressure.DISTRIBUTION_KEY].dew_point,
-                cloud_factor,
-            )
-        elif (
-            Thermal.DISTRIBUTION_KEY in self.distribute and
-            isinstance(self.distribute[ThermalHRRR.DISTRIBUTION_KEY], ThermalHRRR)
-        ):
-            self.distribute[ThermalHRRR.DISTRIBUTION_KEY].distribute(
-                time,
-                self.data.thermal,
-                self.distribute[AirTemperature.DISTRIBUTION_KEY].air_temp,
-            )
+        if Thermal.DISTRIBUTION_KEY in self.distribute:
+            if isinstance(self.distribute[Thermal.DISTRIBUTION_KEY], Thermal):
+                self.distribute[Thermal.DISTRIBUTION_KEY].distribute(
+                    time,
+                    self.distribute[AirTemperature.DISTRIBUTION_KEY].air_temp,
+                    self.distribute[VaporPressure.DISTRIBUTION_KEY].vapor_pressure,
+                    self.distribute[VaporPressure.DISTRIBUTION_KEY].dew_point,
+                    cloud_factor,
+                )
+            elif isinstance(self.distribute[ThermalHRRR.DISTRIBUTION_KEY], ThermalHRRR):
+                self.distribute[ThermalHRRR.DISTRIBUTION_KEY].distribute(
+                    time,
+                    self.data.thermal,
+                    self.distribute[AirTemperature.DISTRIBUTION_KEY].air_temp,
+                )
 
         # Soil temperature
         self.distribute[SoilTemperature.DISTRIBUTION_KEY].distribute()
