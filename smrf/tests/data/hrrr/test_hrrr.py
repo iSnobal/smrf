@@ -6,11 +6,8 @@ from smrf.tests.smrf_test_case_lakes import SMRFTestCase, SMRFTestCaseLakes
 
 
 class TestLoadHRRR(SMRFTestCase):
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-
-        config = cls.base_config_copy()
+    def setUp(self):
+        config = self.base_config_copy()
         del config.raw_cfg['csv']
 
         adj_config = {
@@ -54,14 +51,14 @@ class TestLoadHRRR(SMRFTestCase):
         config.raw_cfg.update(adj_config)
 
         # set the distribution to grid, thermal defaults will be fine
-        for v in cls.DISTRIBUTION_VARIABLES:
+        for v in self.DISTRIBUTION_VARIABLES:
             config.raw_cfg[v]['distribution'] = 'grid'
             config.raw_cfg[v]['grid_mask'] = 'False'
 
         config.apply_recipes()
         config = cast_all_variables(config, config.mcfg)
 
-        cls.config = config
+        self.config = config
 
     def test_load_timestep(self):
         run_smrf(self.config)
