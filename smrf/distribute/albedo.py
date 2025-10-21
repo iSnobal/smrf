@@ -32,14 +32,14 @@ class Albedo(VariableBase):
         },
     }
 
-    def __init__(self, config):
+    def __init__(self, config: dict, topo):
         """
         Initialize albedo()
 
         Args:
             config: configuration from [albedo] section
         """
-        super().__init__(config)
+        super().__init__(config, topo)
 
         # Get the veg values for the decay methods. Date method uses self.veg
         # Hardy2000 uses self.litter
@@ -55,7 +55,7 @@ class Albedo(VariableBase):
             # Create self.litter,self.veg
             setattr(self, d, v)
 
-    def initialize(self, topo, metadata):
+    def initialize(self, metadata):
         """
         Initialize the distribution, calls ImageData._initialize()
 
@@ -64,9 +64,7 @@ class Albedo(VariableBase):
             metadata: data dataframe containing the station data
 
         """
-        super().initialize(topo, metadata)
-
-        self.veg_type = topo.veg_type
+        super().initialize(metadata)
 
         if self.config["decay_method"] is None:
             self._logger.warning("No decay method is set!")

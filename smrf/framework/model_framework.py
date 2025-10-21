@@ -224,35 +224,37 @@ class SMRF:
         # Air temperature and vapor pressure
         # Always process air temperature and vapor pressure together since
         # they depend on each other
+        init_args=dict(config=self.config, topo=self.topo)
+
         if (
             AirTemperature.is_requested(self.output_variables) or
             VaporPressure.is_requested(self.output_variables)
         ):
-            self.distribute[AirTemperature.DISTRIBUTION_KEY] = AirTemperature(self.config)
-            self.distribute[VaporPressure.DISTRIBUTION_KEY] = VaporPressure(self.config)
+            self.distribute[AirTemperature.DISTRIBUTION_KEY] = AirTemperature(**init_args)
+            self.distribute[VaporPressure.DISTRIBUTION_KEY] = VaporPressure(**init_args)
 
         # Wind
         if Wind.is_requested(self.output_variables):
-            self.distribute[Wind.DISTRIBUTION_KEY] = Wind(self.config)
+            self.distribute[Wind.DISTRIBUTION_KEY] = Wind(**init_args)
 
         # Precipitation
         if Precipitation.is_requested(self.output_variables):
             # Need air temp and vapor pressure for precip phase
-            self.distribute[AirTemperature.DISTRIBUTION_KEY] = AirTemperature(self.config)
-            self.distribute[VaporPressure.DISTRIBUTION_KEY] = VaporPressure(self.config)
+            self.distribute[AirTemperature.DISTRIBUTION_KEY] = AirTemperature(**init_args)
+            self.distribute[VaporPressure.DISTRIBUTION_KEY] = VaporPressure(**init_args)
 
             if self.config[Precipitation.DISTRIBUTION_KEY]["precip_rescaling_model"] == "winstral":
-                self.distribute[Wind.DISTRIBUTION_KEY] = Wind(self.config)
+                self.distribute[Wind.DISTRIBUTION_KEY] = Wind(**init_args)
 
             self.distribute[Precipitation.DISTRIBUTION_KEY] = Precipitation(
-                self.config,
-                self.start_date,
-                self.config["time"]["time_step"],
+                **init_args,
+                start_date=self.start_date,
+                time_step=self.config["time"]["time_step"],
             )
 
         # Cloud_factor
         if CloudFactor.is_requested(self.output_variables):
-            self.distribute[CloudFactor.DISTRIBUTION_KEY] = CloudFactor(self.config)
+            self.distribute[CloudFactor.DISTRIBUTION_KEY] = CloudFactor(**init_args)
 
         # Solar radiation; requires albedo and clouds
         if (
@@ -261,41 +263,41 @@ class SMRF:
         ):
             # Need precip for albedo:
             self.distribute[Precipitation.DISTRIBUTION_KEY] = Precipitation(
-                self.config,
-                self.start_date,
-                self.config["time"]["time_step"],
+                **init_args,
+                start_date=self.start_date,
+                time_step=self.config["time"]["time_step"],
             )
             # Need clouds for solar, either use external one or add to distributed list
             if "hrrr_cloud" not in self.output_variables:
-                self.distribute[CloudFactor.DISTRIBUTION_KEY] = CloudFactor(self.config)
+                self.distribute[CloudFactor.DISTRIBUTION_KEY] = CloudFactor(**init_args)
 
-            self.distribute[Albedo.DISTRIBUTION_KEY] = Albedo(self.config)
-            self.distribute[Solar.DISTRIBUTION_KEY] = Solar(self.config)
+            self.distribute[Albedo.DISTRIBUTION_KEY] = Albedo(**init_args)
+            self.distribute[Solar.DISTRIBUTION_KEY] = Solar(**init_args)
         else:
             self._logger.info("Using HRRR solar in iSnobal")
 
         # Thermal radiation
         if Thermal.is_requested(self.output_variables):
             # Need air temperature and vapor pressure
-            self.distribute[AirTemperature.DISTRIBUTION_KEY] = AirTemperature(self.config)
-            self.distribute[VaporPressure.DISTRIBUTION_KEY] = VaporPressure(self.config)
+            self.distribute[AirTemperature.DISTRIBUTION_KEY] = AirTemperature(**init_args)
+            self.distribute[VaporPressure.DISTRIBUTION_KEY] = VaporPressure(**init_args)
 
             # Need clouds for solar, either use external one or add to distributed list
             if "hrrr_cloud" not in self.output_variables:
-                self.distribute[CloudFactor.DISTRIBUTION_KEY] = CloudFactor(self.config)
+                self.distribute[CloudFactor.DISTRIBUTION_KEY] = CloudFactor(**init_args)
             else:
                 self._logger.info("Using HRRR cloud file for thermal.")
 
-            self.distribute[Thermal.DISTRIBUTION_KEY] = Thermal(self.config)
+            self.distribute[Thermal.DISTRIBUTION_KEY] = Thermal(**init_args)
         elif ThermalHRRR.INI_VARIABLE in self.output_variables:
-            self.distribute[AirTemperature.DISTRIBUTION_KEY] = AirTemperature(self.config)
+            self.distribute[AirTemperature.DISTRIBUTION_KEY] = AirTemperature(**init_args)
 
             # Trigger loading of longwave from HRRR
             self.config["gridded"].setdefault(
                 InputGribHRRR.GDAL_VARIABLE_KEY, []
             ).append(ThermalHRRR.GRIB_NAME)
 
-            self.distribute[ThermalHRRR.DISTRIBUTION_KEY] = ThermalHRRR()
+            self.distribute[ThermalHRRR.DISTRIBUTION_KEY] = ThermalHRRR(topo=self.topo)
 
             # Also swap out the ini variable to treat running HRRR as the standard
             # 'thermal' variable
@@ -303,7 +305,7 @@ class SMRF:
             self.output_variables.add(Thermal.DISTRIBUTION_KEY)
 
         # Soil temperature
-        self.distribute[SoilTemperature.DISTRIBUTION_KEY] = SoilTemperature(self.config)
+        self.distribute[SoilTemperature.DISTRIBUTION_KEY] = SoilTemperature(**init_args)
 
     def load_data(self):
         """
@@ -374,9 +376,9 @@ class SMRF:
             # TODO: Marks 2017 requires the raw parsed data to be passed instead of
             #       just the metadata.
             if v == Precipitation.DISTRIBUTION_KEY:
-                self.distribute[v].initialize(self.topo, self.data)
+                self.distribute[v].initialize(self.data)
             else:
-                self.distribute[v].initialize(self.topo, self.data.metadata)
+                self.distribute[v].initialize(self.data.metadata)
 
         # -------------------------------------
         # Distribute the data

@@ -160,8 +160,8 @@ class Thermal(VariableBase):
         },
     }
 
-    def __init__(self, thermal_config):
-        super().__init__(thermal_config)
+    def __init__(self, config, topo):
+        super().__init__(config=config, topo=topo)
 
         self.correct_cloud = self.config.get("correct_cloud", False)
         self.correct_veg = self.config.get("correct_veg", False)

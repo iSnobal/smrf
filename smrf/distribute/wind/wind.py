@@ -38,8 +38,8 @@ class Wind(VariableBase):
         },
     }
 
-    def __init__(self, config):
-        super().__init__(config)
+    def __init__(self, config, topo=None):
+        super().__init__(config=config, topo=topo)
 
         if self.model_type(self.INTERP):
             # Straight interpolation of the wind
@@ -66,11 +66,11 @@ class Wind(VariableBase):
         """
         return self.config.get('wind_model', None) == wind_model
 
-    def initialize(self, topo, metadata):
+    def initialize(self, metadata):
         """
         See :mod:`smrf.distribute.ImageData.initialize` for documentation
         """
-        super().initialize(topo, metadata)
+        super().initialize(metadata)
 
         if not self.model_type(self.INTERP):
             self.wind_model.initialize()

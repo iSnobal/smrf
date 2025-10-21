@@ -41,8 +41,8 @@ class VaporPressure(VariableBase):
         },
     }
 
-    def __init__(self, config):
-        super().__init__(config)
+    def __init__(self, config, topo):
+        super().__init__(config=config, topo=topo)
 
         self.precip_temp_method = config["precip"]["precip_temp_method"]
 

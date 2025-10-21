@@ -1,6 +1,5 @@
 import pandas as pd
 
-from smrf.data.load_topo import Topo
 from smrf.envphys.constants import EMISS_TERRAIN, STEF_BOLTZ, FREEZE
 
 from .variable_base import VariableBase
@@ -31,14 +30,13 @@ class ThermalHRRR(VariableBase):
         },
     }
 
-    def initialize(self, topo: Topo, metadata: pd.DataFrame) -> None:
+    def initialize(self, metadata: pd.DataFrame) -> None:
         """
         Trimmed down version of the base class as there is no need to initialize
         the interpolation method.
         """
         self._logger.debug("Initializing")
         self.metadata = metadata
-        self.topo = topo
 
     def distribute(self, date_time, forcing_data, air_temp):
         self._logger.debug('%s Distributing HRRR thermal' % date_time)
