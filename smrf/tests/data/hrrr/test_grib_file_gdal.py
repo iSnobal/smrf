@@ -59,8 +59,10 @@ class TestGribFile(unittest.TestCase):
         )
 
     def test_warp_and_cut(self):
-        with self.grib_gdal.gdal_warp_and_cut(self.HRRR_INPUT) as dataset:
-            self.assertEqual(8, dataset.RasterCount)
+        with self.grib_gdal.gdal_warp_and_cut(
+            self.HRRR_INPUT, [(1, 1), (2, 2), (3, 3)]
+        ) as dataset:
+            self.assertEqual(3, dataset.RasterCount)
             self.assertEqual(
                 (319975.0, 50.0, 0.0, 4166675.0, 0.0, -50.0), dataset.GetGeoTransform()
             )
