@@ -4,7 +4,12 @@ import numpy as np
 import pandas as pd
 
 from smrf.data.load_topo import Topo
-from smrf.spatial import grid, idw, kriging
+from smrf.spatial import (
+    DetrendedKriging,
+    Grid,
+    InverseDistanceWeighted,
+    Kriging,
+)
 from smrf.spatial.dk import dk
 
 
@@ -118,6 +123,13 @@ class VariableBase:
 
     # END - Topo accessor methods
 
+    # START - config accessors
+    @property
+    def distribution_method(self):
+        return self.config["distribution"]
+
+    # END - config accessors
+
     # START - Class methods
 
     # This sets constants for:
@@ -175,9 +187,8 @@ class VariableBase:
         """
 
         if "distribution" in self.config.keys():
-            if self.config["distribution"] == "idw":
-                # inverse distance weighting
-                self.idw = idw.IDW(
+            if self.distribution_method == InverseDistanceWeighted.CONFIG_KEY:
+                self.idw = InverseDistanceWeighted(
                     self.metadata.utm_x.values,
                     self.metadata.utm_y.values,
                     self.topo.X,
@@ -187,9 +198,8 @@ class VariableBase:
                     power=self.config["idw_power"],
                 )
 
-            elif self.config["distribution"] == "dk":
-                # detrended kriging
-                self.dk = dk.DK(
+            elif self.distribution_method == DetrendedKriging.CONFIG_KEY:
+                self.dk = DetrendedKriging(
                     self.metadata.utm_x.values,
                     self.metadata.utm_y.values,
                     self.metadata.elevation.values,
@@ -199,9 +209,9 @@ class VariableBase:
                     self.config,
                 )
 
-            elif self.config["distribution"] == "grid":
+            elif self.distribution_method == Grid.CONFIG_KEY:
                 # linear interpolation between points
-                self.grid = grid.GRID(
+                self.grid = Grid(
                     self.config,
                     self.metadata.utm_x.values,
                     self.metadata.utm_y.values,
@@ -213,9 +223,8 @@ class VariableBase:
                     metadata=self.metadata,
                 )
 
-            elif self.config["distribution"] == "kriging":
-                # generic kriging
-                self.kriging = kriging.KRIGE(
+            elif self.distribution_method == Kriging.CONFIG_KEY:
+                self.kriging = Kriging(
                     self.metadata.utm_x.values,
                     self.metadata.utm_y.values,
                     self.metadata.elevation.values,
@@ -254,7 +263,7 @@ class VariableBase:
         if np.sum(data.isnull()) == data.shape[0]:
             raise Exception("{}: All data values are NaN".format(self.DISTRIBUTION_KEY))
 
-        if self.config['distribution'] == 'idw':
+        if self.distribution_method == InverseDistanceWeighted.CONFIG_KEY:
             if self.config['detrend']:
                 v = self.idw.detrendedIDW(
                     data.values,
@@ -264,10 +273,10 @@ class VariableBase:
             else:
                 v = self.idw.calculateIDW(data.values)
 
-        elif self.config['distribution'] == 'dk':
+        elif self.distribution_method == DetrendedKriging.CONFIG_KEY:
             v = self.dk.calculate(data.values)
 
-        elif self.config['distribution'] == 'grid':
+        elif self.distribution_method == Grid.CONFIG_KEY:
             if self.config['detrend']:
                 v = self.grid.detrendedInterpolation(
                     data,
@@ -280,7 +289,7 @@ class VariableBase:
                     self.config['grid_method']
                 )
 
-        elif self.config['distribution'] == 'kriging':
+        elif self.distribution_method == Kriging.CONFIG_KEY:
             v, ss = self.kriging.calculate(data.values)
             setattr(self, '{}_variance'.format(self.DISTRIBUTION_KEY), ss)
 

@@ -1,15 +1,16 @@
 import numpy as np
 
 
-class IDW:
-    '''
+class InverseDistanceWeighted:
+    """
     Inverse distance weighting class for distributing input data. Available
     options are:
 
-    * Standard IDW
-    * Detrended IDW
+    * Standard InverseDistanceWeighted
+    * Detrended InverseDistanceWeighted
+    """
 
-    '''
+    CONFIG_KEY = "idw"
 
     def __init__(self, mx, my, GridX, GridY, mz=None, GridZ=None,
                  power=2, zeroVal=-1):
@@ -40,7 +41,7 @@ class IDW:
         self.data = None
         self.nan_val = []
 
-        # IDW parameters
+        # InverseDistanceWeighted parameters
         self.power = power
         self.zeroVal = zeroVal
 
@@ -80,11 +81,11 @@ class IDW:
         # self.weights[np.isinf(self.weights)] = 100
 
     def calculateIDW(self, data, local=False):
-        '''
-        Calculate the IDW of the data at mx,my over GridX,GridY
+        """
+        Standard algorithm of the data at mx,my over GridX,GridY
         Inputs:
         data    - is the same size at mx,my
-        '''
+        """
         nan_val = ~np.isnan(data)
         w = self.weights[:, :, nan_val]
         data = data[nan_val]
@@ -94,11 +95,11 @@ class IDW:
         return v
 
     def detrendedIDW(self, data, flag=0, zeros=None, local=False):
-        '''
-        Calculate the detrended IDW of the data at mx,my over GridX,GridY
+        """
+        Detrended algorithm of the data at mx,my over GridX,GridY
         Inputs:
         data    - is the same size at mx,my
-        '''
+        """
 
         self.detrendData(data, flag, zeros)
         v = self.calculateIDW(self.dtrend, local)
@@ -136,9 +137,9 @@ class IDW:
         self.dtrend = data - el_trend
 
     def retrendData(self, idw):
-        '''
-        Retrend the IDW values
-        '''
+        """
+        Retrend the values
+        """
 
         # retrend the data
         return idw + self.pv[0]*self.GridZ + self.pv[1]

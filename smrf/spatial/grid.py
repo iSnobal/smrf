@@ -13,12 +13,12 @@ from scipy.spatial import Delaunay, KDTree
 from smrf.utils.utils import grid_interpolate_deconstructed
 
 
-class GRID:
-    '''
-    Inverse distance weighting class
-    - Standard IDW
-    - Detrended IDW
-    '''
+class Grid:
+    """
+    Linear interpolation between grid points.
+    """
+
+    CONFIG_KEY = "grid"
 
     def __init__(self, config, mx, my, GridX, GridY,
                  mz=None, GridZ=None, mask=None, metadata=None):

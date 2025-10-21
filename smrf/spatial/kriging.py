@@ -3,10 +3,12 @@ import pandas as pd
 from pykrige.ok import OrdinaryKriging
 
 
-class KRIGE:
+class Kriging:
     '''
     Kriging class based on the pykrige package
     '''
+
+    CONFIG_KEY = "kriging"
 
     def __init__(self, mx, my, mz, GridX, GridY, GridZ, config):
         """
@@ -139,9 +141,9 @@ class KRIGE:
         return data - el_trend
 
     def retrendData(self, idw):
-        '''
-        Retrend the IDW values
-        '''
+        """
+        Retrend the values
+        """
 
         # retrend the data
         return idw + self.pv[0]*self.GridZ + self.pv[1]
