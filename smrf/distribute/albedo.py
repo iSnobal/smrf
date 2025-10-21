@@ -1,11 +1,11 @@
 import numpy as np
 
-from .image_data import ImageData
+from .variable_base import VariableBase
 from smrf.envphys import albedo
 from smrf.utils import utils
 
 
-class Albedo(ImageData):
+class Albedo(VariableBase):
     """
     The visible (280-700nm) and infrared (700-2800nm) albedo follows the
     relationships described in Marks et al. (1992) :cite:`Marks&al:1992`. The
@@ -16,7 +16,7 @@ class Albedo(ImageData):
     basin and have the albedo decay at different rates for each pixel.
     """
 
-    VARIABLE = "albedo"
+    DISTRIBUTION_KEY = "albedo"
 
     # these are variables that can be output
     OUTPUT_VARIABLES = {
@@ -46,11 +46,11 @@ class Albedo(ImageData):
         for d in ['veg', 'litter']:
             v = {}
 
-            matching = [s for s in config.keys()
+            matching = [s for s in self.config.keys()
                         if "{0}_".format(d) in s]
             for m in matching:
                 ms = m.split('_')
-                v[ms[-1]] = config[m]
+                v[ms[-1]] = self.config[m]
 
             # Create self.litter,self.veg
             setattr(self, d, v)

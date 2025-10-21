@@ -1,12 +1,12 @@
 import numpy as np
 from smrf.utils import utils
 
-from smrf.distribute.image_data import ImageData
+from smrf.distribute.variable_base import VariableBase
 from .wind_ninja import WindNinjaModel
 from .winstral import WinstralWindModel
 
 
-class Wind(ImageData):
+class Wind(VariableBase):
     """
     Three distribution methods are available for the Wind class:
 
@@ -16,7 +16,8 @@ class Wind(ImageData):
     """
 
     INTERP = "interp"
-    VARIABLE = "wind"
+    DISTRIBUTION_KEY = "wind"
+    LOADED_DATA = ['wind_speed', 'wind_direction']
 
     # these are variables that can be output
     OUTPUT_VARIABLES = {
@@ -113,7 +114,7 @@ class Wind(ImageData):
         else:
             self.wind_model.distribute(data_speed, data_direction)
 
-        for v in self.output_variables.keys():
+        for v in self.OUTPUT_OPTIONS:
             setattr(self, v, getattr(self.wind_model, v))
 
         # set min and max

@@ -6,7 +6,7 @@ import numpy.testing as npt
 import pandas as pd
 import pandas.testing as pdt
 
-from smrf.distribute.image_data import ImageData
+from smrf.distribute.variable_base import VariableBase
 
 TOPO = MagicMock(
     name="Topo NC",
@@ -29,10 +29,10 @@ METADATA = pd.DataFrame({
 )
 
 
-class TestVariable(ImageData):
-    VARIABLE = "test_variable"
+class TestVariable(VariableBase):
+    DISTRIBUTION_KEY = "test_variable"
     OUTPUT_VARIABLES = {
-        VARIABLE: {
+        DISTRIBUTION_KEY: {
             "units": "Unit",
             "standard_name": "CF Name",
             "long_name": "Long Name",
@@ -55,9 +55,9 @@ class TestImageData(unittest.TestCase):
     }
 
     def setUp(self):
-        self.logger_patch = patch("smrf.distribute.image_data.logging")
+        self.logger_patch = patch("smrf.distribute.variable_base.logging")
         self.logger_patch.start()
-        self.grid_patch = patch("smrf.distribute.image_data.grid.GRID")
+        self.grid_patch = patch("smrf.distribute.variable_base.grid.GRID")
         self.grid = self.grid_patch.start()
 
         self.subject = TestVariable(self.CONFIG)
@@ -75,8 +75,28 @@ class TestImageData(unittest.TestCase):
         self.assertEqual(self.subject.max, 100)
         self.assertTrue(self.subject.gridded)
 
-    def test_output_variables(self):
-        self.assertTrue('module' in self.subject.output_variables['test_variable'])
+    def test_init_no_config_section(self):
+        base_class = VariableBase()
+
+        self.assertIsNone(base_class.config)
+        self.assertIsNone(base_class.topo)
+        self.assertIsNone(base_class.metadata)
+
+    def test_output_variable_options(self):
+        npt.assert_equal(
+            set(TestVariable.OUTPUT_VARIABLES.keys()), self.subject.OUTPUT_OPTIONS
+        )
+
+    def test_module_name(self):
+        # Note this is the name of this file.
+        self.assertEqual("test_variable_base", str(self.subject))
+
+    def test_loaded_data(self):
+        self.assertEqual(["test_variable"], self.subject.LOADED_DATA)
+
+    def test_is_requested(self):
+        self.assertTrue(self.subject.is_requested(set(["test_variable"])))
+        self.assertFalse(self.subject.is_requested(set(["not_a_variable"])))
 
     def test_initialize(self):
         self.subject.initialize(TOPO, METADATA)

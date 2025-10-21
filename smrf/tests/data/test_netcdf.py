@@ -10,7 +10,7 @@ class TestLoadNetcdf(SMRFTestCase):
 
     def test_grid_netcdf(self):
 
-        config = deepcopy(self.base_config)
+        config = self.base_config_copy()
         del config.raw_cfg['csv']
 
         generic_grid = {
@@ -26,7 +26,7 @@ class TestLoadNetcdf(SMRFTestCase):
         config.raw_cfg['gridded'] = generic_grid
 
         # set the distribution to grid, thermal defaults will be fine
-        for v in self.dist_variables:
+        for v in self.DISTRIBUTION_VARIABLES:
             config.raw_cfg[v]['distribution'] = 'grid'
             config.raw_cfg[v]['grid_mask'] = 'False'
 

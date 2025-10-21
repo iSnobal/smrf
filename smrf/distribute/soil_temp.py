@@ -1,20 +1,20 @@
 import numpy as np
 
-from .image_data import ImageData
+from .variable_base import VariableBase
 
 
-class SoilTemperature(ImageData):
+class SoilTemperature(VariableBase):
     """
     Soil temperature is simply set to a constant value during initialization.
     If soil temperature measurements are available, the values can be
     distributed using the distribution methods.
     """
 
-    VARIABLE = "soil_temp"
+    DISTRIBUTION_KEY = "soil_temp"
 
     # these are variables that can be output
     OUTPUT_VARIABLES = {
-        VARIABLE: {
+        DISTRIBUTION_KEY: {
             "units": "degree_Celsius",
             "standard_name": "soil_temperature",
             "long_name": "Soil temperature",

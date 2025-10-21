@@ -33,17 +33,6 @@ class InputData:
         'metadata'
     ]
 
-    # Data variables and which module they belong to
-    MODULE_VARIABLES = {
-        'air_temp': 'air_temp',
-        'vapor_pressure': 'vapor_pressure',
-        'precip': 'precipitation',
-        'wind_speed': 'wind',
-        'wind_direction': 'wind',
-        'cloud_factor': 'cloud_factor',
-        'thermal': 'thermal'
-    }
-
     # degree offset for a buffer around the model domain in degrees
     OFFSET = 0.1
 
@@ -127,12 +116,12 @@ class InputData:
             if variable == 'metadata':
                 setattr(self, variable, d)
             elif (
-                variable == ThermalHRRR.VARIABLE
+                variable == ThermalHRRR.DISTRIBUTION_KEY
                 and getattr(self.load_class, ThermalHRRR.GRIB_NAME, None) is not None
             ):
                 setattr(
                     self,
-                    ThermalHRRR.VARIABLE,
+                    ThermalHRRR.DISTRIBUTION_KEY,
                     getattr(self.load_class, ThermalHRRR.GRIB_NAME),
                 )
             elif d is not None:

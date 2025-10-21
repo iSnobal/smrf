@@ -8,12 +8,23 @@ from smrf.spatial import grid, idw, kriging
 from smrf.spatial.dk import dk
 
 
-class ImageData:
+class VariableBase:
     """
     Base class that will ensure all variables are distributed in the same manner.
 
-    Attributes:
-        VARIABLE: The name of the variable that a class will distribute
+    A child class needs to define the following constants:
+      * DISTRIBUTION_KEY A unique key for distributing the class.
+      * OUTPUT_VARIABLES: A dictionary defining the key as the output file name and
+                         the value as a dictionary of the NetCDF variable attributes
+                         that are used upon writing the file. The variable will be named
+                         the same as the key (filename).
+      * LOADED_DATA: A list of the input data that is loaded by the from the input source
+                     By default, this is matches the DISTRIBUTION_KEY
+
+    The following constants are set automatically based on the above:
+      * OUTPUT_OPTIONS: A set of the variables set from the OUTPUT_VARIABLES keys
+
+    Instance attributes:
         config:   Parsed dictionary from the configuration file for the variable
         stations: The stations to be used for the variable, if set, in
                   alphabetical order
@@ -24,43 +35,65 @@ class ImageData:
         max:      Maximum allowed value for the variable
         min:      Minimum allowed value for the variable
     """
-    VARIABLE = ''
+    DISTRIBUTION_KEY = ''
     OUTPUT_VARIABLES = {}
 
-    def __init__(self, config):
-        if self.VARIABLE != '':
-            setattr(self, self.VARIABLE, None)
+    def __init__(self, config: dict = None):
+        """
+        Initialize the class and parse out the relevant section from the configuration
+        when given. The section name of the configuration needs to match the VARIABLE
+        for this class to recognize it.
 
+        Example:
+        * .ini file
+           ```
+           [air_temp]
+           max: 100
+           min: -100
+           ```
+        * The corresponding class
+           ```
+           class AirTemp(ImageData):
+               VARIABLE = 'air_temp'
+           ```
+
+        :param config: Parsed configuration file
+        """
+        if self.DISTRIBUTION_KEY != '':
+            setattr(self, self.DISTRIBUTION_KEY, None)
+
+        self.config = None
         self.topo = None
         self.metadata = None
 
-        self.config = config[self.VARIABLE]
+        if config and config.get(self.DISTRIBUTION_KEY, False):
+            self.config = config[self.DISTRIBUTION_KEY]
 
-        # check of gridded interpolation
-        self.gridded = config.get('distribution', None) == 'grid'
+            # Check of gridded interpolation
+            self.gridded = self.config.get("distribution", None) == "grid"
 
-        self.stations = None
-        if self.config.get("stations", None) is not None:
-            stations = self.config['stations']
-            stations.sort()
-            self.stations = stations
+            self.stations = None
+            if self.config.get("stations", None) is not None:
+                stations = self.config['stations']
+                stations.sort()
+                self.stations = stations
 
-        self.min = self.config.get('min', -np.Inf)
-        self.max = self.config.get('max', np.Inf)
+            self.min = self.config.get('min', -np.Inf)
+            self.max = self.config.get('max', np.Inf)
 
         self._logger = logging.getLogger(self.__class__.__module__)
         self._logger.debug(
             "Created distribute.%s", self.__class__.__module__.replace("smrf.", "")
         )
 
-    @property
-    def output_variables(self):
-        ov = {}
-        for key, value in self.OUTPUT_VARIABLES.items():
-            # Add the variable module name to the dict to identify outputs in NetCDF
-            value['module'] = self.__class__.__module__.split('.')[-1]
-            ov[key] = value
-        return ov
+    def __str__(self) -> str:
+        """
+        Name of the file this class is defined in.
+        This used when writing output to NetCDF files.
+
+        :return: str - Name of this file
+        """
+        return self.__module__.split(".")[-1]
 
     # Add some accessor methods to topo information
     @property
@@ -84,6 +117,32 @@ class ImageData:
         return self.topo.veg_k
 
     # END - Topo accessor methods
+
+    # START - Class methods
+
+    # This sets constants for:
+    # * OUTPUT_OPTIONS dictionary defined in the child class
+    # * List of LOADED_DATA from the input when not already defined on the child class
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+
+        setattr(cls, "OUTPUT_OPTIONS", set(cls.OUTPUT_VARIABLES.keys()))
+        if not hasattr(cls, "LOADED_DATA"):
+            setattr(cls, "LOADED_DATA", [cls.DISTRIBUTION_KEY])
+
+    @classmethod
+    def is_requested(cls, config_variables: set) -> bool:
+        """
+        Test if any of the available output variables are in the requested via the
+        [output] section `variables`
+
+        :param config_variables: Set - List of requested variables
+
+        :return: Boolean - True if one of the output variables is in the requested
+        """
+        return len(cls.OUTPUT_OPTIONS & config_variables) > 0
+
+    # END - Class methods
 
     def initialize(self, topo: Topo, metadata: pd.DataFrame):
         """
@@ -171,7 +230,7 @@ class ImageData:
             else:
                 raise Exception(
                     "Could not determine the distribution method for {}".format(
-                        self.VARIABLE
+                        self.DISTRIBUTION_KEY
                     )
                 )
 
@@ -195,7 +254,7 @@ class ImageData:
         data = data[self.stations]
 
         if np.sum(data.isnull()) == data.shape[0]:
-            raise Exception("{}: All data values are NaN".format(self.VARIABLE))
+            raise Exception("{}: All data values are NaN".format(self.DISTRIBUTION_KEY))
 
         if self.config['distribution'] == 'idw':
             if self.config['detrend']:
@@ -225,9 +284,9 @@ class ImageData:
 
         elif self.config['distribution'] == 'kriging':
             v, ss = self.kriging.calculate(data.values)
-            setattr(self, '{}_variance'.format(self.VARIABLE), ss)
+            setattr(self, '{}_variance'.format(self.DISTRIBUTION_KEY), ss)
 
         if other_attribute is not None:
             setattr(self, other_attribute, v)
         else:
-            setattr(self, self.VARIABLE, v)
+            setattr(self, self.DISTRIBUTION_KEY, v)

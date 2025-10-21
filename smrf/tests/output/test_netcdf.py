@@ -1,63 +1,53 @@
-import os
-
 import netCDF4 as nc
 import numpy as np
+import numpy.testing as npt
 
 from smrf import __version__
+from smrf.framework.model_framework import SMRF
+from smrf.distribute import AirTemperature, CloudFactor
 from smrf.output.output_netcdf import OutputNetcdf
 from smrf.tests.smrf_test_case import SMRFTestCase
 
 
 class TestOutputNetCDF(SMRFTestCase):
-
     def setUp(self):
-        super().setUpClass()
-        self.smrf = self.smrf_instance
+        self.smrf = SMRF(self.base_config_copy())
+        self.smrf.load_topo()
+        module = AirTemperature()
 
-        self.variable_dict = {
-            'air_temp': {
-                'variable': 'air_temp',
-                'module': 'air_temp',
-                'out_location': os.path.join(
-                    self.smrf.config['output']['out_location'],
-                    'air_temp'
-                ),
-                'info': {
-                    'units': 'degree_Celsius',
-                    'standard_name': 'air_temperature',
-                    'long_name': 'Air temperature'
-                }
-            }
-        }
+        self.variable_dict = {"air_temp": module}
+
+        self.writer = OutputNetcdf(
+            self.variable_dict,
+            self.smrf.topo,
+            self.smrf.config["time"],
+            self.smrf.config["output"],
+        )
+
+    def test_property_output_variables(self):
+        self.assertEqual(self.variable_dict, self.writer.output_variables)
+
+    def test_property_out_config(self):
+        self.assertEqual(self.smrf.config["output"], self.writer.out_config)
+
+    def test_property_topo_x_y(self):
+        npt.assert_equal(self.smrf.topo.x, self.writer.topo_x)
+        npt.assert_equal(self.smrf.topo.y, self.writer.topo_y)
 
     def test_netcdf_smrf_version(self):
-
-        self.smrf.load_topo()
-
-        OutputNetcdf(
-            self.variable_dict,
-            self.smrf.topo,
-            self.smrf.config['time'],
-            self.smrf.config['output'])
-
-        n = nc.Dataset(self.variable_dict['air_temp']['file_name'])
-        version = n.getncattr('SMRF_version')
-        self.assertTrue(n.variables['air_temp'].dtype == np.float32)
-        n.close()
-
-        self.assertEqual(__version__, version)
+        with nc.Dataset(self.writer.file_name("air_temp")) as out_file:
+            self.assertEqual(__version__, out_file.getncattr("SMRF_version"))
+            self.assertTrue(out_file.variables["air_temp"].dtype == np.float32)
 
     def test_netcdf_precision(self):
-        self.smrf.config['output']['netcdf_output_precision'] = 'double'
+        self.writer.out_config["netcdf_output_precision"] = "double"
 
-        self.smrf.load_topo()
-
-        OutputNetcdf(
-            self.variable_dict,
+        writer = OutputNetcdf(
+            {"cloud_factor": CloudFactor({})},
             self.smrf.topo,
-            self.smrf.config['time'],
-            self.smrf.config['output'])
+            self.smrf.config["time"],
+            self.smrf.config["output"],
+        )
 
-        n = nc.Dataset(self.variable_dict['air_temp']['file_name'])
-        self.assertTrue(n.variables['air_temp'].dtype == np.float64)
-        n.close()
+        with nc.Dataset(writer.file_name("cloud_factor")) as out_file:
+            self.assertTrue(out_file.variables["cloud_factor"].dtype == np.float64)

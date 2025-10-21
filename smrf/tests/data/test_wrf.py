@@ -1,5 +1,3 @@
-from copy import deepcopy
-
 from inicheck.tools import cast_all_variables
 
 from smrf.framework.model_framework import run_smrf
@@ -11,7 +9,7 @@ class TestLoadGrid(SMRFTestCase):
     def test_grid_wrf(self):
         """ WRF NetCDF loading """
 
-        config = deepcopy(self.base_config)
+        config = self.base_config_copy()
         del config.raw_cfg['csv']
 
         adj_config = {
@@ -41,7 +39,7 @@ class TestLoadGrid(SMRFTestCase):
         config.raw_cfg.update(adj_config)
 
         # set the distribution to grid, thermal defaults will be fine
-        for v in self.dist_variables:
+        for v in self.DISTRIBUTION_VARIABLES:
             config.raw_cfg[v]['grid_mask'] = 'False'
 
         # fix the time to that of the WRF_test.nc

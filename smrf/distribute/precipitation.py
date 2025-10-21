@@ -3,12 +3,12 @@ from datetime import timedelta
 import netCDF4 as nc
 import numpy as np
 from dateutil.parser import parse
-from .image_data import ImageData
+from .variable_base import VariableBase
 from smrf.envphys import precip, Snow, storms
 from smrf.utils import utils
 
 
-class Precipitation(ImageData):
+class Precipitation(VariableBase):
     """
     The instantaneous precipitation typically has a positive trend with
     elevation due to orographic effects. However, the precipitation
@@ -43,11 +43,12 @@ class Precipitation(ImageData):
         time_step: The time step in minutes of the data, defaults to 60
     """
 
-    VARIABLE = "precip"
+    # TODO: https://github.com/iSnobal/smrf/issues/32
+    DISTRIBUTION_KEY = "precip"
 
     # these are variables that can be output
     OUTPUT_VARIABLES = {
-        VARIABLE: {
+        DISTRIBUTION_KEY: {
             "units": "mm",
             "standard_name": "precipitation_mass",
             "long_name": "Precipitation mass",

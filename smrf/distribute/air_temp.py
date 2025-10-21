@@ -1,8 +1,8 @@
-from .image_data import ImageData
+from .variable_base import VariableBase
 from smrf.utils import utils
 
 
-class AirTemperature(ImageData):
+class AirTemperature(VariableBase):
     """
     Air temperature is a relatively simple variable to distribute as it does
     not rely on any other variables, but has many variables that depend on it.
@@ -15,11 +15,11 @@ class AirTemperature(ImageData):
     temperature.
     """
 
-    VARIABLE = "air_temp"
+    DISTRIBUTION_KEY = "air_temp"
 
     # these are variables that can be output
     OUTPUT_VARIABLES = {
-        VARIABLE: {
+        DISTRIBUTION_KEY: {
             "units": "degree_Celsius",
             "standard_name": "air_temperature",
             "long_name": "Air temperature",

@@ -1,11 +1,12 @@
 from .air_temp import AirTemperature
 from .albedo import Albedo
 from .cloud_factor import CloudFactor
-from .image_data import ImageData
+from .variable_base import VariableBase
 from .precipitation import Precipitation
 from .soil_temp import SoilTemperature
 from .solar import Solar
-from .thermal import Thermal, ThermalHRRR
+from .thermal import Thermal
+from .thermal_hrrr import ThermalHRRR
 from .vapor_pressure import VaporPressure
 from .wind import Wind
 
@@ -13,7 +14,7 @@ __all__ = [
     "AirTemperature",
     "Albedo",
     "CloudFactor",
-    "ImageData",
+    "VariableBase",
     "Precipitation",
     "SoilTemperature",
     "Solar",
