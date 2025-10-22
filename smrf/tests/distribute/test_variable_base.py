@@ -57,7 +57,7 @@ class TestVariableBase(unittest.TestCase):
     def setUp(self):
         self.logger_patch = patch("smrf.distribute.variable_base.logging")
         self.logger_patch.start()
-        self.grid_patch = patch("smrf.distribute.variable_base.grid.GRID")
+        self.grid_patch = patch("smrf.distribute.variable_base.Grid", CONFIG_KEY="grid")
         self.grid = self.grid_patch.start()
 
         self.subject = TestVariable(config=self.CONFIG, topo=TOPO)
@@ -111,6 +111,7 @@ class TestVariableBase(unittest.TestCase):
 
         npt.assert_equal(METADATA.elevation.values, kwargs["mz"])
         npt.assert_equal(TOPO.dem, kwargs["GridZ"])
+        npt.assert_equal(TOPO.dem, kwargs["grid_z"])
         npt.assert_equal(TOPO.mask, kwargs["mask"])
         pdt.assert_frame_equal(METADATA, kwargs["metadata"])
 

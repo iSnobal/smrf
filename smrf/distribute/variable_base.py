@@ -10,7 +10,6 @@ from smrf.spatial import (
     InverseDistanceWeighted,
     Kriging,
 )
-from smrf.spatial.dk import dk
 
 
 class VariableBase:
@@ -218,7 +217,7 @@ class VariableBase:
                     self.topo.X,
                     self.topo.Y,
                     mz=self.metadata.elevation.values,
-                    GridZ=self.topo.dem,
+                    grid_z=self.topo.dem,
                     mask=self.topo.mask,
                     metadata=self.metadata,
                 )
@@ -278,13 +277,13 @@ class VariableBase:
 
         elif self.distribution_method == Grid.CONFIG_KEY:
             if self.config['detrend']:
-                v = self.grid.detrendedInterpolation(
+                v = self.grid.detrended_interpolation(
                     data,
                     self.config['detrend_slope'],
                     self.config['grid_method']
                 )
             else:
-                v = self.grid.calculateInterpolation(
+                v = self.grid.calculate_interpolation(
                     data.values,
                     self.config['grid_method']
                 )
