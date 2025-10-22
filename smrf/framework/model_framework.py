@@ -395,30 +395,35 @@ class SMRF:
 
         self.forcing_data = 1
 
-    def distribute_single_timestep(self, t):
-        self._logger.info("Distributing time step {}".format(t))
+    def distribute_single_timestep(self, timestep: datetime) -> None:
+        """
+        Perform the distribution of the data for a single time step.
+
+        :param timestep: Time step to process
+        """
+        self._logger.info("Distributing time step {}".format(timestep))
 
         if self.load_hrrr:
-            self.data.load_class.load_timestep(t)
+            self.data.load_class.load_timestep(timestep)
             self.data.set_variables()
 
         # Air temperature
         if AirTemperature.DISTRIBUTION_KEY in self.distribute:
             self.distribute[AirTemperature.DISTRIBUTION_KEY].distribute(
-                self.data.air_temp.loc[t]
+                self.data.air_temp.loc[timestep]
             )
 
         # Vapor pressure
         if VaporPressure.DISTRIBUTION_KEY in self.distribute:
             self.distribute[VaporPressure.DISTRIBUTION_KEY].distribute(
-                self.data.vapor_pressure.loc[t],
+                self.data.vapor_pressure.loc[timestep],
                 self.distribute[AirTemperature.DISTRIBUTION_KEY].air_temp,
             )
 
         # Wind_speed and wind_direction
         if Wind.DISTRIBUTION_KEY in self.distribute:
             self.distribute[Wind.DISTRIBUTION_KEY].distribute(
-                self.data.wind_speed.loc[t], self.data.wind_direction.loc[t], t
+                self.data.wind_speed.loc[timestep], self.data.wind_direction.loc[timestep], timestep
             )
 
         # Precipitation
@@ -444,20 +449,20 @@ class SMRF:
                 wind_args = dict()
 
             self.distribute[Precipitation.DISTRIBUTION_KEY].distribute(
-                self.data.precip.loc[t],
+                self.data.precip.loc[timestep],
                 self.distribute[VaporPressure.DISTRIBUTION_KEY].dew_point,
                 self.distribute[VaporPressure.DISTRIBUTION_KEY].precip_temp,
                 self.distribute[AirTemperature.DISTRIBUTION_KEY].air_temp,
-                t,
-                self.data.wind_speed.loc[t],
-                self.data.air_temp.loc[t],
+                timestep,
+                self.data.wind_speed.loc[timestep],
+                self.data.air_temp.loc[timestep],
                 **wind_args,
             )
 
         # Cloud_factor
         if CloudFactor.DISTRIBUTION_KEY in self.distribute:
             self.distribute[CloudFactor.DISTRIBUTION_KEY].distribute(
-                self.data.cloud_factor.loc[t]
+                self.data.cloud_factor.loc[timestep]
             )
             cloud_factor = self.distribute[CloudFactor.DISTRIBUTION_KEY].cloud_factor
         elif "hrrr_cloud" in self.output_variables:
@@ -478,7 +483,7 @@ class SMRF:
                         date.replace(tzinfo=self.time_zone).timestamp()
                         for date in cloud_dates
                     ]
-                    cloud_factor = cloud_data["TCDC"][cloud_dates.index(t.timestamp())]
+                    cloud_factor = cloud_data["TCDC"][cloud_dates.index(timestep.timestamp())]
             except FileNotFoundError:
                 self._logger.error(
                     "Thermal or Solar were requested as output, but either"
@@ -492,7 +497,7 @@ class SMRF:
         if Solar.DISTRIBUTION_KEY in self.distribute:
             # Sun angle for time step
             cosz, azimuth, rad_vec = sunang.sunang(
-                t.astimezone(pytz.utc), self.topo.basin_lat, self.topo.basin_long
+                timestep.astimezone(pytz.utc), self.topo.basin_lat, self.topo.basin_long
             )
 
             # Illumination angle
@@ -502,12 +507,12 @@ class SMRF:
 
             # Albedo
             self.distribute[Albedo.DISTRIBUTION_KEY].distribute(
-                t, illum_ang, self.distribute[Precipitation.DISTRIBUTION_KEY].storm_days
+                timestep, illum_ang, self.distribute[Precipitation.DISTRIBUTION_KEY].storm_days
             )
 
             # Net Solar
             self.distribute[Solar.DISTRIBUTION_KEY].distribute(
-                t,
+                timestep,
                 cloud_factor,
                 illum_ang,
                 cosz,
@@ -522,7 +527,7 @@ class SMRF:
             isinstance(self.distribute[Thermal.DISTRIBUTION_KEY], Thermal)
         ):
             self.distribute[Thermal.DISTRIBUTION_KEY].distribute(
-                t,
+                timestep,
                 self.distribute[AirTemperature.DISTRIBUTION_KEY].air_temp,
                 self.distribute[VaporPressure.DISTRIBUTION_KEY].vapor_pressure,
                 self.distribute[VaporPressure.DISTRIBUTION_KEY].dew_point,
@@ -533,7 +538,7 @@ class SMRF:
             isinstance(self.distribute[ThermalHRRR.DISTRIBUTION_KEY], ThermalHRRR)
         ):
             self.distribute[ThermalHRRR.DISTRIBUTION_KEY].distribute(
-                t,
+                timestep,
                 self.data.thermal,
                 self.distribute[AirTemperature.DISTRIBUTION_KEY].air_temp,
             )
