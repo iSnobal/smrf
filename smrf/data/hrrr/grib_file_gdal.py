@@ -22,6 +22,7 @@ class GribFileGdal:
     Load data from the High Resolution Rapid Refresh (HRRR) model using the GDAL library.
     """
     DEFAULT_ALGORITHM = "cubic"
+    WARP_FORMAT = "VRT"
 
     # Mapping from string input to GDAL resampling algorithms
     RESAMPLING_METHODS = {
@@ -63,11 +64,15 @@ class GribFileGdal:
         return band_map, valid_time
 
     @contextmanager
-    def gdal_warp_and_cut(self, in_file: str) -> Generator[gdal.Dataset, None, None]:
+    def gdal_warp_and_cut(
+        self, in_file: str, band_list: list[Tuple[int, int]]
+    ) -> Generator[gdal.Dataset, None, None]:
         """
         Cut and warp the band for given grib file to the topo bounds and projection
 
         :param in_file: str - HRRR file to load
+        :param band_list: List of tuples holding band numbers for source and
+                          desitnation bands. (src_band, dst_band)
 
         :returns:
             gdal.Dataset in a context block
@@ -79,8 +84,11 @@ class GribFileGdal:
             xRes=self.topo.gdal_attributes.xRes,
             yRes=self.topo.gdal_attributes.yRes,
             resampleAlg=self.resample_method,
+            srcBands=[band[0] for band in band_list],
+            dstBands=[band[1] for band in band_list],
+            copyMetadata=True,
             multithread=True,
-            format='MEM',
+            format=self.WARP_FORMAT,
         )
 
         # Using a blank '' destination warps the file in memory
@@ -104,11 +112,21 @@ class GribFileGdal:
             numpy array interpolated to the topo grid.
         """
         data = {}
-        band_map, _valid_time = self.get_grib_metadata(grib_file)
+        grib_band_map, _valid_time = self.get_grib_metadata(grib_file)
 
-        with self.gdal_warp_and_cut(grib_file) as dataset:
-            for variable in variables:
-                band_number = band_map[variable]
-                data[variable] = dataset.GetRasterBand(band_number).ReadAsArray()
+        # Create a dict holding tuples that map the grib band to the warped vrt
+        # band for the selected variables
+        band_list = {
+            variable: (grib_band_map[variable], new_band + 1)
+            for new_band, variable in enumerate(variables)
+        }
+
+        with self.gdal_warp_and_cut(
+            grib_file, list(band_list.values())
+        ) as dataset:
+            for variable, band_number in band_list.items():
+                data[variable] = dataset.GetRasterBand(
+                    band_number[1]
+                ).ReadAsArray()
 
         return data
