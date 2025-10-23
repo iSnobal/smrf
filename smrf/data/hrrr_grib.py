@@ -19,12 +19,6 @@ class InputGribHRRR(GriddedInput):
     DATA_TYPE = "hrrr_grib"
     GDAL_VARIABLE_KEY = "hrrr_gdal_variables"
 
-    VARIABLES = ["air_temp", "vapor_pressure", "precip", "cloud_factor"]
-    WIND_VARIABLES = [
-        "wind_speed",
-        "wind_direction",
-    ]
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -43,17 +37,6 @@ class InputGribHRRR(GriddedInput):
         self._gdal_algorithm = (
             self.config.get("hrrr_gdal_algorithm") or GribFileGdal.DEFAULT_ALGORITHM
         )
-
-    @property
-    def variables(self):
-        if self._load_wind:
-            return self.data_variables
-        else:
-            return self.VARIABLES
-
-    @property
-    def data_variables(self):
-        return np.union1d(self.VARIABLES, self.WIND_VARIABLES)
 
     def load(self):
         """

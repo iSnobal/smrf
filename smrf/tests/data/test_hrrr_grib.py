@@ -67,8 +67,6 @@ class TestInputGribHRRR(unittest.TestCase):
         )
 
         self.assertTrue(hrrr_input._load_wind)
-        self.assertTrue('wind_speed' in hrrr_input.variables)
-        self.assertTrue('wind_direction' in hrrr_input.variables)
 
     def test_skip_load_wind(self):
         hrrr_input = InputGribHRRR(
@@ -81,10 +79,6 @@ class TestInputGribHRRR(unittest.TestCase):
         )
 
         self.assertFalse(hrrr_input._load_wind)
-        self.assertCountEqual(
-            InputGribHRRR.VARIABLES,
-            hrrr_input.variables
-        )
 
     @patch("smrf.data.hrrr_grib.FileLoader")
     @patch.object(InputGribHRRR, "parse_data")
