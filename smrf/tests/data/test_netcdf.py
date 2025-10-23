@@ -1,5 +1,3 @@
-from copy import deepcopy
-
 from inicheck.tools import cast_all_variables
 
 from smrf.framework.model_framework import run_smrf

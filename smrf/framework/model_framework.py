@@ -131,11 +131,6 @@ class SMRF:
         # if a gridded dataset will be used
         self.forecast_flag = False
         self.gridded = True if GriddedInput.TYPE in self.config else False
-        self.load_hrrr = False
-        if self.gridded:
-            self.load_hrrr = self.config[GriddedInput.TYPE]["data_type"] in [
-                InputGribHRRR.DATA_TYPE
-            ]
 
         now = datetime.now().astimezone(self.time_zone)
         if (self.start_date > now and not self.gridded) or (
@@ -152,6 +147,9 @@ class SMRF:
         self.output_writer = None
 
         self.distribute = {}
+
+        # Attribute to class that holds the loaded forcing data
+        self.data = None
 
         if self.config["system"]["qotw"]:
             self._logger.info(getqotw())
@@ -309,20 +307,11 @@ class SMRF:
 
     def load_data(self):
         """
-        Load the measurement point data for distributing to the DEM,
-        must be called after the distributions are initialized. Currently, data
-        can be loaded from two different sources:
-
-            * :func:`CSV files <smrf.data.loadData.wxdata>`
-            * :func:`Gridded data source (WRF) <smrf.data.loadGrid.grid>`
-
-        After loading, :func:`~smrf.framework.mode_framework.SMRF.loadData`
-        will call :func:`smrf.framework.model_framework.find_pixel_location`
-        to determine the pixel locations of the point measurements and filter
-        the data to the desired stations if CSV files are used.
+        Load the forcing data configured in the .ini file.
+        See the :py:class:`~smrf.data.loadData.InputData` class for full list of
+        supported sources
         """
 
-        self.data = InputData(self.config, self.start_date, self.end_date, self.topo)
 
         # Pre-filter the data to the desired stations in each [variable] section
         self._logger.debug("Filter data to those specified in each variable section")
@@ -344,6 +333,7 @@ class SMRF:
 
                 else:
                     module.stations = data.columns.tolist()
+        self.data = InputData(self.config, self.start_date, self.end_date, self.topo).loader
 
         # Does the user want to create a CSV copy of the station data used.
         if self.config["output"]["input_backup"]:
@@ -380,7 +370,6 @@ class SMRF:
             else:
                 self.distribute[v].initialize(self.data.metadata)
 
-        # -------------------------------------
         # Distribute the data
         for output_count, t in enumerate(self.date_time):
             startTime = datetime.now()
@@ -403,9 +392,8 @@ class SMRF:
         """
         self._logger.info("Distributing time step {}".format(timestep))
 
-        if self.load_hrrr:
-            self.data.load_class.load_timestep(timestep)
-            self.data.set_variables()
+        if self.data.DATA_TYPE == InputGribHRRR.DATA_TYPE:
+            self.data.load_timestep(timestep)
 
         # Air temperature
         if AirTemperature.DISTRIBUTION_KEY in self.distribute:
