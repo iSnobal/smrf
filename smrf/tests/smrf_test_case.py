@@ -82,7 +82,7 @@ class SMRFTestCase(unittest.TestCase):
     def remove_output_dir(cls):
         if hasattr(cls, 'output_dir') and \
                 os.path.exists(cls.output_dir):
-            shutil.rmtree(cls.output_dir)
+            shutil.rmtree(cls.output_dir, ignore_errors=True)
 
     # END
 
