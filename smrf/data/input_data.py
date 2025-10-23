@@ -2,7 +2,6 @@ import logging
 
 import numpy as np
 import utm
-from smrf.distribute import ThermalHRRR
 
 from .csv import InputCSV
 from .gridded_input import GriddedInput
@@ -22,17 +21,6 @@ class InputData:
     * Generic gridded NetCDF
     """
 
-    VARIABLES = [
-        'air_temp',
-        'vapor_pressure',
-        'precip',
-        'wind_speed',
-        'wind_direction',
-        'cloud_factor',
-        'thermal',
-        'metadata'
-    ]
-
     # degree offset for a buffer around the model domain in degrees
     OFFSET = 0.1
 
@@ -51,13 +39,6 @@ class InputData:
 
         self.load_class.load()
 
-        self.set_variables()
-
-        self.metadata_pixel_location()
-
-        if self.data_type == InputCSV.DATA_TYPE:
-            self.load_class.check_colocation()
-
     def __determine_data_type(self, smrf_config):
         """
         Sets the attributes `data_type` and 'loader_class` based of the
@@ -73,7 +54,11 @@ class InputData:
             AttributeError: If configuration does not contain a known input
             data type
         """
-        loader_args = dict(start_date=self.start_date, end_date=self.end_date)
+        loader_args = dict(
+            start_date=self.start_date,
+            end_date=self.end_date,
+            topo=self.topo,
+        )
 
         if InputCSV.DATA_TYPE in smrf_config:
             self.data_type = InputCSV.DATA_TYPE
@@ -87,7 +72,6 @@ class InputData:
             data_inputs = dict(
                 bbox=self.bbox,
                 config=smrf_config,
-                topo=self.topo,
             )
             if self.data_type == InputGribHRRR.DATA_TYPE:
                 # Note - HRRR data is only loaded for the start date and the end date
@@ -106,39 +90,13 @@ class InputData:
                 'Missing required data type attribute in ini-file'
             )
 
-    def set_variables(self):
+    @property
+    def loader(self):
         """
-        Set the instance attributes for each variable
+        Return the class that loaded the data for easier access to the actual data
         """
+        return self.load_class
 
-        for variable in self.VARIABLES:
-            d = getattr(self.load_class, variable, None)
-            if variable == 'metadata':
-                setattr(self, variable, d)
-            elif (
-                variable == ThermalHRRR.DISTRIBUTION_KEY
-                and getattr(self.load_class, ThermalHRRR.GRIB_NAME, None) is not None
-            ):
-                setattr(
-                    self,
-                    ThermalHRRR.DISTRIBUTION_KEY,
-                    getattr(self.load_class, ThermalHRRR.GRIB_NAME),
-                )
-            elif d is not None:
-                d = d.tz_convert(tz=self.time_zone)
-                setattr(self, variable, d[self.start_date:self.end_date])
-
-    def metadata_pixel_location(self):
-        """
-        Set the pixel location in the topo for each station
-        """
-
-        self.metadata["xi"] = self.metadata.apply(
-            lambda row: self.find_pixel_location(row, self.topo.x, "utm_x"), axis=1
-        )
-        self.metadata["yi"] = self.metadata.apply(
-            lambda row: self.find_pixel_location(row, self.topo.y, "utm_y"), axis=1
-        )
 
     def model_domain_grid(self):
         """
@@ -187,18 +145,3 @@ class InputData:
         lat, lon = utm.to_latlon(utm_x, utm_y, self.topo.zone_number,
                                  northern=self.topo.northern_hemisphere)
         return lat, lon
-
-    @staticmethod
-    def find_pixel_location(row, vec, a):
-        """
-        Find the index of the stations X/Y location in the model domain
-
-        Args:
-            row (pandas.DataFrame): metadata rows
-            vec (nparray): Array of X or Y locations in domain
-            a (str): Column in DataFrame to pull data from (i.e. 'X')
-
-        Returns:
-            Pixel value in vec where row[a] is located
-        """
-        return np.argmin(np.abs(vec - row[a]))
