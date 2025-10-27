@@ -250,7 +250,9 @@ class SMRF:
             Solar.is_requested(self.output_variables) or
             Albedo.is_requested(self.output_variables)
         ):
-            # Need precip for albedo:
+            # Need precipitation (days since last storm)
+            self.distribute[AirTemperature.DISTRIBUTION_KEY] = AirTemperature(**init_args)
+            self.distribute[VaporPressure.DISTRIBUTION_KEY] = VaporPressure(**init_args)
             self.distribute[Precipitation.DISTRIBUTION_KEY] = Precipitation(
                 **init_args,
                 start_date=self.start_date,
