@@ -108,6 +108,10 @@ class VariableBase:
         return self.topo.sky_view_factor
 
     @property
+    def veg_type(self):
+        return self.topo.veg_type
+    
+    @property
     def veg_height(self):
         return self.topo.veg_height
 
