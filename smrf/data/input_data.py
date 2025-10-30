@@ -37,7 +37,11 @@ class InputData:
 
         self.__determine_data_type(smrf_config)
 
-        self.load_class.load()
+        # HRRR data is loaded per time step and all other formats load data at once.
+        if self.data_type == InputGribHRRR.DATA_TYPE:
+            self.load_class.get_metadata()
+        else:
+            self.load_class.load()
 
     def __determine_data_type(self, smrf_config):
         """

@@ -3,24 +3,22 @@ import unittest
 from unittest import mock
 
 import pandas as pd
+
 from smrf.data.hrrr.file_loader import FileLoader
 from smrf.data.hrrr.grib_file_gdal import GribFileGdal
 from smrf.data.hrrr.grib_file_xarray import GribFileXarray
 
-FILE_DIR = '/path/to/files'
-START_DT = pd.to_datetime('2018-07-22 01:00')
+from smrf.tests.smrf_test_case_lakes import SMRFTestCaseLakes
+
+FILE_DIR = "/path/to/files"
+START_DT = pd.to_datetime("2018-07-22 01:00")
 
 BBOX = mock.Mock(name="Bounding Box")
 TOPO = mock.Mock(name="Topo NC")
 UTM_NUMBER = 12
-LOGGER = mock.Mock(name='Logger')
+LOGGER = mock.Mock(name="Logger")
 
-
-def xarray_mock_return():
-    metadata = mock.MagicMock()
-    metadata.name = 'metadata'
-    data = {'var': mock.Mock(name='data')}
-    return metadata, data
+MOCK_DATA = {"var": mock.Mock(name="data")}
 
 
 class TestFileLoader(unittest.TestCase):
@@ -59,27 +57,25 @@ class TestFileLoader(unittest.TestCase):
     def test_default_to_wind_load_false(self):
         self.assertFalse(self.subject._load_wind)
 
-    @mock.patch.object(FileLoader, 'xarray', return_value=xarray_mock_return())
+    @mock.patch.object(FileLoader, 'xarray', return_value=MOCK_DATA)
     def test_data_for_time_and_topo_no_gdal(self, xarray_mock):
-        metadata, data = self.subject.data_for_time_and_topo(
-            START_DT, BBOX, TOPO, UTM_NUMBER
+        data = self.subject.data_for_time_and_topo(
+            START_DT, BBOX, TOPO
         )
         xarray_mock.assert_called_once()
-        self.assertEqual('metadata', metadata.name)
         self.assertEqual(['var'], list(data.keys()))
 
-    @mock.patch.object(FileLoader, 'xarray', return_value=xarray_mock_return())
+    @mock.patch.object(FileLoader, 'xarray', return_value=MOCK_DATA)
     @mock.patch.object(FileLoader, 'gdal', return_value={'var2': mock.Mock(name='GDAL')})
     def test_data_for_time_and_topo_with_gdal(self, gdal_mock, xarray_mock):
         subject = FileLoader(
             FILE_DIR, 1, ['precip_int'], load_gdal=['HRRR_VAR'], external_logger=LOGGER
         )
-        metadata, data = subject.data_for_time_and_topo(
-            START_DT, BBOX, TOPO, UTM_NUMBER
+        data = subject.data_for_time_and_topo(
+            START_DT, BBOX, TOPO
         )
         xarray_mock.assert_called_once()
         gdal_mock.assert_called_once()
-        self.assertEqual(metadata.name, 'metadata' )
         self.assertEqual(['var', 'var2'], list(data.keys()))
 
     @mock.patch("smrf.data.hrrr.file_loader.GribFileGdal")
@@ -94,7 +90,7 @@ class TestFileLoader(unittest.TestCase):
         )
 
 class TestFileLoaderXarray(unittest.TestCase,):
-    METHOD_ARGS = [START_DT, BBOX, UTM_NUMBER]
+    METHOD_ARGS = [START_DT, BBOX]
 
     def setUp(self):
         self.subject = FileLoader(
@@ -116,7 +112,7 @@ class TestFileLoaderXarray(unittest.TestCase,):
         self.convert_patch = mock.patch.object(
             FileLoader,
             'convert_to_dataframes',
-            return_value=xarray_mock_return()
+            return_value=MOCK_DATA
         )
         self.convert_patch.start()
 
@@ -184,6 +180,36 @@ class TestFileLoaderXarray(unittest.TestCase,):
             msg='Tried to load data from file although not present on disk'
         )
 
+class TestFileLoaderMetadata(SMRFTestCaseLakes):
+    DATE = pd.to_datetime("2019-10-01 17:00")
+
+    def setUp(self):
+        self.subject = FileLoader(
+            file_dir=self.input_dir,
+            forecast_hour=1,
+            external_logger=LOGGER
+        )
+
+        LOGGER.debug = mock.Mock()
+
+    def test_metadata_from_first_hour(self):
+        data = self.subject.get_metadata(self.DATE, self.BBOX, 11)
+
+        self.assertIsInstance(data, pd.DataFrame)
+
+        # Required columns for interpolation
+        self.assertListEqual(
+            ['latitude', 'longitude', 'elevation', 'utm_x', 'utm_y'],
+            data.columns.tolist()
+        )
+        # Required naming convention for index values
+        self.assertTrue(data.index.values[0].startswith("grid_"))
+
+    def test_metadata_raises_on_missing_file(self):
+        with self.assertRaises(FileNotFoundError):
+            self.subject.get_metadata(
+                self.DATE + pd.to_timedelta(3, "hour"), self.BBOX, 11
+            )
 
 class TestFileLoaderSixthHour(TestFileLoaderXarray):
     SIXTH_HOUR_VARIABLE = ['precip_int']

@@ -19,6 +19,9 @@ SIXTH_HOUR = {'stepRange': ['6', '5-6']}
 SURFACE = 'surface'
 HAG = 'heightAboveGround'
 
+# Variable names
+HRRR_ELEVATION = 'orog'
+
 HRRR_SURFACE = HrrrVariable(
     level=SURFACE,
     grib_identifier='shortName',
@@ -27,7 +30,6 @@ HRRR_SURFACE = HrrrVariable(
         'typeOfLevel': SURFACE,
     },
     smrf_map={
-        'orog': 'elevation',
         'sdswrf': 'short_wave',
         'tp': 'precip_int',
     }

@@ -6,13 +6,15 @@ import xarray
 
 import smrf
 from smrf.data.hrrr.grib_file_xarray import GribFileXarray
-from smrf.data.hrrr.grib_file_variables import (HRRR_HAG_10, HRRR_HAG_2,
-                                                HRRR_SURFACE)
+from smrf.data.hrrr.grib_file_variables import (
+    HRRR_HAG_10, HRRR_HAG_2, HRRR_SURFACE
+)
+from smrf.tests.smrf_test_case_lakes import SMRFTestCaseLakes
 
 # RME
 # BBOX = [-116.85837324, 42.96134124, -116.64913327, 43.16852535]
 # Lakes test basin
-BBOX = [-119.13778957, 37.4541464, -118.85206348, 37.73084705]
+BBOX = SMRFTestCaseLakes.BBOX
 LOGGER = mock.Mock(name='Logger')
 
 HRRR_FILE_DIR = Path(smrf.__file__).parent.joinpath(
@@ -108,3 +110,14 @@ class TestGribFile(unittest.TestCase):
             sorted(list(data.data_vars)),
             sorted(requested_variables)
         )
+
+    def test_crops_to_bbox(self):
+        hrrr_day = HRRR_FILE_DIR.joinpath(HRRR_DAY_FOLDER)
+
+        with mock.patch.object(self.subject, "crop_to_bbox") as mock_crop:
+            self.subject.load(
+                file=hrrr_day.joinpath('hrrr.t15z.wrfsfcf01.grib2'),
+                sixth_hour_file=False,
+            )
+
+            mock_crop.assert_called_once()

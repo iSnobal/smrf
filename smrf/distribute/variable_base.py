@@ -76,11 +76,10 @@ class VariableBase:
             # Check of gridded interpolation
             self.gridded = self.config.get("distribution", None) == "grid"
 
+            # List of stations that have this variable observation
             self.stations = None
             if self.config.get("stations", None) is not None:
-                stations = self.config['stations']
-                stations.sort()
-                self.stations = stations
+                self.stations = sorted(self.config["stations"])
 
             self.min = self.config.get('min', -np.Inf)
             self.max = self.config.get('max', np.Inf)
@@ -159,7 +158,7 @@ class VariableBase:
         """
         Args:
             metadata: metadata Pandas dataframe containing the station metadata
-                  from :mod:`smrf.data.loadData` or :mod:`smrf.data.loadGrid
+                      from :mod:`smrf.data.loadData` or :mod:`smrf.data.loadGrid
 
         Attributes set:
             * :py:attr:`date_time`
@@ -167,13 +166,12 @@ class VariableBase:
             * :py:attr:`topo`
         """
         self._logger.debug("Initializing")
-        self.metadata = metadata
 
         # pull out the metadata subset
         if self.stations is not None:
             self.metadata = metadata.loc[self.stations]
         else:
-            self.stations = metadata.index.values
+            self.metadata = metadata
 
         self._initialize()
 
@@ -254,10 +252,9 @@ class VariableBase:
         Raises:
             Exception: If all input data is NaN
         """
-
-        # get the data for the desired stations
-        # this will also order it correctly how air_temp was initialized
-        data = data[self.stations]
+        # Subset if necessary
+        if self.stations is not None:
+            data = data[self.stations]
 
         if np.sum(data.isnull()) == data.shape[0]:
             raise Exception("{}: All data values are NaN".format(self.DISTRIBUTION_KEY))

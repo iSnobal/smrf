@@ -311,29 +311,9 @@ class SMRF:
         See the :py:class:`~smrf.data.loadData.InputData` class for full list of
         supported sources
         """
-
-
-        # Pre-filter the data to the desired stations in each [variable] section
-        self._logger.debug("Filter data to those specified in each variable section")
-        for module in self.distribute.values():
-            # Skip variable classes that don't work with stations such as HRRRThermal
-            if not hasattr(module, "stations"):
-                continue
-
-            for variable in module.LOADED_DATA:
-                # Check to find the matching stations
-                data = getattr(self.data, variable, pd.DataFrame())
-                if module.stations is not None:
-                    match = data.columns.isin(module.stations)
-                    sta_match = data.columns[match]
-
-                    # Update the dataframe and the distribute stations
-                    module.stations = sta_match.tolist()
-                    setattr(self.data, variable, data[sta_match])
-
-                else:
-                    module.stations = data.columns.tolist()
-        self.data = InputData(self.config, self.start_date, self.end_date, self.topo).loader
+        self.data = InputData(
+            self.config, self.start_date, self.end_date, self.topo
+        ).loader
 
         # Does the user want to create a CSV copy of the station data used.
         if self.config["output"]["input_backup"]:

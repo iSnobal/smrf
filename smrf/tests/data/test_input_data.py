@@ -74,7 +74,7 @@ class TestInputDataGridded(SMRFTestCaseLakes):
         )
         self.assert_parameters()
 
-        mock_load.assert_called()
+        mock_load.assert_not_called()
 
     @mock.patch.object(smrf_data.InputNetcdf, 'load')
     def test_netcdf_type(self, mock_load):
