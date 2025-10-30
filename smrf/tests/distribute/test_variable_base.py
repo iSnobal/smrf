@@ -16,6 +16,7 @@ TOPO = MagicMock(
     veg_height=np.array([[2, 2], [2, 2]]),
     veg_k=np.array([[3, 3], [3, 3]]),
     veg_tau=np.array([[4, 4], [4, 4]]),
+    veg_type=np.array([[5, 5], [5, 5]]),
     X=np.array([1, 3]),
     Y=np.array([2, 4]),
 )
@@ -131,3 +132,4 @@ class TestVariableBase(unittest.TestCase):
         npt.assert_equal(self.subject.veg_height, TOPO.veg_height)
         npt.assert_equal(self.subject.veg_tau, TOPO.veg_tau)
         npt.assert_equal(self.subject.veg_k, TOPO.veg_k)
+        npt.assert_equal(self.subject.veg_type, TOPO.veg_type)
