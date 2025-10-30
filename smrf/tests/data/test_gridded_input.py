@@ -62,6 +62,16 @@ class TestGriddedInput(unittest.TestCase):
             gridded_input.bbox
         )
 
+    def test_data_attribute(self):
+        gridded_input = GriddedInput(**self.VALID_ARGS)
+
+        self.assertIsNone(gridded_input.data)
+
+    def test_metadata_attribute(self):
+        gridded_input = GriddedInput(**self.VALID_ARGS)
+
+        self.assertIsNone(gridded_input.metadata)
+
     def test_config(self):
         config_values = MagicMock('Gridded Config')
         smrf_config = {GriddedInput.TYPE: config_values}
@@ -102,3 +112,9 @@ class TestGriddedInput(unittest.TestCase):
             data_source.__class__.__name__,
             data_source._logger.name
         )
+
+    def test_get_metadata(self):
+        input_data = GriddedInput(**self.VALID_ARGS)
+
+        with self.assertRaisesRegex(NotImplementedError, 'get_metadata'):
+            input_data.get_metadata()
