@@ -67,38 +67,16 @@ class TestLoadHRRR(SMRFTestCase):
 
 
 class TestHrrrThermal(SMRFTestCaseLakes):
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-
-        config = cls.base_config_copy()
-        config.raw_cfg['output']['variables'] = ['hrrr_thermal']
-        config.apply_recipes()
+    def setUp(self):
+        config = self.base_config_copy()
+        config.cfg['output']['variables'] = ['hrrr_thermal']
         config = cast_all_variables(config, config.mcfg)
 
-        cls.config = config
+        self.config = config
 
     def test_load(self):
         run_smrf(self.config)
 
-        nc_variable = 'thermal'
-
         with nc.Dataset(self.gold_dir.joinpath('thermal_hrrr.nc')) as gold:
             with nc.Dataset(self.output_dir.joinpath('thermal.nc')) as test:
-                npt.assert_equal(
-                    gold.variables['time'][:],
-                    test.variables['time'][:],
-                    err_msg="Time steps did not match for {}".format(nc_variable)
-                )
-
-                for att in gold.variables[nc_variable].ncattrs():
-                    self.assertEqual(
-                        getattr(gold.variables[nc_variable], att),
-                        getattr(test.variables[nc_variable], att)
-                    )
-
-                npt.assert_array_equal(
-                    test.variables[nc_variable][:],
-                    gold.variables[nc_variable][:],
-                    "Variable: {0} did not match gold standard".format(nc_variable)
-                )
+                self.compare_file_variables(gold, test)
