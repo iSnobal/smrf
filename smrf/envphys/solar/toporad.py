@@ -4,21 +4,32 @@ from topocalc.horizon import horizon
 from smrf.envphys.constants import (GRAVITY, IR_MAX, IR_MIN, MOL_AIR,
                                     SEA_LEVEL, STD_AIRTMP, STD_LAPSE,
                                     VISIBLE_MAX, VISIBLE_MIN)
+from smrf.envphys.constants import (
+    GRAVITY,
+    IR_MAX,
+    IR_MIN,
+    MOL_AIR,
+    SEA_LEVEL,
+    STD_AIRTMP,
+    STD_LAPSE,
+    VISIBLE_MAX,
+    VISIBLE_MIN,
+)
 from smrf.envphys.solar.irradiance import direct_solar_irradiance
 from smrf.envphys.solar.twostream import twostream
 from smrf.envphys.thermal.topotherm import hysat
+from topocalc.horizon import horizon
 
 
 def check_wavelengths(wavelength_range):
-
-    if wavelength_range[0] >= VISIBLE_MIN and \
-            wavelength_range[1] <= VISIBLE_MAX:
-        wavelength_flag = 'vis'
+    if wavelength_range[0] >= VISIBLE_MIN and wavelength_range[1] <= VISIBLE_MAX:
+        wavelength_flag = "vis"
     elif wavelength_range[0] >= IR_MIN and wavelength_range[1] <= IR_MAX:
-        wavelength_flag = 'ir'
+        wavelength_flag = "ir"
     else:
         raise ValueError(
-            'stoporad wavelength range not within visible or IR wavelengths')
+            "stoporad wavelength range not within visible or IR wavelengths"
+        )
 
     return wavelength_flag
 
@@ -94,8 +105,15 @@ def stoporad(date_time, topo, cosz, azimuth, illum_ang, albedo_surface,
     return trad_beam, trad_diff, horizon_angles
 
 
-def toporad(beam, diffuse, illum_angle, sky_view_factor, terrain_config_factor,
-            cosz, surface_albedo=0.0):
+def toporad(
+    beam,
+    diffuse,
+    illum_angle,
+    sky_view_factor,
+    terrain_config_factor,
+    cosz,
+    surface_albedo=0.0,
+):
     """Topographically-corrected solar radiation. Calculates the topographic
     distribution of solar radiation at a single time, using input beam and
     diffuse radiation calculates supplied by elevrad.
@@ -118,8 +136,12 @@ def toporad(beam, diffuse, illum_angle, sky_view_factor, terrain_config_factor,
     drad = diffuse * sky_view_factor
 
     # add reflection from adjacent terrain
-    drad = drad + (diffuse * (1 - sky_view_factor) +
-                   beam * cosz) * terrain_config_factor * surface_albedo
+    drad = (
+        drad
+        + (diffuse * (1 - sky_view_factor) + beam * cosz)
+        * terrain_config_factor
+        * surface_albedo
+    )
 
     # global radiation is diffuse + incoming_beam * cosine of local
     # illumination * angle
@@ -128,7 +150,7 @@ def toporad(beam, diffuse, illum_angle, sky_view_factor, terrain_config_factor,
     return rad, drad
 
 
-class Elevrad():
+class Elevrad:
     """Beam and diffuse radiation from elevation.
     elevrad is essentially the spatial or grid version of the twostream
     command.
@@ -162,7 +184,7 @@ class Elevrad():
 
         # defaults
         self.tau_elevation = 100.0
-        self.tau = 0.2,
+        self.tau = (0.2,)
         self.omega = 0.85
         self.scattering_factor = 0.3
         self.surface_albedo = 0.5
@@ -179,17 +201,23 @@ class Elevrad():
         self.calculate()
 
     def calculate(self):
-        """Perform the calculations
-        """
+        """Perform the calculations"""
 
         # reference pressure (at reference elevation, in km)
-        reference_pressure = hysat(SEA_LEVEL, STD_AIRTMP, STD_LAPSE,
-                                   self.tau_elevation / 1000, GRAVITY, MOL_AIR)
+        reference_pressure = hysat(
+            SEA_LEVEL,
+            STD_AIRTMP,
+            STD_LAPSE,
+            self.tau_elevation / 1000,
+            GRAVITY,
+            MOL_AIR,
+        )
 
         # Convert each elevation in look-up table to pressure, then to optical
         # depth over the modeling domain
-        pressure = hysat(SEA_LEVEL, STD_AIRTMP, STD_LAPSE,
-                         self.elevation / 1000, GRAVITY, MOL_AIR)
+        pressure = hysat(
+            SEA_LEVEL, STD_AIRTMP, STD_LAPSE, self.elevation / 1000, GRAVITY, MOL_AIR
+        )
         tau_domain = self.tau * pressure / reference_pressure
 
         # twostream over the optical depth of the domain
@@ -199,11 +227,13 @@ class Elevrad():
             tau=tau_domain,
             omega=self.omega,
             g=self.scattering_factor,
-            R0=self.surface_albedo)
+            R0=self.surface_albedo,
+        )
 
         # calculate beam and diffuse
-        self.beam = self.solar_irradiance * \
-            self.twostream['direct_transmittance']
-        self.diffuse = self.solar_irradiance * self.cosz * \
-            (self.twostream['transmittance'] -
-             self.twostream['direct_transmittance'])
+        self.beam = self.solar_irradiance * self.twostream["direct_transmittance"]
+        self.diffuse = (
+            self.solar_irradiance
+            * self.cosz
+            * (self.twostream["transmittance"] - self.twostream["direct_transmittance"])
+        )
