@@ -131,20 +131,13 @@ class SMRF:
         self.forecast_flag = False
         self.gridded = True if GriddedInput.TYPE in self.config else False
 
-        now = datetime.now().astimezone(self.time_zone)
-        if (self.start_date > now and not self.gridded) or (
-            self.end_date > now and not self.gridded
-        ):
-            raise ValueError(
-                "A date set in the future can only be used with WRF generated data!"
-            )
-
         self.output_variables = set(self.config["output"]["variables"])
         self._logger.info(
             "Configured output variables: \n {}".format(", ".join(self.output_variables))
         )
         self.output_writer = None
 
+        # Initialize the distribute dict
         self.distribute = {}
 
         # Attribute to class that holds the loaded forcing data
@@ -153,7 +146,6 @@ class SMRF:
         if self.config["system"]["qotw"]:
             self._logger.info(getqotw())
 
-        # Initialize the distribute dict
         self._logger.info("Started SMRF --> %s" % now)
         self._logger.info("Model start --> %s" % self.start_date)
         self._logger.info("Model end --> %s" % self.end_date)
