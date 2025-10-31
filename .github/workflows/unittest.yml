@@ -16,6 +16,10 @@ on:
       - main
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   unittest:
     strategy:
@@ -35,18 +39,6 @@ jobs:
       - name: Download environment file
         run: |
           wget https://raw.githubusercontent.com/iSnobal/model_setup/refs/heads/main/conda/isnobal.yaml
-
-      - name: Cache GCC ${{ env.GCC_VERSION }} installation
-        uses: actions/cache@v4
-        with:
-          path: |
-            /usr/local/bin/gcc
-            /usr/local/bin/g++
-            /usr/bin/gcc
-            /usr/bin/g++
-            /usr/bin/gcc-${{ env.GCC_VERSION }}
-            /usr/bin/g++-${{ env.GCC_VERSION }}
-          key: gcc-${{ env.GCC_VERSION }}-${{ runner.os }}-${{ hashFiles('.github/workflows/unittest.yml') }}
 
       - name: Install and set GCC as default on Ubuntu
         if: runner.os == 'Linux'
