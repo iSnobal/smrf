@@ -146,10 +146,10 @@ class SMRF:
         if self.config["system"]["qotw"]:
             self._logger.info(getqotw())
 
-        self._logger.info("Started SMRF --> %s" % now)
-        self._logger.info("Model start --> %s" % self.start_date)
-        self._logger.info("Model end --> %s" % self.end_date)
-        self._logger.info("Number of time steps --> %i" % self.time_steps)
+        self._logger.info(
+            "Started SMRF --> %s" % datetime.now().astimezone(self.time_zone)
+        )
+        self._logger.info("Number of time steps: %i" % self.time_steps)
 
     def _setup_date_and_time(self):
         self.time_zone = pytz.timezone(self.config["time"]["time_zone"])
