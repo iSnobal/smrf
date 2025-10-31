@@ -163,7 +163,9 @@ class Precipitation(VariableBase):
 
             # Clip and adjust the precip data so that there is only precip
             # during the storm and ad back in the missing data to conserve mass
-            data.precip = data.precip[self.stations]
+            if self.stations is not None:
+                data.precip = data.precip[self.stations]
+
             self.storms, storm_count = storms.tracking_by_station(
                 data.precip,
                 mass_thresh=self.ppt_threshold,
@@ -244,7 +246,8 @@ class Precipitation(VariableBase):
         """
 
         self._logger.debug('%s Distributing all precip' % data.name)
-        data = data[self.stations]
+        if self.stations is not None:
+            data = data[self.stations]
 
         if self.config['distribution'] != 'grid':
             if self.nasde_model == 'marks2017':
@@ -315,6 +318,13 @@ class Precipitation(VariableBase):
                     # establish storm info
                     self.storm_id = i
                     storm = self.storms.iloc[self.storm_id]
+
+                    # Subset
+                    if self.stations is not None:
+                        storm = storm[self.stations]
+                    else:
+                        storm = storm.drop("start").drop("end")
+
                     self.storming = True
                     break
                 else:
@@ -335,8 +345,9 @@ class Precipitation(VariableBase):
                     self._logger.debug('''Distributing Total Precip
                                         for Storm #{0}'''
                                        .format(self.storm_id+1))
-                    self._distribute(storm[self.stations].astype(float),
-                                     other_attribute='storm_total')
+                    self._distribute(
+                        storm.astype(float), other_attribute="storm_total"
+                    )
                     self.storm_total = utils.set_min_max(self.storm_total,
                                                          self.min,
                                                          self.max)

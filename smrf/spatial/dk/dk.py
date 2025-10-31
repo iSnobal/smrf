@@ -12,10 +12,8 @@ import pandas as pd
 from smrf.spatial.dk import detrended_kriging
 
 
-class DK:
-    """
-    Detrended kriging class
-    """
+class DetrendedKriging:
+    CONFIG_KEY = "dk"
 
     def __init__(self, mx, my, mz, GridX, GridY, GridZ, config):
         """

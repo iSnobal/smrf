@@ -31,6 +31,10 @@ class GriddedInput:
         self.topo = topo
         self.bbox = bbox
 
+        # Data loaded with child classes
+        self.data = None
+        self.metadata = None
+
         self.config = config[GriddedInput.TYPE]
 
         self._logger = logging.getLogger(self.__class__.__name__)
@@ -42,8 +46,9 @@ class GriddedInput:
     @start_date.setter
     def start_date(self, value):
         if not isinstance(value, datetime):
-            raise TypeError('Argument start_date is not an instance of %s',
-                            datetime.__name__)
+            raise TypeError(
+                "Argument start_date is not an instance of %s", datetime.__name__
+            )
         else:
             self._start_date = value
 
@@ -58,8 +63,9 @@ class GriddedInput:
     @bbox.setter
     def bbox(self, value):
         if len(value) != 4:
-            raise TypeError('Argument bbox is not in form of '
-                            '[lonmin, latmin, lonmax, latmax]')
+            raise TypeError(
+                "Argument bbox is not in form of [lonmin, latmin, lonmax, latmax]"
+            )
         else:
             self._bbox = value
 
@@ -70,7 +76,11 @@ class GriddedInput:
     @topo.setter
     def topo(self, value):
         if not isinstance(value, Topo):
-            raise TypeError('Argument topo is not an instance of %s',
-                            Topo.__name__)
+            raise TypeError("Argument topo is not an instance of %s", Topo.__name__)
         else:
             self._topo = value
+
+    def get_metadata(self):
+        raise NotImplementedError(
+            "get_metadata() was called but is not implemented in the child class."
+        )

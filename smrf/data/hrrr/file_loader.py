@@ -1,6 +1,6 @@
 import os
 from datetime import datetime, timedelta
-from typing import Dict, Tuple
+from typing import Dict
 
 import numpy as np
 import pandas as pd
@@ -10,6 +10,7 @@ from smrf.data.load_topo import Topo
 
 from .file_handler import FileHandler
 from .grib_file_gdal import GribFileGdal
+from .grib_file_variables import FIRST_HOUR, HRRR_ELEVATION, HRRR_SURFACE
 from .grib_file_xarray import GribFileXarray
 
 
@@ -17,9 +18,13 @@ class FileLoader:
     """
     Load data from local HRRR GRIB files.
     """
+
     NEXT_HOUR = timedelta(hours=1)
     SIXTH_HOUR = 6
-    NAME_SUFFIX = 'grib2'
+    NAME_SUFFIX = "grib2"
+
+    HRRR_METADATA_NAME = "elevation"
+    METADATA_VARIABLES = ["latitude", "longitude", HRRR_METADATA_NAME]
 
     def __init__(
         self,
@@ -48,8 +53,8 @@ class FileLoader:
         self._load_wind = load_wind
         self._forecast_hour = forecast_hour
         self._sixth_hour_variables = sixth_hour_variables
-        self._load_gdal = (load_gdal or [])
-        self._gdal_algorithm = (gdal_algorithm or GribFileGdal.DEFAULT_ALGORITHM)
+        self._load_gdal = load_gdal or []
+        self._gdal_algorithm = gdal_algorithm or GribFileGdal.DEFAULT_ALGORITHM
 
     @property
     def file_dir(self):
@@ -64,26 +69,24 @@ class FileLoader:
         start_date: datetime,
         bbox: list[float],
         topo: Topo,
-        utm_zone_number: int,
-    ) -> Tuple[pd.DataFrame, Dict[str, pd.DataFrame]]:
+    ) -> Dict[str, pd.DataFrame]:
         """
         Load variables from HRRR either using Xarray (default) or GDAL.
 
         :param start_date: datetime - Day to load
         :param bbox: list - Bounding box of the domain to load (used with Xarray)
         :param topo: Topo - Instance of the loaded topo file (used with GDAL)
-        :param utm_zone_number: Int - UTM zone number to convert dataframe (Xarray)
 
         :return:
-          Tuple - Dataframe with metadata and dictionary with variable names as keys
+          Dict - Dataframe dictionary with variable names as keys
         """
         self.log.debug("Reading GRIB file for date: {}".format(datetime))
 
-        metadata, data = self.xarray(start_date, bbox, utm_zone_number)
+        data = self.xarray(start_date, bbox)
         if len(self._load_gdal) > 0:
             data |= self.gdal(start_date, topo)
 
-        return metadata, data
+        return data
 
     def _get_file_path(self, file_time, forecast_hour):
         """
@@ -121,8 +124,7 @@ class FileLoader:
         self,
         date: datetime,
         bbox: list[float],
-        utm_zone_number: int,
-    ) -> Tuple[pd.DataFrame, Dict[str, pd.DataFrame]]:
+    ) -> Dict[str, pd.DataFrame]:
         """
         Get the data for given time range and a specified bounding box using Xarray.
         Read data is stored on instance attribute.
@@ -130,11 +132,9 @@ class FileLoader:
         Args:
             date:            datetime for the start of the data loading period
             bbox:            list of  [lonmin, latmin, lonmax, latmax]
-            utm_zone_number: UTM zone number to convert datetime to
 
         Returns:
-            List containing dataframe for the metadata and for each read
-            variable.
+            Dict with keys (variable name) and values (variable data as dataframes)
         """
         self.log.debug("Using Xarray")
 
@@ -143,8 +143,7 @@ class FileLoader:
 
         # Filename of the default configured forecast hour
         default_file = self._get_file_path(date, self._forecast_hour)
-        # Filename for variables that are mapped to the sixth
-        # forecast hour
+        # Filename for variables that are mapped to the sixth forecast hour
         sixth_hour_file = self._check_sixth_hour_presence(date)
 
         try:
@@ -168,67 +167,103 @@ class FileLoader:
             raise e
 
         try:
-            return self.convert_to_dataframes(data, utm_zone_number)
+            return self.convert_to_dataframes(data)
         except Exception as e:
             self.log.debug(
-                '  Could not combine forecast data for given date: {} '
-                .format(date)
+                "  Could not combine forecast data for given date: {} ".format(date)
             )
             raise e
 
-    def convert_to_dataframes(
-        self, data: xr.DataArray, utm_zone_number: int
-    ) -> Tuple[pd.DataFrame, Dict[str, pd.DataFrame]]:
+    def convert_to_dataframes(self, data: xr.Dataset) -> Dict[str, pd.DataFrame]:
         """
-        Convert the xarray's to a pandas dataframes
+        Convert the loaded data from a dataframe to a dictionary of Pandas dataframes
 
         Args:
             data: Xarray data object to convert
-            utm_zone_number: UTM zone number to convert datetime to
 
         Returns
-            Tuple of metadata and dataframe
+            Dictionary of dataframes
         """
-        metadata = None
         dataframe = {}
 
         for variable in list(data.data_vars):
-            df = data[variable].to_dataframe()
-
             # convert from a row multi-index to a column multi-index
-            df = df.unstack(level=[1, 2])
+            df = data[variable].to_dataframe().unstack(level=[1, 2])
 
-            # Get the metadata using the elevation variables
-            if variable == "elevation":
-                metadata = []
-                for mm in ["latitude", "longitude", variable]:
-                    dftmp = df[mm].copy()
-                    dftmp.columns = self.format_column_names(dftmp)
-                    dftmp = dftmp.iloc[0]
-                    dftmp.name = mm
-                    metadata.append(dftmp)
+            df = df.loc[:, variable]
 
-                metadata = pd.concat(metadata, axis=1)
-                metadata = metadata.apply(
-                    FileLoader.apply_utm, args=(utm_zone_number,), axis=1
+            df.columns = self.format_column_names(df)
+            df.index.rename("date_time", inplace=True)
+
+            df.dropna(axis=1, how="all", inplace=True)
+            df.sort_index(axis=0, inplace=True)
+            dataframe[variable] = df
+
+            # TODO - Move to the corresponding variable distribution class
+            # manipulate data in necessary ways
+            if variable == "air_temp":
+                dataframe["air_temp"] -= 273.15
+            if variable == "cloud_factor":
+                dataframe["cloud_factor"] = 1 - dataframe["cloud_factor"] / 100
+
+        return dataframe
+
+    def get_metadata(
+        self, date: datetime, bbox: list[float], utm_zone_number: int
+    ) -> pd.DataFrame:
+        """
+        Convert the HRRR elevation data to a dataframe for data interpolation
+
+        Args:
+            date:            Date to load
+            bbox:            list of bounding box to load [lonmin, latmin, lonmax, latmax]
+            utm_zone_number: UTM zone to convert the Lat/Lon coordinates to
+
+        Returns:
+            Metadata dataframe
+        """
+        file_loader = GribFileXarray(external_logger=self.log)
+        file_loader.bbox = bbox
+
+        file = self._get_file_path(date, self._forecast_hour)
+
+        self.log.debug("Loading metadata from file: {}".format(file))
+
+        if os.path.exists(file):
+            data = file_loader.load_variable_level(
+                file,
+                {
+                    HRRR_SURFACE.grib_identifier: [HRRR_ELEVATION],
+                    **HRRR_SURFACE.grib_keys,
+                    **FIRST_HOUR,
+                },
+                {HRRR_ELEVATION: self.HRRR_METADATA_NAME},
+                HRRR_SURFACE.level,
+            )
+        else:
+            raise FileNotFoundError(
+                "Could not find metadata file for date: {}".format(
+                    date.strftime("%Y-%m-%d %H:%M")
                 )
-            else:
-                df = df.loc[:, variable]
+            )
+        data = file_loader.crop_to_bbox(data)
 
-                df.columns = self.format_column_names(df)
-                df.index.rename("date_time", inplace=True)
+        df = data[self.HRRR_METADATA_NAME].to_dataframe().unstack(level=[1, 2])
 
-                df.dropna(axis=1, how="all", inplace=True)
-                df.sort_index(axis=0, inplace=True)
-                dataframe[variable] = df
+        metadata = []
+        for mm in self.METADATA_VARIABLES:
+            df_tmp = df[mm]
+            df_tmp.columns = self.format_column_names(df_tmp)
+            df_tmp = df_tmp.iloc[0]
+            df_tmp.name = mm
+            metadata.append(df_tmp)
 
-                # manipulate data in necessary ways
-                if variable == "air_temp":
-                    dataframe["air_temp"] -= 273.15
-                if variable == "cloud_factor":
-                    dataframe["cloud_factor"] = 1 - dataframe["cloud_factor"] / 100
+        metadata = pd.concat(metadata, axis=1).dropna(subset=[self.HRRR_METADATA_NAME])
+        metadata = metadata.apply(
+            FileLoader.apply_utm, args=(utm_zone_number,), axis=1
+        )
 
-        return metadata, dataframe
+        return metadata
 
     @staticmethod
     def format_column_names(dataframe):
@@ -240,7 +275,7 @@ class FileLoader:
                          index. Example: grid_0_1 for y at 0 and x at 1
         """
         return [
-            'grid_{c[0]}_{c[1]}'.format(c=col)
+            "grid_{c[0]}_{c[1]}".format(c=col)
             for col in dataframe.columns.to_flat_index()
         ]
 
@@ -257,12 +292,12 @@ class FileLoader:
             Pandas series entry with fields 'utm_x' and 'utm_y' filled
         """
         # HRRR has longitude reporting in degrees from the east
-        dataframe['longitude'] -= 360
+        dataframe["longitude"] -= 360
 
-        (dataframe['utm_x'], dataframe['utm_y'], *unused) = utm.from_latlon(
-            dataframe['latitude'],
-            dataframe['longitude'],
-            force_zone_number=utm_zone_number
+        (dataframe["utm_x"], dataframe["utm_y"], *unused) = utm.from_latlon(
+            dataframe["latitude"],
+            dataframe["longitude"],
+            force_zone_number=utm_zone_number,
         )
 
         return dataframe

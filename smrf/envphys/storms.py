@@ -265,7 +265,7 @@ def tracking_by_basin(precipitation, time, storm_lst, time_steps_since_precip,
     return storm_lst, time_steps_since_precip, is_storming
 
 
-def clip_and_correct(precip, storms, stations=[]):
+def clip_and_correct(precip, storms, stations: list = None):
     """
     Meant to go along with the storm tracking, we correct the data here by
     adding in the precip we would miss by ignoring it. This is mostly because
@@ -302,7 +302,7 @@ def clip_and_correct(precip, storms, stations=[]):
 
     correction = {}
 
-    if len(stations) == 0:
+    if stations is None or len(stations) == 0:
         stations = precip.columns
 
     # Correct the precip to be equal to the sum.

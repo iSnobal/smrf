@@ -16,6 +16,7 @@ TOPO = MagicMock(
     veg_height=np.array([[2, 2], [2, 2]]),
     veg_k=np.array([[3, 3], [3, 3]]),
     veg_tau=np.array([[4, 4], [4, 4]]),
+    veg_type=np.array([[5, 5], [5, 5]]),
     X=np.array([1, 3]),
     Y=np.array([2, 4]),
 )
@@ -44,7 +45,7 @@ class TestVariable(VariableBase):
 class TestVariableBase(unittest.TestCase):
     CONFIG = {
         "test_variable": {
-            "stations": STATIONS,
+            "stations": ["station 2"],
             "min": 0,
             "max": 100,
             "distribution": "grid",
@@ -57,7 +58,7 @@ class TestVariableBase(unittest.TestCase):
     def setUp(self):
         self.logger_patch = patch("smrf.distribute.variable_base.logging")
         self.logger_patch.start()
-        self.grid_patch = patch("smrf.distribute.variable_base.grid.GRID")
+        self.grid_patch = patch("smrf.distribute.variable_base.Grid", CONFIG_KEY="grid")
         self.grid = self.grid_patch.start()
 
         self.subject = TestVariable(config=self.CONFIG, topo=TOPO)
@@ -70,7 +71,7 @@ class TestVariableBase(unittest.TestCase):
         self.assertEqual(self.subject.config, self.CONFIG["test_variable"])
         self.assertIsNone(self.subject.test_variable)
 
-        self.assertListEqual(self.subject.stations, ["station 1", "station 2"])
+        self.assertListEqual(self.subject.stations, ["station 2"])
         self.assertEqual(self.subject.min, 0)
         self.assertEqual(self.subject.max, 100)
         self.assertTrue(self.subject.gridded)
@@ -100,19 +101,20 @@ class TestVariableBase(unittest.TestCase):
 
     def test_initialize(self):
         self.subject.initialize(METADATA)
+        station_subset = METADATA.loc[["station 2"]]
 
         (args, kwargs) = self.grid.call_args
 
         self.assertEqual(self.CONFIG["test_variable"], args[0])
-        npt.assert_equal(METADATA.utm_x.values, args[1])
-        npt.assert_equal(METADATA.utm_y.values, args[2])
+        npt.assert_equal(station_subset.utm_x.values, args[1])
+        npt.assert_equal(station_subset.utm_y.values, args[2])
         npt.assert_equal(TOPO.X, args[3])
         npt.assert_equal(TOPO.Y, args[4])
 
-        npt.assert_equal(METADATA.elevation.values, kwargs["mz"])
-        npt.assert_equal(TOPO.dem, kwargs["GridZ"])
+        npt.assert_equal(station_subset.elevation.values, kwargs["mz"])
+        npt.assert_equal(TOPO.dem, kwargs["grid_z"])
         npt.assert_equal(TOPO.mask, kwargs["mask"])
-        pdt.assert_frame_equal(METADATA, kwargs["metadata"])
+        pdt.assert_frame_equal(station_subset, kwargs["metadata"])
 
     def test_initialize_no_stations(self):
         config = self.CONFIG.copy()
@@ -121,7 +123,7 @@ class TestVariableBase(unittest.TestCase):
         self.subject = TestVariable(config=config, topo=TOPO)
         self.subject.initialize(METADATA)
 
-        npt.assert_equal(STATIONS, self.subject.stations)
+        npt.assert_equal(None, self.subject.stations)
 
     def test_topo_accessors(self):
         self.assertEqual(self.subject.topo, TOPO)
@@ -130,3 +132,4 @@ class TestVariableBase(unittest.TestCase):
         npt.assert_equal(self.subject.veg_height, TOPO.veg_height)
         npt.assert_equal(self.subject.veg_tau, TOPO.veg_tau)
         npt.assert_equal(self.subject.veg_k, TOPO.veg_k)
+        npt.assert_equal(self.subject.veg_type, TOPO.veg_type)

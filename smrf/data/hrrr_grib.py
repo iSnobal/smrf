@@ -7,6 +7,7 @@ from smrf.envphys.solar.cloud import get_hrrr_cloud
 from smrf.envphys.vapor_pressure import rh2vp
 
 from .gridded_input import GriddedInput
+from smrf.distribute import ThermalHRRR
 
 
 class InputGribHRRR(GriddedInput):
@@ -18,12 +19,6 @@ class InputGribHRRR(GriddedInput):
 
     DATA_TYPE = "hrrr_grib"
     GDAL_VARIABLE_KEY = "hrrr_gdal_variables"
-
-    VARIABLES = ["air_temp", "vapor_pressure", "precip", "cloud_factor"]
-    WIND_VARIABLES = [
-        "wind_speed",
-        "wind_direction",
-    ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -44,17 +39,6 @@ class InputGribHRRR(GriddedInput):
             self.config.get("hrrr_gdal_algorithm") or GribFileGdal.DEFAULT_ALGORITHM
         )
 
-    @property
-    def variables(self):
-        if self._load_wind:
-            return self.data_variables
-        else:
-            return self.VARIABLES
-
-    @property
-    def data_variables(self):
-        return np.union1d(self.VARIABLES, self.WIND_VARIABLES)
-
     def load(self):
         """
         The function will take the keys and load them into the appropriate
@@ -66,7 +50,7 @@ class InputGribHRRR(GriddedInput):
             )
         )
 
-        metadata, data = FileLoader(
+        data = FileLoader(
             external_logger=self._logger,
             file_dir=self.config["hrrr_directory"],
             forecast_hour=self.config["hrrr_forecast_hour"],
@@ -78,10 +62,9 @@ class InputGribHRRR(GriddedInput):
             start_date=self.start_date,
             bbox=self.bbox,
             topo=self.topo,
-            utm_zone_number=self.topo.zone_number,
         )
 
-        self.parse_data(metadata, data)
+        self.parse_data(data)
 
     def load_timestep(self, date_time):
         """Load a single time step for HRRR
@@ -93,12 +76,23 @@ class InputGribHRRR(GriddedInput):
         self.start_date = date_time
         self.load()
 
-    def parse_data(self, metadata, data):
+    def parse_data(self, data):
         """
-        Parse the data from HRRR into dataframes for SMRF
+        Parse the data from HRRR into Pandas dataframes for SMRF.
+        Set variables on the class to retrieve them at distribution time.
+
+        # Attributes set:
+        * :py:attr: metadata
+        * :py:attr: air_temp
+        * :py:attr: vapor_pressure
+        * :py:attr: precip
+        ## If configured to load cloud factor:
+            * :py:attr: cloud_factor
+        ## If configured to load wind:
+            * :py:attr: wind_speed
+            * :py:attr: wind_direction
 
         Args:
-            metadata (DataFrame): metadata DataFrame
             data (dict): dictionary of DataFrames from HRRR
         """
         # Enforce configured timezone
@@ -109,8 +103,6 @@ class InputGribHRRR(GriddedInput):
             else:
                 data[key] = data[key].apply(pd.to_numeric)
                 data[key] = data[key].tz_localize(tz=self.time_zone)
-
-        self.metadata = metadata
 
         idx = data["air_temp"].index
         cols = data["air_temp"].columns
@@ -138,6 +130,10 @@ class InputGribHRRR(GriddedInput):
                 solar, self.metadata, self.topo.basin_lat, self.topo.basin_long
             )
             self.check_cloud_factor()
+
+        # DLWRF from HRRR set the "thermal"
+        if data.get(ThermalHRRR.GRIB_NAME, None) is not None:
+            setattr(self, ThermalHRRR.DISTRIBUTION_KEY, data[ThermalHRRR.GRIB_NAME])
 
     def calculate_wind(self, data):
         """
@@ -195,3 +191,18 @@ class InputGribHRRR(GriddedInput):
             self._logger.error("There are NaN values in the cloud factor")
 
         self.cloud_factor = self.cloud_factor_memory.tail(1)
+
+    def get_metadata(self):
+        """
+        Load the metadata from HRRR grib files and set the attribute on the class.
+        This value is later retrieved when loading the interpolation algorithm
+        """
+        self.metadata = FileLoader(
+            external_logger=self._logger,
+            file_dir=self.config["hrrr_directory"],
+            forecast_hour=self.config["hrrr_forecast_hour"],
+        ).get_metadata(
+            date=self.start_date,
+            bbox=self.bbox,
+            utm_zone_number=self.topo.zone_number,
+        )

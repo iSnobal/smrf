@@ -66,7 +66,7 @@ class GribFileXarray:
 
         return dataset
 
-    def _load_variable_level(
+    def load_variable_level(
         self, file, filter_by_keys, smrf_mapping, level_name=None
     ):
         """
@@ -154,7 +154,7 @@ class GribFileXarray:
                 variable.smrf_map, sixth_hour_variables
             )
             variable_data.append(
-                self._load_variable_level(
+                self.load_variable_level(
                     file,
                     {
                         variable.grib_identifier: first_hour,
@@ -170,7 +170,7 @@ class GribFileXarray:
 
             if sixth_hour is not None and sixth_hour:
                 variable_data.append(
-                    self._load_variable_level(
+                    self.load_variable_level(
                         sixth_hour_file,
                         {
                             variable.grib_identifier: sixth_hour,
@@ -198,12 +198,17 @@ class GribFileXarray:
             )
             raise Exception()
 
-        variable_data = variable_data.where(
-            (variable_data.latitude >= self.bbox[1]) &
-            (variable_data.latitude <= self.bbox[3]) &
-            (variable_data.longitude >= self.longitude_east(self.bbox[0])) &
-            (variable_data.longitude <= self.longitude_east(self.bbox[2])),
+        return self.crop_to_bbox(variable_data)
+
+    def crop_to_bbox(self, dataset: xr.Dataset) -> xr.Dataset:
+        """
+        Crop the dataset to the configured bounding box. This method changes the
+        passed in dataset.
+        """
+        return dataset.where(
+            (dataset.latitude >= self.bbox[1]) &
+            (dataset.latitude <= self.bbox[3]) &
+            (dataset.longitude >= self.longitude_east(self.bbox[0])) &
+            (dataset.longitude <= self.longitude_east(self.bbox[2])),
             drop=True
         )
-
-        return variable_data

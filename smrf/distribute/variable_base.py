@@ -4,8 +4,12 @@ import numpy as np
 import pandas as pd
 
 from smrf.data.load_topo import Topo
-from smrf.spatial import grid, idw, kriging
-from smrf.spatial.dk import dk
+from smrf.spatial import (
+    DetrendedKriging,
+    Grid,
+    InverseDistanceWeighted,
+    Kriging,
+)
 
 
 class VariableBase:
@@ -72,11 +76,10 @@ class VariableBase:
             # Check of gridded interpolation
             self.gridded = self.config.get("distribution", None) == "grid"
 
+            # List of stations that have this variable observation
             self.stations = None
             if self.config.get("stations", None) is not None:
-                stations = self.config['stations']
-                stations.sort()
-                self.stations = stations
+                self.stations = sorted(self.config["stations"])
 
             self.min = self.config.get('min', -np.Inf)
             self.max = self.config.get('max', np.Inf)
@@ -105,6 +108,10 @@ class VariableBase:
         return self.topo.sky_view_factor
 
     @property
+    def veg_type(self):
+        return self.topo.veg_type
+    
+    @property
     def veg_height(self):
         return self.topo.veg_height
 
@@ -117,6 +124,13 @@ class VariableBase:
         return self.topo.veg_k
 
     # END - Topo accessor methods
+
+    # START - config accessors
+    @property
+    def distribution_method(self):
+        return self.config["distribution"]
+
+    # END - config accessors
 
     # START - Class methods
 
@@ -148,7 +162,7 @@ class VariableBase:
         """
         Args:
             metadata: metadata Pandas dataframe containing the station metadata
-                  from :mod:`smrf.data.loadData` or :mod:`smrf.data.loadGrid
+                      from :mod:`smrf.data.loadData` or :mod:`smrf.data.loadGrid
 
         Attributes set:
             * :py:attr:`date_time`
@@ -156,13 +170,12 @@ class VariableBase:
             * :py:attr:`topo`
         """
         self._logger.debug("Initializing")
-        self.metadata = metadata
 
         # pull out the metadata subset
         if self.stations is not None:
             self.metadata = metadata.loc[self.stations]
         else:
-            self.stations = metadata.index.values
+            self.metadata = metadata
 
         self._initialize()
 
@@ -175,9 +188,8 @@ class VariableBase:
         """
 
         if "distribution" in self.config.keys():
-            if self.config["distribution"] == "idw":
-                # inverse distance weighting
-                self.idw = idw.IDW(
+            if self.distribution_method == InverseDistanceWeighted.CONFIG_KEY:
+                self.idw = InverseDistanceWeighted(
                     self.metadata.utm_x.values,
                     self.metadata.utm_y.values,
                     self.topo.X,
@@ -187,9 +199,8 @@ class VariableBase:
                     power=self.config["idw_power"],
                 )
 
-            elif self.config["distribution"] == "dk":
-                # detrended kriging
-                self.dk = dk.DK(
+            elif self.distribution_method == DetrendedKriging.CONFIG_KEY:
+                self.dk = DetrendedKriging(
                     self.metadata.utm_x.values,
                     self.metadata.utm_y.values,
                     self.metadata.elevation.values,
@@ -199,23 +210,22 @@ class VariableBase:
                     self.config,
                 )
 
-            elif self.config["distribution"] == "grid":
+            elif self.distribution_method == Grid.CONFIG_KEY:
                 # linear interpolation between points
-                self.grid = grid.GRID(
+                self.grid = Grid(
                     self.config,
                     self.metadata.utm_x.values,
                     self.metadata.utm_y.values,
                     self.topo.X,
                     self.topo.Y,
                     mz=self.metadata.elevation.values,
-                    GridZ=self.topo.dem,
+                    grid_z=self.topo.dem,
                     mask=self.topo.mask,
                     metadata=self.metadata,
                 )
 
-            elif self.config["distribution"] == "kriging":
-                # generic kriging
-                self.kriging = kriging.KRIGE(
+            elif self.distribution_method == Kriging.CONFIG_KEY:
+                self.kriging = Kriging(
                     self.metadata.utm_x.values,
                     self.metadata.utm_y.values,
                     self.metadata.elevation.values,
@@ -246,15 +256,14 @@ class VariableBase:
         Raises:
             Exception: If all input data is NaN
         """
-
-        # get the data for the desired stations
-        # this will also order it correctly how air_temp was initialized
-        data = data[self.stations]
+        # Subset if necessary
+        if self.stations is not None:
+            data = data[self.stations]
 
         if np.sum(data.isnull()) == data.shape[0]:
             raise Exception("{}: All data values are NaN".format(self.DISTRIBUTION_KEY))
 
-        if self.config['distribution'] == 'idw':
+        if self.distribution_method == InverseDistanceWeighted.CONFIG_KEY:
             if self.config['detrend']:
                 v = self.idw.detrendedIDW(
                     data.values,
@@ -264,23 +273,23 @@ class VariableBase:
             else:
                 v = self.idw.calculateIDW(data.values)
 
-        elif self.config['distribution'] == 'dk':
+        elif self.distribution_method == DetrendedKriging.CONFIG_KEY:
             v = self.dk.calculate(data.values)
 
-        elif self.config['distribution'] == 'grid':
+        elif self.distribution_method == Grid.CONFIG_KEY:
             if self.config['detrend']:
-                v = self.grid.detrendedInterpolation(
+                v = self.grid.detrended_interpolation(
                     data,
                     self.config['detrend_slope'],
                     self.config['grid_method']
                 )
             else:
-                v = self.grid.calculateInterpolation(
+                v = self.grid.calculate_interpolation(
                     data.values,
                     self.config['grid_method']
                 )
 
-        elif self.config['distribution'] == 'kriging':
+        elif self.distribution_method == Kriging.CONFIG_KEY:
             v, ss = self.kriging.calculate(data.values)
             setattr(self, '{}_variance'.format(self.DISTRIBUTION_KEY), ss)
 
