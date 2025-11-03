@@ -1,9 +1,8 @@
-import numpy as np
-from topocalc.horizon import horizon
+from datetime import datetime
+from typing import Tuple
 
-from smrf.envphys.constants import (GRAVITY, IR_MAX, IR_MIN, MOL_AIR,
-                                    SEA_LEVEL, STD_AIRTMP, STD_LAPSE,
-                                    VISIBLE_MAX, VISIBLE_MIN)
+import numpy as np
+from smrf.data.load_topo import Topo
 from smrf.envphys.constants import (
     GRAVITY,
     IR_MAX,
@@ -23,84 +22,112 @@ from topocalc.horizon import horizon
 
 def check_wavelengths(wavelength_range):
     if wavelength_range[0] >= VISIBLE_MIN and wavelength_range[1] <= VISIBLE_MAX:
-        wavelength_flag = "vis"
+        return
     elif wavelength_range[0] >= IR_MIN and wavelength_range[1] <= IR_MAX:
-        wavelength_flag = "ir"
+        return
     else:
         raise ValueError(
             "stoporad wavelength range not within visible or IR wavelengths"
         )
 
-    return wavelength_flag
 
-
-def stoporad(date_time, topo, cosz, azimuth, illum_ang, albedo_surface,
-             wavelength_range, tau_elevation=100, tau=0.2, omega=0.85,
-             scattering_factor=0.3, horizon_angles=None):
-    """[summary]
+def mask_for_shade(
+    cos_z: float,
+    azimuth: float,
+    illumination_angles: np.ndarray,
+    topo: Topo,
+    horizon_angles: np.ndarray = None,
+) -> np.ndarray:
+    """
+    Mask the illumination angles for shaded areas
 
     Args:
-        date_time ([type]): [description]
-        topo ([type]): [description]
-        cosz ([type]): [description]
-        azimuth ([type]): [description]
-        illum_ang ([type]): [description]
-        albedo_surface ([type]): [description]
-        wavelength_range ([type]): [description]
-        tau_elevation (int, optional): [description]. Defaults to 100.
-        tau (float, optional): [description]. Defaults to 0.2.
-        omega (float, optional): [description]. Defaults to 0.85.
-        scattering_factor (float, optional): [description]. Defaults to 0.3.
-        horizon_angles (list, optional): [description]. Defaults to None.
+        cos_z:                   Solar zenith angle (cos)
+        azimuth:                 Solar azimuth angles
+        illumination_angles:     Calculated angles from topocalc
+        topo:                    Loaded topo file
+        horizon_angles:          Horizon angles (if previously calculated)
 
     Returns:
-        [type]: [description]
+        Illumination angles with shaded areas masked out
+    """
+    if horizon_angles is None:
+        horizon_angles = horizon(azimuth, topo.dem, topo.dx)
+
+    sun_position = np.tan(np.pi / 2 - np.arccos(cos_z))
+    no_sun_mask = np.tan(np.abs(horizon_angles)) > sun_position
+
+    shaded_angles = illumination_angles.copy()
+    shaded_angles[no_sun_mask] = 0
+
+    return shaded_angles
+
+
+def stoporad(
+    date_time: datetime,
+    topo: Topo,
+    cos_z: float,
+    azimuth: float,
+    illumination_angles: np.ndarray,
+    albedo_surface: np.ndarray,
+    wavelength_range: list,
+    tau_elevation=100,
+    tau=0.2,
+    omega=0.85,
+    scattering_factor=0.3,
+    horizon_angles=None,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
 
-    wavelength_flag = check_wavelengths(wavelength_range)  # noqa
+    Args:
+        date_time:               Current processed time step
+        topo:                    Loaded topo file
+        cos_z:                   Solar zenith angle (cos)
+        azimuth:                 Solar azimuth angles
+        illumination_angles:     Calculated angles from topocalc
+        albedo_surface:          Calculated albedo from time step
+        wavelength_range:        Spectrum to calculate for
+        tau_elevation
+        tau
+        omega
+        scattering_factor
+        horizon_angles:          Horizon angles (if previously calculated)
 
-    # check cosz if sun is down
-    if cosz < 0:
-        return np.zeros_like(topo.dem), np.zeros_like(topo.dem)
+    Returns:
+        Tuple: Beam radiation, diffuse radiation, and horizon angles
+
+    """
+    check_wavelengths(wavelength_range)
+
+    # Check if sun is up
+    if cos_z < 0:
+        return np.zeros_like(topo.dem), np.zeros_like(topo.dem), np.zeros_like(topo.dem)
 
     else:
-        solar_irradiance = direct_solar_irradiance(
-            date_time, w=wavelength_range
-        )
+        solar_irradiance = direct_solar_irradiance(date_time, w=wavelength_range)
 
-        # Run horizon to get sun-below-horizon mask
-        if horizon_angles is None:
-            horizon_angles = horizon(azimuth, topo.dem, topo.dx)
-
-        thresh = np.tan(np.pi / 2 - np.arccos(cosz))
-        no_sun_mask = np.tan(np.abs(horizon_angles)) > thresh
-
-        # Run shade to get cosine local illumination angle
-        # mask by horizon mask using cosz=0 where the sun is not visible
-        illum_ang = np.copy(illum_ang)
-        illum_ang[no_sun_mask] = 0
-
-        R0 = np.mean(albedo_surface)
-
-        # Run elevrad to get beam & diffuse then toporad
+        # Get beam and diffuse radiation
         evrad = Elevrad(
             topo.dem,
             solar_irradiance,
-            cosz,
+            cos_z,
             tau_elevation=tau_elevation,
             tau=tau,
             omega=omega,
             scattering_factor=scattering_factor,
-            surface_albedo=R0)
+            surface_albedo=np.mean(albedo_surface),
+        )
 
+        # Correct topographically
         trad_beam, trad_diff = toporad(
             evrad.beam,
             evrad.diffuse,
-            illum_ang,
+            mask_for_shade(cos_z, azimuth, illumination_angles, topo, horizon_angles),
             topo.sky_view_factor,
             topo.terrain_config_factor,
-            cosz,
-            surface_albedo=albedo_surface)
+            cos_z,
+            surface_albedo=albedo_surface,
+        )
 
     return trad_beam, trad_diff, horizon_angles
 
@@ -108,23 +135,24 @@ def stoporad(date_time, topo, cosz, azimuth, illum_ang, albedo_surface,
 def toporad(
     beam,
     diffuse,
-    illum_angle,
+    illumination_angles,
     sky_view_factor,
     terrain_config_factor,
-    cosz,
+    cos_z,
     surface_albedo=0.0,
 ):
-    """Topographically-corrected solar radiation. Calculates the topographic
+    """
+    Topographically-corrected solar radiation. Calculates the topographic
     distribution of solar radiation at a single time, using input beam and
     diffuse radiation calculates supplied by elevrad.
 
     Args:
         beam (np.array): beam radiation
         diffuse (np.array): diffuse radiation
-        illum_angle (np.array): local illumination angles
+        illumination_angles (np.array): local illumination angles
         sky_view_factor (np.array): sky view factor
-        terrain_config_factor (np.array): terrain configuraiton factor
-        cosz (float): cosine of the zenith
+        terrain_config_factor (np.array): terrain configuration factor
+        cos_z (float): cosine of the zenith
         surface_albedo (float/np.array, optional): surface albedo.
             Defaults to 0.0.
 
@@ -138,27 +166,28 @@ def toporad(
     # add reflection from adjacent terrain
     drad = (
         drad
-        + (diffuse * (1 - sky_view_factor) + beam * cosz)
+        + (diffuse * (1 - sky_view_factor) + beam * cos_z)
         * terrain_config_factor
         * surface_albedo
     )
 
     # global radiation is diffuse + incoming_beam * cosine of local
     # illumination * angle
-    rad = drad + beam * illum_angle
+    rad = drad + beam * illumination_angles
 
     return rad, drad
 
 
 class Elevrad:
-    """Beam and diffuse radiation from elevation.
-    elevrad is essentially the spatial or grid version of the twostream
+    """
+    Beam and diffuse radiation from elevation.
+    :py:class:`Elevrad` is essentially the spatial or grid version of the twostream
     command.
 
     Args:
         elevation (np.array): DEM elevations in meters
         solar_irradiance (float): from direct_solar_irradiance
-        cosz (float): cosine of zenith angle
+        cos_z (float): cosine of zenith angle
         tau_elevation (float, optional): Elevation [m] of optical depth
                                         measurement. Defaults to 100.
         tau (float, optional): optical depth at tau_elevation. Defaults to 0.2.
@@ -168,40 +197,45 @@ class Elevrad:
         surface_albedo (float, optional): Mean surface albedo. Defaults to 0.5.
     """
 
-    def __init__(self, elevation, solar_irradiance, cosz, **kwargs):
-        """Initialize then run elevrad
-
+    def __init__(self, elevation, solar_irradiance, cos_z, **kwargs):
+        """
         Args:
             elevation (np.array): DEM elevation in meters
             solar_irradiance (float): from direct_solar_irradiance
-            cosz (float): cosine of zenith angle
+            cos_z (float): cosine of zenith angle
             kwargs: tau_elevation, tau, omega, scattering_factor,
                     surface_albedo
-
-        Returns:
-            radiation: dict with beam and diffuse radiation
         """
+        # For calculations
+        self.beam = None
+        self.diffuse = None
 
-        # defaults
+        # Defaults
         self.tau_elevation = 100.0
         self.tau = (0.2,)
         self.omega = 0.85
         self.scattering_factor = 0.3
         self.surface_albedo = 0.5
 
-        # set user specified values
+        # Get user specific values and overwrite defaults
         for key, value in kwargs.items():
             if hasattr(self, key):
                 setattr(self, key, value)
 
         self.elevation = elevation
         self.solar_irradiance = solar_irradiance
-        self.cosz = cosz
+        self.cos_z = cos_z
 
         self.calculate()
 
     def calculate(self):
-        """Perform the calculations"""
+        """
+        Perform the calculations
+
+        Sets:
+         * :py:attr:`beam`
+         * :py:attr:`diffuse`
+        """
 
         # reference pressure (at reference elevation, in km)
         reference_pressure = hysat(
@@ -221,8 +255,8 @@ class Elevrad:
         tau_domain = self.tau * pressure / reference_pressure
 
         # twostream over the optical depth of the domain
-        self.twostream = twostream(
-            self.cosz,
+        two_stream = twostream(
+            self.cos_z,
             self.solar_irradiance,
             tau=tau_domain,
             omega=self.omega,
@@ -231,9 +265,9 @@ class Elevrad:
         )
 
         # calculate beam and diffuse
-        self.beam = self.solar_irradiance * self.twostream["direct_transmittance"]
+        self.beam = self.solar_irradiance * two_stream["direct_transmittance"]
         self.diffuse = (
             self.solar_irradiance
-            * self.cosz
-            * (self.twostream["transmittance"] - self.twostream["direct_transmittance"])
+            * self.cos_z
+            * (two_stream["transmittance"] - two_stream["direct_transmittance"])
         )
