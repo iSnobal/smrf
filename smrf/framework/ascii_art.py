@@ -1,6 +1,6 @@
 # flake8: noqa
 
-title1 = [
+TITLE_1 = [
     "  .----------------.  .----------------.  .----------------.  .----------------.",
     " | .--------------. || .--------------. || .--------------. || .--------------. |",
     " | |    _______   | || | ____    ____ | || |  _______     | || |  _________   | |",
@@ -14,7 +14,7 @@ title1 = [
     "  '----------------'  '----------------'  '----------------'  '----------------' ",
     " "]
 
-title2 = [
+TITLE_2 = [
     "    SSSSSSSSSSSSSSS  MMMMMMMM               MMMMMMMM RRRRRRRRRRRRRRRRR    FFFFFFFFFFFFFFFFFFFFFF",
     "  SS:::::::::::::::S M:::::::M             M:::::::M R::::::::::::::::R   F::::::::::::::::::::F",
     " S:::::SSSSSS::::::S M::::::::M           M::::::::M R::::::RRRRRR:::::R  F::::::::::::::::::::F",
@@ -32,3 +32,11 @@ title2 = [
     " S:::::::::::::::SS  M::::::M               M::::::M R::::::R     R:::::R F::::::::FF",
     "  SSSSSSSSSSSSSSS    MMMMMMMM               MMMMMMMM RRRRRRRR     RRRRRRR FFFFFFFFFFF",
     " "]
+
+TITLE_SM = """
+     SSSSS  MM    MM RRRRRR  FFFFFFF 
+    SS      MMM  MMM RR   RR FF      
+     SSSSS  MM MM MM RRRRRR  FFFF    
+         SS MM    MM RR  RR  FF      
+     SSSSS  MM    MM RR   RR FF"""
+
