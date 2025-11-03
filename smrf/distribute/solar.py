@@ -1,7 +1,13 @@
-from .variable_base import VariableBase
+from datetime import datetime
+from typing import Tuple
+
+import numpy as np
+
 from smrf.envphys.constants import IR_WAVELENGTHS, VISIBLE_WAVELENGTHS
 from smrf.envphys.solar import cloud, toporad, vegetation
 from smrf.utils import utils
+
+from .variable_base import VariableBase
 
 
 class Solar(VariableBase):
@@ -65,85 +71,124 @@ class Solar(VariableBase):
     the albedo.
     """
 
-    DISTRIBUTION_KEY = 'solar'
+    DISTRIBUTION_KEY = "solar"
 
     # these are variables that can be output
     OUTPUT_VARIABLES = {
-        'clear_ir_beam': {
-            'units': 'watt/m2',
-            'standard_name': 'clear_sky_infrared_beam',
-            'long_name': 'Clear sky infrared beam solar radiation'
+        "clear_ir_beam": {
+            "units": "watt/m2",
+            "standard_name": "clear_sky_infrared_beam",
+            "long_name": "Clear sky infrared beam solar radiation",
         },
-        'clear_ir_diffuse': {
-            'units': 'watt/m2',
-            'standard_name': 'clear_sky_infrared_diffuse',
-            'long_name': 'Clear sky infrared diffuse solar radiation'
+        "clear_ir_diffuse": {
+            "units": "watt/m2",
+            "standard_name": "clear_sky_infrared_diffuse",
+            "long_name": "Clear sky infrared diffuse solar radiation",
         },
-        'clear_vis_beam': {
-            'units': 'watt/m2',
-            'standard_name': 'clear_sky_visible_beam',
-            'long_name': 'Clear sky visible beam solar radiation'
+        "clear_vis_beam": {
+            "units": "watt/m2",
+            "standard_name": "clear_sky_visible_beam",
+            "long_name": "Clear sky visible beam solar radiation",
         },
-        'clear_vis_diffuse': {
-            'units': 'watt/m2',
-            'standard_name': 'clear_sky_visible_diffuse',
-            'long_name': 'Clear sky visible diffuse solar radiation'
+        "clear_vis_diffuse": {
+            "units": "watt/m2",
+            "standard_name": "clear_sky_visible_diffuse",
+            "long_name": "Clear sky visible diffuse solar radiation",
         },
-        'cloud_ir_beam': {
-            'units': 'watt/m2',
-            'standard_name': 'cloud_infrared_beam',
-            'long_name': 'Cloud corrected infrared beam solar radiation'
+        "cloud_ir_beam": {
+            "units": "watt/m2",
+            "standard_name": "cloud_infrared_beam",
+            "long_name": "Cloud corrected infrared beam solar radiation",
         },
-        'cloud_ir_diffuse': {
-            'units': 'watt/m2',
-            'standard_name': 'cloud_infrared_diffuse',
-            'long_name': 'Cloud corrected infrared diffuse solar radiation'
+        "cloud_ir_diffuse": {
+            "units": "watt/m2",
+            "standard_name": "cloud_infrared_diffuse",
+            "long_name": "Cloud corrected infrared diffuse solar radiation",
         },
-        'cloud_vis_beam': {
-            'units': 'watt/m2',
-            'standard_name': 'cloud_visible_beam',
-            'long_name': 'Cloud corrected visible beam solar radiation'
+        "cloud_vis_beam": {
+            "units": "watt/m2",
+            "standard_name": "cloud_visible_beam",
+            "long_name": "Cloud corrected visible beam solar radiation",
         },
-        'cloud_vis_diffuse': {
-            'units': 'watt/m2',
-            'standard_name': 'cloud_visible_diffuse',
-            'long_name': 'Cloud corrected visible diffuse solar radiation'
+        "cloud_vis_diffuse": {
+            "units": "watt/m2",
+            "standard_name": "cloud_visible_diffuse",
+            "long_name": "Cloud corrected visible diffuse solar radiation",
         },
-        'net_solar': {
-            'units': 'watt/m2',
-            'standard_name': 'net_solar_radiation',
-            'long_name': 'Net solar radiation'
+        "net_solar": {
+            "units": "watt/m2",
+            "standard_name": "net_solar_radiation",
+            "long_name": "Net solar radiation",
         },
-        'veg_ir_beam': {
-            'units': 'watt/m2',
-            'standard_name': 'vegetation_infrared_beam',
-            'long_name': 'Vegetation corrected infrared beam solar radiation'
+        "veg_ir_beam": {
+            "units": "watt/m2",
+            "standard_name": "vegetation_infrared_beam",
+            "long_name": "Vegetation corrected infrared beam solar radiation",
         },
-        'veg_ir_diffuse': {
-            'units': 'watt/m2',
-            'standard_name': 'vegetation_infrared_diffuse',
-            'long_name': 'Vegetation corrected infrared diffuse solar \
-                radiation'
+        "veg_ir_diffuse": {
+            "units": "watt/m2",
+            "standard_name": "vegetation_infrared_diffuse",
+            "long_name": "Vegetation corrected infrared diffuse solar \
+                radiation",
         },
-        'veg_vis_beam': {
-            'units': 'watt/m2',
-            'standard_name': 'vegetation_visible_beam',
-            'long_name': 'Vegetation corrected visible beam solar radiation'
+        "veg_vis_beam": {
+            "units": "watt/m2",
+            "standard_name": "vegetation_visible_beam",
+            "long_name": "Vegetation corrected visible beam solar radiation",
         },
-        'veg_vis_diffuse': {
-            'units': 'watt/m2',
-            'standard_name': 'vegetation_visible_diffuse',
-            'long_name': 'Vegetation corrected visible diffuse solar radiation'
-        }
+        "veg_vis_diffuse": {
+            "units": "watt/m2",
+            "standard_name": "vegetation_visible_diffuse",
+            "long_name": "Vegetation corrected visible diffuse solar radiation",
+        },
     }
 
-    def distribute(self, date_time, cloud_factor, illum_ang, cosz, azimuth,
-                   albedo_vis, albedo_ir):
+    def __init__(self, config, topo):
+        super().__init__(config, topo)
+
+        # For calculations
+        self.vis_beam = None
+        self.vis_diffuse = None
+        self.ir_beam = None
+        self.ir_diffuse = None
+        self.cloud_factor = None
+
+        # Clear sky
+        self.clear_vis_beam = None
+        self.clear_vis_diffuse = None
+        self.clear_ir_beam = None
+        self.clear_ir_diffuse = None
+
+        # Cloud corrected
+        self.cloud_vis_beam = None
+        self.cloud_vis_diffuse = None
+        self.cloud_ir_beam = None
+        self.cloud_ir_diffuse = None
+
+        # Canopy corrected
+        self.veg_vis_beam = None
+        self.veg_vis_diffuse = None
+        self.veg_ir_beam = None
+        self.veg_ir_diffuse = None
+
+        # Net Solar
+        self.net_solar = None
+
+    def distribute(
+        self,
+        date_time: datetime,
+        cloud_factor: np.ndarray,
+        illumination_angles: np.ndarray,
+        cos_z: float,
+        azimuth: float,
+        albedo_vis: np.ndarray,
+        albedo_ir: np.ndarray,
+    ) -> None:
         """
         Distribute solar radiation given a Panda's dataframe for a single time
-        step. Calls :mod:`smrf.distribute.ImageData._distribute`.
+        step.
 
-        If the sun is up, i.e. ``cosz > 0``, then the following steps are
+        If the sun is up, i.e. ``cos_z > 0``, then the following steps are
         performed:
 
         1. Model clear sky radiation
@@ -153,163 +198,149 @@ class Solar(VariableBase):
         4. Calculate net radiation with
             :mod:`!smrf.distribute.solar.solar.calc_net`
 
-        If sun is down, then all calculated values will be set to ``None``,
+        If sun is down, then initialized attributes will maintain `None`,
         signaling the output functions to put zeros in their place.
 
+        Sets
+         * :py:attr:`clear_vis_beam`
+         * :py:attr:`clear_vis_diffuse`
+         * :py:attr:`clear_ir_beam`
+         * :py:attr:`clear_ir_diffuse`
+
         Args:
+            date_time: Current processed datetime
             cloud_factor: Numpy array of the domain for cloud factor
-            cosz: cosine of the zenith angle for the basin, from
-                :mod:`smrf.envphys.radiation.sunang`
+            illumination_angles: Illumination angels from :py:mod:`topocalc.illumination_angle`
+            cos_z: cosine of the zenith angle for the basin, from
+                :py:mod:`smrf.envphys.radiation.sunang`
             azimuth: azimuth to the sun for the basin, from
-                :mod:`smrf.envphys.radiation.sunang`
+                :py:mod:`smrf.envphys.radiation.sunang`
             albedo_vis: numpy array for visible albedo, from
-                :mod:`smrf.distribute.albedo.Albedo.albedo_vis`
+                :py:mod:`smrf.distribute.albedo.Albedo.albedo_vis`
             albedo_ir: numpy array for infrared albedo, from
-                :mod:`smrf.distribute.albedo.Albedo.albedo_ir`
+                :py:mod:`smrf.distribute.albedo.Albedo.albedo_ir`
+
         """
 
-        self._logger.debug(f'{date_time} Distributing solar')
+        self._logger.debug(f"{date_time} Distributing solar")
 
         # Only calculate solar if the sun is up
-        if cosz > 0:
+        if cos_z > 0:
             self.cloud_factor = cloud_factor.copy()
 
-            # --------------------------------------------
-            # calculate clear sky radiation
-
-            # Not all the clean but it will work for now
-            val_beam, val_diffuse, horizon_angles = self.calc_stoporad(
-                date_time, illum_ang, cosz, azimuth,
-                albedo_ir, IR_WAVELENGTHS)
-
-            setattr(self, 'clear_ir_beam', val_beam)
-            setattr(self, 'clear_ir_diffuse', val_diffuse)
-            self.ir_beam = val_beam.copy()
-            self.ir_diffuse = val_diffuse.copy()
-
-            val_beam, val_diffuse, horizon_angles = self.calc_stoporad(
-                date_time, illum_ang, cosz, azimuth,
-                albedo_vis, VISIBLE_WAVELENGTHS,
-                horizon_angles
+            # Clear sky radiation
+            self.clear_ir_beam, self.clear_ir_diffuse, horizon_angles = (
+                self.calc_stoporad(
+                    date_time,
+                    illumination_angles,
+                    cos_z,
+                    azimuth,
+                    albedo_ir,
+                    IR_WAVELENGTHS,
+                )
             )
 
-            setattr(self, 'clear_vis_beam', val_beam)
-            setattr(self, 'clear_vis_diffuse', val_diffuse)
-            self.vis_beam = val_beam.copy()
-            self.vis_diffuse = val_diffuse.copy()
+            self.ir_beam = self.clear_ir_beam.copy()
+            self.ir_diffuse = self.clear_ir_diffuse.copy()
 
-            # --------------------------------------------
-            # correct clear sky for cloud
-            if self.config['correct_cloud']:
+            self.clear_vis_beam, self.clear_vis_diffuse, horizon_angles = (
+                self.calc_stoporad(
+                    date_time,
+                    illumination_angles,
+                    cos_z,
+                    azimuth,
+                    albedo_vis,
+                    VISIBLE_WAVELENGTHS,
+                    horizon_angles,
+                )
+            )
+
+            self.vis_beam = self.clear_vis_beam.copy()
+            self.vis_diffuse = self.clear_vis_diffuse.copy()
+
+            # Correct clear sky for cloud cover
+            if self.config["correct_cloud"]:
                 self.cloud_correct()
-                # copy output for output variables
+                # Copy output to store as output files when requested
                 self.cloud_vis_beam = self.vis_beam.copy()
                 self.cloud_vis_diffuse = self.vis_diffuse.copy()
                 self.cloud_ir_beam = self.ir_beam.copy()
                 self.cloud_ir_diffuse = self.ir_diffuse.copy()
 
-            # --------------------------------------------
-            # correct cloud for veg
-            if self.config['correct_veg']:
-                self.veg_correct(illum_ang)
+            # Correct cloud for vegetation
+            if self.config["correct_veg"]:
+                self.veg_correct(illumination_angles)
+                # Copy output to store as output files when requested
                 self.veg_vis_beam = self.vis_beam.copy()
                 self.veg_vis_diffuse = self.vis_diffuse.copy()
                 self.veg_ir_beam = self.ir_beam.copy()
                 self.veg_ir_diffuse = self.ir_diffuse.copy()
 
-            # --------------------------------------------
-            # calculate net radiation
+            # Calculate net radiation
             self.calc_net(albedo_vis, albedo_ir)
 
         else:
-
-            self._logger.debug('Sun is down, see you in the morning!')
-
-            # clear sky
-            self.clear_vis_beam = None
-            self.clear_vis_diffuse = None
-            self.clear_ir_beam = None
-            self.clear_ir_diffuse = None
-
-            # cloud
-            self.cloud_vis_beam = None
-            self.cloud_vis_diffuse = None
-            self.cloud_ir_beam = None
-            self.cloud_ir_diffuse = None
-
-            # canopy
-            self.veg_vis_beam = None
-            self.veg_vis_diffuse = None
-            self.veg_ir_beam = None
-            self.veg_ir_diffuse = None
-
-            # net
-            self.net_solar = None
+            self._logger.debug("Sun is down, see you in the morning!")
 
     def cloud_correct(self):
         """
         Correct the modeled clear sky radiation for cloud cover using
-        :mod:`smrf.envphys.radiation.cloud.cf_cloud`.
-        Sets :py:attr:`cloud_vis_beam` and :py:attr:`cloud_vis_diffuse`.
+        py:mod:`smrf.envphys.radiation.cloud.cf_cloud`.
+
+        Sets
+         * :py:attr:`cloud_vis_beam`
+         * :py:attr:`cloud_vis_diffuse`
         """
 
-        self._logger.debug('Correcting clear sky radiation for clouds')
+        self._logger.debug("Correcting clear sky radiation for clouds")
+
+        # Visible
         self.vis_beam, self.vis_diffuse = cloud.cf_cloud(
-            self.vis_beam,
-            self.vis_diffuse,
-            self.cloud_factor)
+            self.vis_beam, self.vis_diffuse, self.cloud_factor
+        )
 
+        # IR
         self.ir_beam, self.ir_diffuse = cloud.cf_cloud(
-            self.ir_beam,
-            self.ir_diffuse,
-            self.cloud_factor)
+            self.ir_beam, self.ir_diffuse, self.cloud_factor
+        )
 
-    def veg_correct(self, illum_ang):
+    def veg_correct(self, illumination_angles: np.ndarray) -> None:
         """
         Correct the cloud adjusted radiation for vegetation using
-        :mod:`smrf.envphys.radiation.vegetation.veg_beam` and
-        :mod:`smrf.envphys.radiation.vegetation.veg_diffuse`. Sets
-        :py:attr:`veg_vis_beam`, :py:attr:`veg_vis_diffuse`,
-        :py:attr:`veg_ir_beam`, and :py:attr:`veg_ir_diffuse`.
+        :py:mod:`smrf.envphys.radiation.vegetation.veg_beam` and
+        :py:mod:`smrf.envphys.radiation.vegetation.veg_diffuse`.
+
+        Sets:
+         * :py:attr:`veg_vis_beam`
+         * :py:attr:`veg_vis_diffuse`
+         * :py:attr:`veg_ir_beam`
+         * :py:attr:`veg_ir_diffuse`
 
         Args:
-            illum_ang: numpy array of the illumination angle over the DEM, from
-                :mod:`smrf.envphys.radiation.sunang`
+            illumination_angles: Illumination angles from :py:mod:`smrf.envphys.radiation.sunang`
         """
 
-        self._logger.debug('Correcting radiation for vegetation')
+        self._logger.debug("Correcting radiation for vegetation")
 
-        # calculate for visible
-        # correct beam
+        # Visible
+        ## Correct beam
         self.vis_beam = vegetation.solar_veg_beam(
-            self.vis_beam,
-            self.veg_height,
-            illum_ang,
-            self.veg_k
+            self.vis_beam, self.veg_height, illumination_angles, self.veg_k
         )
 
-        # correct diffuse
-        self.vis_diffuse = vegetation.solar_veg_diffuse(
-            self.vis_diffuse,
-            self.veg_tau
-        )
+        ## Correct diffuse
+        self.vis_diffuse = vegetation.solar_veg_diffuse(self.vis_diffuse, self.veg_tau)
 
-        # calculate for ir
-        # correct beam
+        # IR
+        ## Correct beam
         self.ir_beam = vegetation.solar_veg_beam(
-            self.ir_beam,
-            self.veg_height,
-            illum_ang,
-            self.veg_k
+            self.ir_beam, self.veg_height, illumination_angles, self.veg_k
         )
 
-        # correct diffuse
-        self.ir_diffuse = vegetation.solar_veg_diffuse(
-            self.ir_diffuse,
-            self.veg_tau
-        )
+        ## Correct diffuse
+        self.ir_diffuse = vegetation.solar_veg_diffuse(self.ir_diffuse, self.veg_tau)
 
-    def calc_net(self, albedo_vis, albedo_ir):
+    def calc_net(self, albedo_vis: np.ndarray, albedo_ir: np.ndarray,) -> None:
         """
         Calculate the net radiation using the vegetation adjusted radiation.
         Sets :py:attr:`net_solar`.
@@ -321,30 +352,38 @@ class Solar(VariableBase):
                 :mod:`smrf.distribute.albedo.Albedo.albedo_ir`
         """
 
-        self._logger.debug('Calculating net radiation')
+        self._logger.debug("Calculating net radiation")
 
-        # calculate net visible
+        # Visible
         vv_n = (self.vis_beam + self.vis_diffuse) * (1 - albedo_vis)
         vv_n = utils.set_min_max(vv_n, self.min, self.max)
 
-        # calculate net ir
+        # IR
         vir_n = (self.ir_beam + self.ir_diffuse) * (1 - albedo_ir)
         vir_n = utils.set_min_max(vir_n, self.min, self.max)
 
-        # calculate total net
+        # Net Solar
         self.net_solar = vv_n + vir_n
         self.net_solar = utils.set_min_max(self.net_solar, self.min, self.max)
 
     def calc_stoporad(
-        self, date_time, illum_ang, cosz, azimuth, albedo_surface,
-        wavelength_range=VISIBLE_WAVELENGTHS, horizon_angles=None):
-        """Run stoporad for the given date_time and wavelength range
+        self,
+        date_time: datetime,
+        illumination_angles: np.ndarray,
+        cos_z: float,
+        azimuth: float,
+        albedo_surface: np.ndarray,
+        wavelength_range=VISIBLE_WAVELENGTHS,
+        horizon_angles=None,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Run stoporad for the given date_time and wavelength range.
 
         Args:
             date_time (datetime): datetime object
-            illum_ang (np.array): numpy array of cosing of local illumination
+            illumination_angles (np.array): numpy array of cosing of local illumination
                 angles
-            cosz (float): cosine of the zenith angle for the basin
+            cos_z (float): cosine of the zenith angle for the basin
             azimuth (float): azimuth to the sun for the basin
             albedo_surface (np.array): albedo should match wavelengths
                 specified
@@ -353,20 +392,20 @@ class Solar(VariableBase):
             horizon_angles (list, optional): Cached calculated angles.
 
         Returns:
-            tuple: clear sky beam and diffuse radiation
+            Tuple: clear sky beam and diffuse radiation
         """
 
         return toporad.stoporad(
             date_time,
             self.topo,
-            cosz,
+            cos_z,
             azimuth,
-            illum_ang,
+            illumination_angles,
             albedo_surface,
             wavelength_range=wavelength_range,
             horizon_angles=horizon_angles,
-            tau_elevation=self.config['clear_opt_depth'],
-            tau=self.config['clear_tau'],
-            omega=self.config['clear_omega'],
-            scattering_factor=self.config['clear_gamma']
+            tau_elevation=self.config["clear_opt_depth"],
+            tau=self.config["clear_tau"],
+            omega=self.config["clear_omega"],
+            scattering_factor=self.config["clear_gamma"],
         )
