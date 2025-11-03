@@ -40,7 +40,7 @@ from smrf.envphys import sunang
 from smrf.framework import ascii_art, logger
 from smrf.output import output_netcdf
 from smrf.utils.utils import backup_input, date_range, getqotw
-from topocalc.shade import shade
+from topocalc.illumination_angle import illumination_angle
 
 
 class SMRF:
@@ -460,20 +460,25 @@ class SMRF:
             )
 
             # Illumination angle
-            illum_ang = None
+            illumination_angles = None
             if cosz > 0:
-                illum_ang = shade(self.topo.sin_slope, self.topo.aspect, azimuth, cosz)
+                illumination_angles = illumination_angle(
+                    self.topo.sin_slope, self.topo.aspect, azimuth, cosz
+                )
 
             # Albedo
             self.distribute[Albedo.DISTRIBUTION_KEY].distribute(
-                timestep, illum_ang, self.distribute[Precipitation.DISTRIBUTION_KEY].storm_days
+                timestep,
+                timestep,
+                illumination_angles,
+                self.distribute[Precipitation.DISTRIBUTION_KEY].storm_days,
             )
 
             # Net Solar
             self.distribute[Solar.DISTRIBUTION_KEY].distribute(
                 timestep,
                 cloud_factor,
-                illum_ang,
+                illumination_angles,
                 cosz,
                 azimuth,
                 self.distribute[Albedo.DISTRIBUTION_KEY].albedo_vis,

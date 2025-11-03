@@ -9,6 +9,7 @@ from smrf.envphys.albedo import albedo
 from smrf.envphys.solar import irradiance, toporad
 from smrf.envphys.sunang import sunang
 from smrf.tests.smrf_test_case_lakes import SMRFTestCaseLakes
+from topocalc.illumination_angle import illumination_angle
 
 
 class TestToporad(SMRFTestCaseLakes):
@@ -48,11 +49,9 @@ class TestToporad(SMRFTestCaseLakes):
             cls.solar_irradiance,
             cls.cosz)
 
-        cls.illum_ang = shade(
-            cls.topo.sin_slope,
-            cls.topo.aspect,
-            cls.azimuth,
-            cls.cosz)
+        cls.illum_ang = illumination_angle(
+            cls.topo.sin_slope, cls.topo.aspect, cls.azimuth, cls.cosz
+        )
 
     def test_elevrad(self):
 
