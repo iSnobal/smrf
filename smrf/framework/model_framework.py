@@ -37,7 +37,7 @@ from smrf.distribute import (
 )
 from smrf.data import GriddedInput, InputData, InputGribHRRR, Topo
 from smrf.envphys import sunang
-from smrf.framework import art, logger
+from smrf.framework import ascii_art, logger
 from smrf.output import output_netcdf
 from smrf.utils.utils import backup_input, date_range, getqotw
 from topocalc.shade import shade
@@ -75,8 +75,7 @@ class SMRF:
         else:
             self._logger = external_logger
 
-        # add the title
-        self.title(2)
+        self._logger.info(ascii_art.TITLE_SM)
 
         # Make the output directory if it do not exist
         out = ucfg.cfg["output"]["out_location"]
@@ -552,20 +551,6 @@ class SMRF:
             output_count == len(self.date_time)
         ):
             self.output_writer.output(current_time_step)
-
-    def title(self, option):
-        """
-        A little title to go at the top of the logger file
-        """
-
-        if option == 1:
-            title = art.title1
-
-        elif option == 2:
-            title = art.title2
-
-        for line in title:
-            self._logger.info(line)
 
 
 def run_smrf(config, external_logger=None):
