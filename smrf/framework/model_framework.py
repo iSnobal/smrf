@@ -191,6 +191,29 @@ class SMRF:
 
         self.topo = Topo(self.config["topo"])
 
+    def distribute_precip(self) -> None:
+        """
+        Helper method to streamline enqueuing precip. This variables has a lot of
+        dependencies and is required for by others such as albedo.
+        """
+        init_args = dict(config=self.config, topo=self.topo)
+
+        # Need air temp and vapor pressure for precip phase
+        self.distribute[AirTemperature.DISTRIBUTION_KEY] = AirTemperature(**init_args)
+        self.distribute[VaporPressure.DISTRIBUTION_KEY] = VaporPressure(**init_args)
+
+        if (
+            self.config[Precipitation.DISTRIBUTION_KEY]["precip_rescaling_model"]
+            == "winstral"
+        ):
+            self.distribute[Wind.DISTRIBUTION_KEY] = Wind(**init_args)
+
+        self.distribute[Precipitation.DISTRIBUTION_KEY] = Precipitation(
+            **init_args,
+            start_date=self.start_date,
+            time_step=self.config["time"]["time_step"],
+        )
+
     def create_distribution(self):
         """
         This initializes the distribution classes based on the configFile
@@ -228,18 +251,7 @@ class SMRF:
 
         # Precipitation
         if Precipitation.is_requested(self.output_variables):
-            # Need air temp and vapor pressure for precip phase
-            self.distribute[AirTemperature.DISTRIBUTION_KEY] = AirTemperature(**init_args)
-            self.distribute[VaporPressure.DISTRIBUTION_KEY] = VaporPressure(**init_args)
-
-            if self.config[Precipitation.DISTRIBUTION_KEY]["precip_rescaling_model"] == "winstral":
-                self.distribute[Wind.DISTRIBUTION_KEY] = Wind(**init_args)
-
-            self.distribute[Precipitation.DISTRIBUTION_KEY] = Precipitation(
-                **init_args,
-                start_date=self.start_date,
-                time_step=self.config["time"]["time_step"],
-            )
+            self.distribute_precip()
 
         # Cloud_factor
         if CloudFactor.is_requested(self.output_variables):
@@ -250,19 +262,14 @@ class SMRF:
             Solar.is_requested(self.output_variables) or
             Albedo.is_requested(self.output_variables)
         ):
-            # Need precipitation (days since last storm)
-            self.distribute[AirTemperature.DISTRIBUTION_KEY] = AirTemperature(**init_args)
-            self.distribute[VaporPressure.DISTRIBUTION_KEY] = VaporPressure(**init_args)
-            self.distribute[Precipitation.DISTRIBUTION_KEY] = Precipitation(
-                **init_args,
-                start_date=self.start_date,
-                time_step=self.config["time"]["time_step"],
-            )
             # Need clouds for solar, either use external one or add to distributed list
             if "hrrr_cloud" not in self.output_variables:
                 self.distribute[CloudFactor.DISTRIBUTION_KEY] = CloudFactor(**init_args)
 
+            # Need precipitation for albedo (days since last storm)
+            self.distribute_precip()
             self.distribute[Albedo.DISTRIBUTION_KEY] = Albedo(**init_args)
+
             self.distribute[Solar.DISTRIBUTION_KEY] = Solar(**init_args)
         else:
             self._logger.info("Using HRRR solar in iSnobal")
