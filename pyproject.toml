@@ -36,7 +36,7 @@ dependencies = [
     "regex<2021",
     "scipy<1.12",
     "spatialnc>=0.2.12",
-    "topocalc @ git+https://github.com/iSnobal/topocalc.git@20251001",
+    "topocalc @ git+https://github.com/iSnobal/topocalc.git@20251105",
     "utm==0.5",
     "xarray<2023",
 ]

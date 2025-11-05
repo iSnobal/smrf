@@ -5,6 +5,7 @@ from .variable_base import VariableBase
 from .precipitation import Precipitation
 from .soil_temp import SoilTemperature
 from .solar import Solar
+from .solar_hrrr import SolarHRRR
 from .thermal import Thermal
 from .thermal_hrrr import ThermalHRRR
 from .vapor_pressure import VaporPressure
@@ -18,6 +19,7 @@ __all__ = [
     "Precipitation",
     "SoilTemperature",
     "Solar",
+    "SolarHRRR",
     "Thermal",
     "ThermalHRRR",
     "VaporPressure",

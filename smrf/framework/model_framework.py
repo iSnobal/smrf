@@ -25,17 +25,25 @@ from datetime import datetime
 from os.path import abspath, join
 
 import netCDF4
-import numpy as np
 import pandas as pd
 import pytz
 from inicheck.config import UserConfig
 from inicheck.output import generate_config, print_config_report
 from inicheck.tools import check_config, get_user_config
-from smrf.distribute import (
-    AirTemperature, VaporPressure, Wind, Precipitation, Solar, Albedo, CloudFactor,
-    Thermal, ThermalHRRR, SoilTemperature
-)
 from smrf.data import GriddedInput, InputData, InputGribHRRR, Topo
+from smrf.distribute import (
+    AirTemperature,
+    Albedo,
+    CloudFactor,
+    Precipitation,
+    SoilTemperature,
+    Solar,
+    SolarHRRR,
+    Thermal,
+    ThermalHRRR,
+    VaporPressure,
+    Wind,
+)
 from smrf.envphys import sunang
 from smrf.framework import ascii_art, logger
 from smrf.output import output_netcdf
@@ -127,9 +135,18 @@ class SMRF:
         ]:
             self.config[section]["threads"] = self.config["system"]["threads"]
 
-        # if a gridded dataset will be used
+        # Gridded dataset
         self.forecast_flag = False
         self.gridded = True if GriddedInput.TYPE in self.config else False
+        self.load_hrrr = False
+        if self.gridded:
+            self.load_hrrr = self.config[GriddedInput.TYPE]["data_type"] in [
+                InputGribHRRR.DATA_TYPE
+            ]
+            # List of HRRR variables loaded with GDAL
+            self.config[GriddedInput.TYPE].setdefault(
+                InputGribHRRR.GDAL_VARIABLE_KEY, []
+            )
 
         self.output_variables = set(self.config["output"]["variables"])
         self._logger.info(
@@ -271,8 +288,23 @@ class SMRF:
             self.distribute[Albedo.DISTRIBUTION_KEY] = Albedo(**init_args)
 
             self.distribute[Solar.DISTRIBUTION_KEY] = Solar(**init_args)
-        else:
-            self._logger.info("Using HRRR solar in iSnobal")
+        elif (
+            SolarHRRR.INI_VARIABLE in self.output_variables or
+            SolarHRRR.is_requested(self.output_variables) in self.output_variables
+        ):
+            # Need precipitation for albedo (days since last storm)
+            self.distribute_precip()
+            self.distribute[Albedo.DISTRIBUTION_KEY] = Albedo(**init_args)
+
+            # Trigger loading all shortwave variables from HRRR
+            self.config[GriddedInput.TYPE][InputGribHRRR.GDAL_VARIABLE_KEY] += (
+                SolarHRRR.GRIB_VARIABLES
+            )
+
+            self.distribute[SolarHRRR.DISTRIBUTION_KEY] = SolarHRRR(**init_args)
+
+            # Add the required 'net_solar' output when requesting HRRR solar
+            self.output_variables.add(SolarHRRR.DEFAULT_OUTPUT)
 
         # Thermal radiation
         if Thermal.is_requested(self.output_variables):
@@ -291,9 +323,9 @@ class SMRF:
             self.distribute[AirTemperature.DISTRIBUTION_KEY] = AirTemperature(**init_args)
 
             # Trigger loading of longwave from HRRR
-            self.config["gridded"].setdefault(
-                InputGribHRRR.GDAL_VARIABLE_KEY, []
-            ).append(ThermalHRRR.GRIB_NAME)
+            self.config[GriddedInput.TYPE][InputGribHRRR.GDAL_VARIABLE_KEY].append(
+                ThermalHRRR.GRIB_NAME
+            )
 
             self.distribute[ThermalHRRR.DISTRIBUTION_KEY] = ThermalHRRR(topo=self.topo)
 
@@ -464,35 +496,44 @@ class SMRF:
         # Solar
         if Solar.DISTRIBUTION_KEY in self.distribute:
             # Sun angle for time step
-            cosz, azimuth, rad_vec = sunang.sunang(
+            cos_z, azimuth, _rad_vec = sunang.sunang(
                 timestep.astimezone(pytz.utc), self.topo.basin_lat, self.topo.basin_long
             )
 
-            # Illumination angle
             illumination_angles = None
-            if cosz > 0:
+            if cos_z > 0:
                 illumination_angles = illumination_angle(
-                    self.topo.sin_slope, self.topo.aspect, azimuth, cosz
+                    self.topo.sin_slope, self.topo.aspect, azimuth, cos_z
                 )
 
             # Albedo
             self.distribute[Albedo.DISTRIBUTION_KEY].distribute(
                 timestep,
-                timestep,
                 illumination_angles,
                 self.distribute[Precipitation.DISTRIBUTION_KEY].storm_days,
             )
 
-            # Net Solar
-            self.distribute[Solar.DISTRIBUTION_KEY].distribute(
-                timestep,
-                cloud_factor,
-                illumination_angles,
-                cosz,
-                azimuth,
-                self.distribute[Albedo.DISTRIBUTION_KEY].albedo_vis,
-                self.distribute[Albedo.DISTRIBUTION_KEY].albedo_ir,
-            )
+            if isinstance(self.distribute[Solar.DISTRIBUTION_KEY], Solar):
+                # Net Solar
+                self.distribute[Solar.DISTRIBUTION_KEY].distribute(
+                    timestep,
+                    cloud_factor,
+                    illumination_angles,
+                    cos_z,
+                    azimuth,
+                    self.distribute[Albedo.DISTRIBUTION_KEY].albedo_vis,
+                    self.distribute[Albedo.DISTRIBUTION_KEY].albedo_ir,
+                )
+            elif isinstance(self.distribute[SolarHRRR.DISTRIBUTION_KEY], SolarHRRR):
+                self.distribute[SolarHRRR.DISTRIBUTION_KEY].distribute(
+                    timestep,
+                    self.data.solar,
+                    cos_z,
+                    azimuth,
+                    illumination_angles,
+                    albedo_vis=self.distribute[Albedo.DISTRIBUTION_KEY].albedo_vis,
+                    albedo_ir=self.distribute[Albedo.DISTRIBUTION_KEY].albedo_ir,
+                )
 
         # Thermal radiation
         if Thermal.DISTRIBUTION_KEY in self.distribute:
