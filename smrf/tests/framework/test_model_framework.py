@@ -1,9 +1,18 @@
 import pytz
 from pandas import to_datetime
 
-from smrf.framework.model_framework import SMRF
-from smrf.tests.smrf_test_case import SMRFTestCase
+from unittest.mock import MagicMock
 
+from smrf.framework.model_framework import SMRF
+from smrf import distribute
+from smrf.data import Topo
+
+from smrf.tests.smrf_test_case import SMRFTestCase
+from smrf.tests.smrf_test_case_lakes import SMRFTestCaseLakes
+
+from inicheck.tools import cast_all_variables
+
+TOPO_MOCK = MagicMock(spec=Topo, instance=True)
 
 class TestModelFramework(SMRFTestCase):
     @classmethod
@@ -98,4 +107,94 @@ class TestModelFrameworkMST(SMRFTestCase):
         self.assertEqual(
             self.smrf.date_time[0].tz.zone,
             self.TIMEZONE.zone
+        )
+
+class TestModelFrameworkLakes(SMRFTestCaseLakes):
+    """
+    Test initialization with a HRRR based run
+    """
+    def setUp(self):
+        self.smrf = SMRF(self.base_config)
+        self.smrf.topo = TOPO_MOCK
+
+    def test_init(self):
+        self.assertTrue(self.smrf.gridded)
+        self.assertEqual(True, self.smrf.load_hrrr)
+        self.assertEqual([], self.smrf.config["gridded"]["hrrr_gdal_variables"])
+
+    def test_distribute_default_gridded(self):
+        self.smrf.create_distribution()
+
+        for distribution_class in [
+            distribute.AirTemperature,
+            distribute.VaporPressure,
+            distribute.Wind,
+            distribute.Precipitation,
+            distribute.Albedo,
+            distribute.Thermal,
+            distribute.Solar,
+            distribute.CloudFactor,
+            distribute.SoilTemperature
+        ]:
+            self.assertIsInstance(
+                self.smrf.distribute[distribution_class.DISTRIBUTION_KEY],
+                distribution_class,
+            )
+
+    def test_distribute_hrrr_thermal(self):
+        output_variables = ["hrrr_thermal"]
+        config = self.base_config_copy()
+        config.cfg["output"]["variables"] = output_variables
+        config = cast_all_variables(config, config.mcfg)
+
+        smrf = SMRF(config)
+        smrf.topo = TOPO_MOCK
+
+        self.assertEquals(set(output_variables), smrf.output_variables)
+        self.assertEquals({}, smrf.distribute)
+
+        smrf.create_distribution()
+
+        self.assertIsInstance(
+            smrf.distribute[distribute.ThermalHRRR.DISTRIBUTION_KEY],
+            distribute.ThermalHRRR,
+        )
+        # Special case handling for HRRR Thermal
+        self.assertTrue(distribute.Thermal.DISTRIBUTION_KEY in smrf.output_variables)
+        self.assertFalse(distribute.ThermalHRRR.INI_VARIABLE in smrf.output_variables)
+        # Dependencies
+        self.assertIsInstance(
+            smrf.distribute[distribute.AirTemperature.DISTRIBUTION_KEY],
+            distribute.AirTemperature,
+        )
+
+    def test_distribute_hrrr_solar(self):
+        output_variables = ["hrrr_solar"]
+        config = self.base_config_copy()
+        config.cfg["output"]["variables"] = output_variables
+        config = cast_all_variables(config, config.mcfg)
+
+        smrf = SMRF(config)
+        smrf.topo = TOPO_MOCK
+
+        self.assertEquals(set(output_variables), smrf.output_variables)
+        self.assertEquals({}, smrf.distribute)
+
+        smrf.create_distribution()
+
+        self.assertIsInstance(
+            smrf.distribute[distribute.SolarHRRR.DISTRIBUTION_KEY],
+            distribute.SolarHRRR,
+        )
+        # Special case handling for HRRR Solar
+        self.assertTrue(distribute.Solar.DISTRIBUTION_KEY in smrf.output_variables)
+        self.assertFalse(distribute.SolarHRRR.INI_VARIABLE in smrf.output_variables)
+        # Dependencies
+        self.assertIsInstance(
+            smrf.distribute[distribute.Precipitation.DISTRIBUTION_KEY],
+            distribute.Precipitation,
+        )
+        self.assertIsInstance(
+            smrf.distribute[distribute.Albedo.DISTRIBUTION_KEY],
+            distribute.Albedo,
         )

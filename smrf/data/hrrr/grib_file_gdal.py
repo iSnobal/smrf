@@ -72,7 +72,7 @@ class GribFileGdal:
 
         :param in_file: str - HRRR file to load
         :param band_list: List of tuples holding band numbers for source and
-                          desitnation bands. (src_band, dst_band)
+                          destination bands. (src_band, dst_band)
 
         :returns:
             gdal.Dataset in a context block

@@ -7,7 +7,7 @@ from smrf.envphys.solar.cloud import get_hrrr_cloud
 from smrf.envphys.vapor_pressure import rh2vp
 
 from .gridded_input import GriddedInput
-from smrf.distribute import ThermalHRRR
+from smrf.distribute import SolarHRRR, ThermalHRRR
 
 
 class InputGribHRRR(GriddedInput):
@@ -134,6 +134,14 @@ class InputGribHRRR(GriddedInput):
         # DLWRF from HRRR set the "thermal"
         if data.get(ThermalHRRR.GRIB_NAME, None) is not None:
             setattr(self, ThermalHRRR.DISTRIBUTION_KEY, data[ThermalHRRR.GRIB_NAME])
+
+        # DSWRF, VBDSF, and VDDSF for shortwave
+        for variable in SolarHRRR.GRIB_VARIABLES:
+            if data.get(variable, None) is not None:
+                if not hasattr(self, SolarHRRR.DISTRIBUTION_KEY):
+                    setattr(self, SolarHRRR.DISTRIBUTION_KEY, {})
+
+                getattr(self, SolarHRRR.DISTRIBUTION_KEY)[variable] = data[variable]
 
     def calculate_wind(self, data):
         """
