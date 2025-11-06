@@ -3,9 +3,10 @@ from datetime import timedelta
 import netCDF4 as nc
 import numpy as np
 from dateutil.parser import parse
-from .variable_base import VariableBase
-from smrf.envphys import precip, Snow, storms
+from smrf.envphys import Snow, precip, storms
 from smrf.utils import utils
+
+from .variable_base import VariableBase
 
 
 class Precipitation(VariableBase):
@@ -143,18 +144,17 @@ class Precipitation(VariableBase):
 
             f.close()
 
-        self.ppt_threshold = self.config['storm_mass_threshold']
-
-        # Time steps needed to end a storm definition
-        self.time_to_end_storm = self.config['marks2017_timesteps_to_end_storms']  # noqa
-
-        self.nasde_model = self.config['new_snow_density_model']
+        self.ppt_threshold = self.config["storm_mass_threshold"]
+        self.nasde_model = self.config["new_snow_density_model"]
 
         self._logger.info(
-            """Using {0} for the new accumulated snow density"""
-            """ model:  """.format(self.nasde_model))
+            "Using {0} for the new accumulated snow density model: ".format(self.nasde_model)
+        )
 
         if self.nasde_model == 'marks2017':
+            # Time steps needed to end a storm definition
+            self.time_to_end_storm = self.config["marks2017_timesteps_to_end_storms"]
+
             self.storm_total = np.zeros((self.topo.ny, self.topo.nx))
 
             self.storms = []
@@ -169,11 +169,11 @@ class Precipitation(VariableBase):
             self.storms, storm_count = storms.tracking_by_station(
                 data.precip,
                 mass_thresh=self.ppt_threshold,
-                steps_thresh=self.time_to_end_storm)
+                steps_thresh=self.time_to_end_storm,
+            )
             self.corrected_precip = storms.clip_and_correct(
-                data.precip,
-                self.storms,
-                stations=self.stations)
+                data.precip, self.storms, stations=self.stations
+            )
 
             if storm_count != 0:
                 self._logger.info(
