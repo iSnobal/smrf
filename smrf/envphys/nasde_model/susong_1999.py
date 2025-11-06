@@ -27,51 +27,15 @@ class Susong1999:
     0.5       Inf      0            0
     ========= ======== ============ ===============
     """
-
     # Above table
     TABLE = [
-        {
-            'temp_min': -1e309,
-            'temp_max': -5,
-            'snow': 1,
-            'density': 75
-        },
-        {
-            'temp_min': -5,
-            'temp_max': -3,
-            'snow': 1,
-            'density': 100
-        },
-        {
-            'temp_min': -3,
-            'temp_max': -1.5,
-            'snow': 1,
-            'density': 150
-        },
-        {
-            'temp_min': -1.5,
-            'temp_max': -0.5,
-            'snow': 1,
-            'density': 175
-        },
-        {
-            'temp_min': -0.5,
-            'temp_max': 0.0,
-            'snow': 0.75,
-            'density': 200
-        },
-        {
-            'temp_min': 0.0,
-            'temp_max': 0.5,
-            'snow': 0.25,
-            'density': 250
-        },
-        {
-            'temp_min': 0.5,
-            'temp_max': 1e309,
-            'snow': 0,
-            'density': 0
-        }
+        {"temp_min": -1e309, "temp_max": -5, "snow": 1, "density": 75},
+        {"temp_min": -5, "temp_max": -3, "snow": 1, "density": 100},
+        {"temp_min": -3, "temp_max": -1.5, "snow": 1, "density": 150},
+        {"temp_min": -1.5, "temp_max": -0.5, "snow": 1, "density": 175},
+        {"temp_min": -0.5, "temp_max": 0.0, "snow": 0.75, "density": 200},
+        {"temp_min": 0.0, "temp_max": 0.5, "snow": 0.25, "density": 250},
+        {"temp_min": 0.5, "temp_max": 1e309, "snow": 0, "density": 0},
     ]
 
     @staticmethod
@@ -94,23 +58,21 @@ class Susong1999:
 
         # if no precipitation return all zeros
         if np.sum(precipitation) == 0:
-            return {'pcs': ps, 'rho_s': sd}
+            return {"pcs": ps, "rho_s": sd}
 
-        # Determine the indices and allocate based on the table above
+        # Determine the indices and allocate based on the lookup table
         for row in Susong1999.TABLE:
-
             # Get values between the temperature ranges that have precipitation
-            ind = ((temperature >= row['temp_min'])
-                   & (temperature < row['temp_max']))
+            ind = (temperature >= row["temp_min"]) & (temperature < row["temp_max"])
             # set the percent snow
-            ps[ind] = row['snow']
+            ps[ind] = row["snow"]
 
             # set the density
-            sd[ind] = row['density']
+            sd[ind] = row["density"]
 
         # If there is no precipitation at a pixel, don't report a value
         # this may make isnobal crash, I'm not really sure
         ps[precipitation == 0] = 0
         sd[precipitation == 0] = 0
 
-        return {'pcs': ps, 'rho_s': sd}
+        return {"pcs": ps, "rho_s": sd}
