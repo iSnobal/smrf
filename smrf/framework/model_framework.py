@@ -108,13 +108,13 @@ class SMRF:
         self._setup_date_and_time()
 
         # need to align date time
-        if "date_method_start_decay" in self.config[Albedo.DISTRIBUTION_KEY].keys():
-            self.config[Albedo.DISTRIBUTION_KEY]["date_method_start_decay"] = self.config[
+        if self.config[Albedo.DISTRIBUTION_KEY].get("decay_start", None):
+            self.config[Albedo.DISTRIBUTION_KEY]["decay_start"] = self.config[
                 Albedo.DISTRIBUTION_KEY
-            ]["date_method_start_decay"].replace(tzinfo=self.time_zone)
-            self.config[Albedo.DISTRIBUTION_KEY]["date_method_end_decay"] = self.config[
+            ]["decay_start"].replace(tzinfo=self.time_zone)
+            self.config[Albedo.DISTRIBUTION_KEY]["decay_end"] = self.config[
                 Albedo.DISTRIBUTION_KEY
-            ]["date_method_end_decay"].replace(tzinfo=self.time_zone)
+            ]["decay_end"].replace(tzinfo=self.time_zone)
 
         # Add thread configuration to all distribute sections. Used by DK method.
         for section in [
@@ -258,7 +258,9 @@ class SMRF:
             Solar.is_requested(self.output_variables) or
             Albedo.is_requested(self.output_variables)
         ):
-            # Need precip for albedo:
+            # Need precipitation (days since last storm)
+            self.distribute[AirTemperature.DISTRIBUTION_KEY] = AirTemperature(**init_args)
+            self.distribute[VaporPressure.DISTRIBUTION_KEY] = VaporPressure(**init_args)
             self.distribute[Precipitation.DISTRIBUTION_KEY] = Precipitation(
                 **init_args,
                 start_date=self.start_date,
