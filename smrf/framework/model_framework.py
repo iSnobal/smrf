@@ -279,22 +279,21 @@ class SMRF:
             Solar.is_requested(self.output_variables) or
             Albedo.is_requested(self.output_variables)
         ):
-            # Need clouds for solar, either use external one or add to distributed list
-            if "hrrr_cloud" not in self.output_variables:
-                self.distribute[CloudFactor.DISTRIBUTION_KEY] = CloudFactor(**init_args)
-
-            # Need precipitation for albedo (days since last storm)
-            self.distribute_precip()
-            self.distribute[Albedo.DISTRIBUTION_KEY] = Albedo(**init_args)
+            # Need albedo unless an external data source is supplied
+            if 'albedo_external' not in self.output_variables:
+                # Need precipitation for albedo (days since last storm)
+                self.distribute_precip()
+                self.distribute[Albedo.DISTRIBUTION_KEY] = Albedo(**init_args)
 
             self.distribute[Solar.DISTRIBUTION_KEY] = Solar(**init_args)
         elif (
             SolarHRRR.INI_VARIABLE in self.output_variables or
             SolarHRRR.is_requested(self.output_variables) in self.output_variables
         ):
-            # Need precipitation for albedo (days since last storm)
-            self.distribute_precip()
-            self.distribute[Albedo.DISTRIBUTION_KEY] = Albedo(**init_args)
+            # Need albedo unless an external data source is supplied
+            if 'albedo_external' not in self.output_variables:
+                self.distribute_precip()
+                self.distribute[Albedo.DISTRIBUTION_KEY] = Albedo(**init_args)
 
             # Trigger loading all shortwave variables from HRRR
             self.config[GriddedInput.TYPE][InputGribHRRR.GDAL_VARIABLE_KEY] += (
@@ -512,6 +511,41 @@ class SMRF:
                 illumination_angles,
                 self.distribute[Precipitation.DISTRIBUTION_KEY].storm_days,
             )
+            
+            if "albedo_external" in self.output_variables:
+                try:
+                    for source in ["albedo_vis", "albedo_ir"]:
+                        file = self.config["output"]["out_location"] + "/" + source + ".nc"
+                        
+                        with netCDF4.Dataset(file) as data:
+                            from cftime import num2date
+
+                            times = data["time"]
+                            dates = num2date(
+                                times[:],
+                                units=times.units,
+                                calendar=times.calendar,
+                                only_use_cftime_datetimes=False,
+                            )
+                            dates = [
+                                date.replace(tzinfo=self.time_zone).timestamp()
+                                for date in dates
+                            ]
+                            setattr(
+                                self, 
+                                source,
+                                data[source][dates.index(timestep.timestamp())]
+                            )
+                except FileNotFoundError:
+                    self._logger.error(
+                        "An external albedo source was configured with the " \
+                        " output key 'albedo_external', but no valid file was " \
+                        " found. Expected path: \n  " + file
+                    )
+                    sys.exit()
+            else:
+                albedo_vis = self.distribute[Albedo.DISTRIBUTION_KEY].albedo_vis
+                albedo_ir = self.distribute[Albedo.DISTRIBUTION_KEY].albedo_ir
 
             if isinstance(self.distribute[Solar.DISTRIBUTION_KEY], Solar):
                 # Net Solar
@@ -521,8 +555,8 @@ class SMRF:
                     illumination_angles,
                     cos_z,
                     azimuth,
-                    self.distribute[Albedo.DISTRIBUTION_KEY].albedo_vis,
-                    self.distribute[Albedo.DISTRIBUTION_KEY].albedo_ir,
+                    albedo_vis,
+                    albedo_ir,
                 )
             elif isinstance(self.distribute[SolarHRRR.DISTRIBUTION_KEY], SolarHRRR):
                 self.distribute[SolarHRRR.DISTRIBUTION_KEY].distribute(
@@ -531,8 +565,8 @@ class SMRF:
                     cos_z,
                     azimuth,
                     illumination_angles,
-                    albedo_vis=self.distribute[Albedo.DISTRIBUTION_KEY].albedo_vis,
-                    albedo_ir=self.distribute[Albedo.DISTRIBUTION_KEY].albedo_ir,
+                    albedo_vis,
+                    albedo_ir,
                 )
 
         # Thermal radiation
