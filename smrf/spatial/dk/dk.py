@@ -15,7 +15,7 @@ from smrf.spatial.dk import detrended_kriging
 class DetrendedKriging:
     CONFIG_KEY = "dk"
 
-    def __init__(self, mx, my, mz, GridX, GridY, GridZ, config):
+    def __init__(self, mx, my, mz, GridX, GridY, GridZ, config, threads):
         """
         Args:
             mx: x locations for the points
@@ -24,6 +24,8 @@ class DetrendedKriging:
             GridX: x locations in grid to interpolate over
             GridY: y locations in grid to interpolate over
             GridZ: z locations in grid to interpolate over
+            config: Configuration of the variable
+            threads: Number of configured system threads
         """
 
         # measurement point locations
@@ -48,6 +50,7 @@ class DetrendedKriging:
         self.ad = []
 
         self.config = config
+        self.threads = threads
 
         # calculate the distances
 #         self.calculateDistances()
@@ -125,7 +128,7 @@ class DetrendedKriging:
         # calculate the weights
         wg = np.zeros_like(dgrid)
         detrended_kriging.call_grid(
-            self.ad, self.dgrid, mz.astype(np.double), wg, self.config["threads"]
+            self.ad, self.dgrid, mz.astype(np.double), wg, self.threads
         )
 
         # reshape the weights

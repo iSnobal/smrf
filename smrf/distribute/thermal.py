@@ -215,7 +215,7 @@ class Thermal(VariableBase):
                 self.dem,
                 sky_view_factor,
                 cth,
-                self.config["threads"],
+                self.threads,
             )
 
         elif self.clear_sky_method == "dilley1998":

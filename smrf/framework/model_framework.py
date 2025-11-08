@@ -124,17 +124,6 @@ class SMRF:
                 Albedo.DISTRIBUTION_KEY
             ]["date_method_end_decay"].replace(tzinfo=self.time_zone)
 
-        # Add thread configuration to all distribute sections. Used by DK method.
-        for section in [
-            AirTemperature.DISTRIBUTION_KEY,
-            VaporPressure.DISTRIBUTION_KEY,
-            Precipitation.DISTRIBUTION_KEY,
-            CloudFactor.DISTRIBUTION_KEY,
-            Thermal.DISTRIBUTION_KEY,
-            Wind.DISTRIBUTION_KEY,
-        ]:
-            self.config[section]["threads"] = self.config["system"]["threads"]
-
         # Gridded dataset
         self.forecast_flag = False
         self.gridded = True if GriddedInput.TYPE in self.config else False
