@@ -2,6 +2,7 @@ from datetime import datetime
 
 import numpy as np
 from smrf.envphys.solar.toporad import mask_for_shade
+from smrf.envphys.solar.toposplit import TopoSplit
 
 from .variable_base import VariableBase
 
@@ -35,6 +36,9 @@ class SolarHRRR(VariableBase):
     VDDSF = "VDDSF"
 
     GRIB_VARIABLES = [DSWRF, VBDSF, VDDSF]
+
+    # Minimum value to calculate radiation for
+    MIN_RADIATION = 1
 
     OUTPUT_PREFIX = "solar_"
     OUTPUT_VARIABLES = {
@@ -73,6 +77,10 @@ class SolarHRRR(VariableBase):
 
     def __init__(self, config, topo):
         super().__init__(config, topo)
+
+        self.toposplit = TopoSplit(
+            self.sky_view_factor, self.MIN_RADIATION, self.threads
+        )
 
         # Class attributes holding output data
         self.solar_ghi_vis = None
@@ -150,37 +158,19 @@ class SolarHRRR(VariableBase):
             cos_z, azimuth, illumination_angles, self.topo
         )
 
-        # Early morning/late evening hours will have a zero or negative values
-        # from interpolation in some pixels. Masking all values less than 1 W/m^2.
-        ghi_mask = hrrr_data[self.DSWRF] <= 1
-        dswrf = np.where(ghi_mask, 0, hrrr_data[self.DSWRF])
-        direct_mask = np.logical_or(ghi_mask, hrrr_data[self.VBDSF] <= 1)
-        direct_normal = np.where(direct_mask, 1, hrrr_data[self.VBDSF])
-        diffuse_mask = np.logical_or(ghi_mask, hrrr_data[self.VDDSF] <= 1)
-        diffuse_horizontal = np.where(diffuse_mask, 0, hrrr_data[self.VDDSF])
-
-        # Calculate GHI; Equation (1)
-        self.solar_ghi_vis = direct_normal * cos_z + diffuse_horizontal
-
-        # Obtain K based on visible diffuse fraction; Equation (2)
-        self.solar_k = diffuse_horizontal / self.solar_ghi_vis
-
-        # Global diffuse fraction derived from global incoming (DSWRF); Equation (3)
-        # DHI - Diffuse Horizontal Irradiance
-        self.solar_dhi = dswrf * self.solar_k
-
-        # Global direct; Equation (4)
-        # DNI - Direct Normal Irradiance
-        self.solar_dni = (dswrf * (1 - self.solar_k)) / cos_z
-
-        # Toposplit model
-        self.hrrr_solar = (
-            self.solar_dni * illumination_angles +
-            self.solar_dhi * self.sky_view_factor
+        results = self.toposplit.calculate(
+            hrrr_data[self.DSWRF],
+            hrrr_data[self.VBDSF],
+            hrrr_data[self.VDDSF],
+            cos_z,
+            illumination_angles,
+            albedo_vis,
+            albedo_ir,
         )
 
-        # Net solar
-        # Simulations with SBDART showed the ratios used in the below calculation
-        # to get to broadband albedo using a split at 700nm for VIS vs IR. These values
-        # also assumed clear-sky conditions and a lat/lon over the Western US.
-        self.net_solar = self.hrrr_solar * ( 1 -(0.54 * albedo_vis + 0.46 * albedo_ir))
+        self.solar_ghi_vis = results["ghi_vis"]
+        self.solar_k = results["k"]
+        self.solar_dhi = results["dhi"]
+        self.solar_dni = results["dni"]
+        self.hrrr_solar = results["solar"]
+        self.net_solar = results["net_solar"]

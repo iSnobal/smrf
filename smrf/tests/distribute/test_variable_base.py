@@ -52,6 +52,9 @@ class TestVariableBase(unittest.TestCase):
             "detrend": True,
             "detrend_slope": 1,
         },
+        "system": {
+            "threads": 4,
+        },
         "distribution": "grid",
     }
 
@@ -75,6 +78,16 @@ class TestVariableBase(unittest.TestCase):
         self.assertEqual(self.subject.min, 0)
         self.assertEqual(self.subject.max, 100)
         self.assertTrue(self.subject.gridded)
+
+        self.assertEqual(self.CONFIG["system"]["threads"], self.subject.threads)
+
+    def test_init_default_threads(self):
+        config = self.CONFIG.copy()
+        del config["system"]["threads"]
+
+        subject = TestVariable(config=config, topo=TOPO)
+
+        self.assertEqual(1, subject.threads)
 
     def test_init_no_config_section(self):
         base_class = VariableBase()

@@ -84,7 +84,7 @@ class VaporPressure(VariableBase):
             self.vapor_pressure,
             dpt,
             self.config["dew_point_tolerance"],
-            self.config["threads"],
+            self.threads,
         )
 
         # find where dpt > ta
@@ -106,7 +106,7 @@ class VaporPressure(VariableBase):
                 self.dem,
                 wet_bulb,
                 self.config["dew_point_tolerance"],
-                self.config["threads"],
+                self.threads,
             )
             # # store last time step of wet_bulb
             # self.wet_bulb_old = wet_bulb.copy()
