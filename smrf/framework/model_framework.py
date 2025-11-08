@@ -281,8 +281,9 @@ class SMRF:
             SolarHRRR.INI_VARIABLE in self.output_variables or
             SolarHRRR.is_requested(self.output_variables) in self.output_variables
         ):
-            # Need precipitation for albedo (days since last storm)
-            self.distribute_precip()
+
+            # Need albedo unless an external data source is supplied
+            # self.distribute_precip()
             self.distribute[Albedo.DISTRIBUTION_KEY] = Albedo(**init_args)
 
             # Trigger loading all shortwave variables from HRRR
@@ -324,7 +325,7 @@ class SMRF:
             self.output_variables.add(Thermal.DISTRIBUTION_KEY)
 
         # Soil temperature
-        self.distribute[SoilTemperature.DISTRIBUTION_KEY] = SoilTemperature(**init_args)
+        #self.distribute[SoilTemperature.DISTRIBUTION_KEY] = SoilTemperature(**init_args)
 
     def load_data(self):
         """
@@ -495,11 +496,29 @@ class SMRF:
                     self.topo.sin_slope, self.topo.aspect, azimuth, cos_z
                 )
 
+            # Temp hack for storm days
+            file = self.config["output"]["out_location"] + "/storm_days.nc"
+            with netCDF4.Dataset(file) as data:
+                from cftime import num2date
+
+                times = data["time"]
+                dates = num2date(
+                    times[:],
+                    units=times.units,
+                    calendar=times.calendar,
+                    only_use_cftime_datetimes=False,
+                )
+                dates = [
+                    date.replace(tzinfo=self.time_zone).timestamp()
+                    for date in dates
+                ]
+                storm_days = data["storm_days"][dates.index(timestep.timestamp())]
+
             # Albedo
             self.distribute[Albedo.DISTRIBUTION_KEY].distribute(
                 timestep,
                 illumination_angles,
-                self.distribute[Precipitation.DISTRIBUTION_KEY].storm_days,
+                storm_days,
             )
 
             if isinstance(self.distribute[Solar.DISTRIBUTION_KEY], Solar):
@@ -542,7 +561,7 @@ class SMRF:
                 )
 
         # Soil temperature
-        self.distribute[SoilTemperature.DISTRIBUTION_KEY].distribute()
+        # self.distribute[SoilTemperature.DISTRIBUTION_KEY].distribute()
 
     def initialize_output(self):
         """
