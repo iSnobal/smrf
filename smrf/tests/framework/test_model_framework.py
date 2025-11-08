@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock
 
+import numpy as np
 import pytz
 from inicheck.tools import cast_all_variables
 from pandas import to_datetime
@@ -9,7 +10,7 @@ from smrf.framework.model_framework import SMRF
 from smrf.tests.smrf_test_case import SMRFTestCase
 from smrf.tests.smrf_test_case_lakes import SMRFTestCaseLakes
 
-TOPO_MOCK = MagicMock(spec=Topo, instance=True)
+TOPO_MOCK = MagicMock(spec=Topo, sky_view_factor=np.array([[10.], [20.]]), instance=True)
 
 
 class TestModelFramework(SMRFTestCase):

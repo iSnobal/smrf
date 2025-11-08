@@ -162,10 +162,10 @@ class SolarHRRR(VariableBase):
             hrrr_data[self.DSWRF],
             hrrr_data[self.VBDSF],
             hrrr_data[self.VDDSF],
-            cos_z,
+            np.float64(cos_z),
             illumination_angles,
-            albedo_vis,
-            albedo_ir,
+            albedo_vis.astype(np.float64),
+            albedo_ir.astype(np.float64),
         )
 
         self.solar_ghi_vis = results["ghi_vis"]
