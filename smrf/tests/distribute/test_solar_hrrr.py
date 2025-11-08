@@ -8,7 +8,7 @@ import pandas as pd
 from smrf.data import Topo
 from smrf.distribute import SolarHRRR
 
-RAW_DATA_MOCK = np.array([[20, 20]])
+RAW_DATA_MOCK = np.array([[20.0, 20.0]]).astype(np.float64)
 
 SKY_VIEW_FACTOR_MOCK = np.ones((1, 2))
 TOPO_MOCK = MagicMock(spec=Topo, sky_view_factor=SKY_VIEW_FACTOR_MOCK, instance=True)

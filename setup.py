@@ -23,11 +23,13 @@ if "CC" not in os.environ:
 
 print("Compiler set to: " + os.environ["CC"])
 
-# extension parameters
 extension_params = dict(
-    extra_compile_args=['-fopenmp', '-O3'],
-    extra_link_args=['-fopenmp', '-O3'],
-    include_dirs=[numpy.get_include()],
+    extra_compile_args=[
+        '-fopenmp',
+        '-O3',
+    ],
+    extra_link_args=['-fopenmp'],
+    include_dirs=[numpy.get_include()]
 )
 
 extensions = []
@@ -62,6 +64,13 @@ extensions += [
         ],
         **extension_params
     ),
+]
+extensions += [
+    Extension(
+        'smrf.envphys.solar.toposplit',
+        sources=['smrf/envphys/solar/toposplit.pyx'],
+        **extension_params
+    )
 ]
 
 # wind model c functions
