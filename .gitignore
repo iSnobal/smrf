@@ -24,6 +24,8 @@ __pycache__/
 
 # C extensions
 *.so
+# Cython compiled C code
+smrf/**/*.c
 
 # Distribution / packaging
 .Python
