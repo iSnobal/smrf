@@ -100,7 +100,7 @@ class TestToporad(SMRFTestCaseLakes):
     def test_stoporad_visible(self):
         alb_vis, alb_ir = albedo(20 * np.ones_like(self.dem), self.illum_ang, 500, 2000)
 
-        srad_beam, srad_diffuse, _horizon_angles = toporad.stoporad(
+        srad_beam, srad_diffuse, horizon_angles = toporad.stoporad(
             self.date_time,
             self.topo,
             self.cosz,
@@ -113,6 +113,8 @@ class TestToporad(SMRFTestCaseLakes):
             omega=self.omega,
             scattering_factor=self.scattering_factor,
         )
+
+        self.assertIsNotNone(horizon_angles)
 
         npt.assert_allclose(350, np.mean(srad_beam), atol=1)
         npt.assert_allclose(49, np.min(srad_beam), atol=1)

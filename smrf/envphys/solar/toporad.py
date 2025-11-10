@@ -37,7 +37,7 @@ def mask_for_shade(
     illumination_angles: np.ndarray,
     topo: Topo,
     horizon_angles: np.ndarray = None,
-) -> np.ndarray:
+) -> Tuple[np.ndarray, np.ndarray]:
     """
     Mask the illumination angles for shaded areas
 
@@ -49,7 +49,9 @@ def mask_for_shade(
         horizon_angles:          Horizon angles (if previously calculated)
 
     Returns:
-        Illumination angles with shaded areas masked out
+        Tuple:
+        * Illumination angles with shaded areas masked out
+        * Calculated horizon angle for azimuth
     """
     if horizon_angles is None:
         horizon_angles = horizon(azimuth, topo.dem, topo.dx)
@@ -60,7 +62,7 @@ def mask_for_shade(
     shaded_angles = illumination_angles.copy()
     shaded_angles[no_sun_mask] = 0
 
-    return shaded_angles
+    return shaded_angles, horizon_angles
 
 
 def stoporad(
@@ -78,6 +80,8 @@ def stoporad(
     horizon_angles=None,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
+    The horizon angles are returned for subsequent calls to this method to re-use and
+    save compute time.
 
     Args:
         date_time:               Current processed time step
@@ -91,11 +95,10 @@ def stoporad(
         tau
         omega
         scattering_factor
-        horizon_angles:          Horizon angles (if previously calculated)
+        horizon_angles:          Horizon angles (if previously calculated with this method)
 
     Returns:
         Tuple: Beam radiation, diffuse radiation, and horizon angles
-
     """
     check_wavelengths(wavelength_range)
 
@@ -118,11 +121,13 @@ def stoporad(
             surface_albedo=np.mean(albedo_surface),
         )
 
+        shade, horizon_angles = mask_for_shade(cos_z, azimuth, illumination_angles, topo, horizon_angles)
+
         # Correct topographically
         trad_beam, trad_diff = toporad(
             evrad.beam,
             evrad.diffuse,
-            mask_for_shade(cos_z, azimuth, illumination_angles, topo, horizon_angles),
+            shade,
             topo.sky_view_factor,
             topo.terrain_config_factor,
             cos_z,

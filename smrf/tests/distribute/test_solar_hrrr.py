@@ -31,7 +31,7 @@ class TestSolarHRRR(unittest.TestCase):
 
     @patch("smrf.distribute.solar_hrrr.mask_for_shade")
     def test_distribute(self, shade_mock):
-        shade_mock.return_value = ILLUMINATION_MOCK
+        shade_mock.return_value = ILLUMINATION_MOCK, RAW_DATA_MOCK
 
         self.subject.distribute(
             DATETIME,

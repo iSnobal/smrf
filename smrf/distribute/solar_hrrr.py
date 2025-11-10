@@ -141,7 +141,7 @@ class SolarHRRR(VariableBase):
 
             return
 
-        illumination_angles = mask_for_shade(
+        illumination_angles, _horizon_angles = mask_for_shade(
             cos_z, azimuth, illumination_angles, self.topo
         )
 
