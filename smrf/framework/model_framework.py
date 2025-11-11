@@ -289,10 +289,7 @@ class SMRF:
             self.distribute[Albedo.DISTRIBUTION_KEY] = Albedo(**init_args)
 
             self.distribute[Solar.DISTRIBUTION_KEY] = Solar(**init_args)
-        elif (
-            SolarHRRR.INI_VARIABLE in self.output_variables or
-            SolarHRRR.is_requested(self.output_variables) in self.output_variables
-        ):
+        elif SolarHRRR.is_requested(self.output_variables):
             # Need precipitation for albedo (days since last storm)
             self.distribute_precip()
             self.distribute[Albedo.DISTRIBUTION_KEY] = Albedo(**init_args)

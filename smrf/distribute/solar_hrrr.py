@@ -82,6 +82,11 @@ class SolarHRRR(VariableBase):
         self.solar = None
         self.net_solar = None
 
+    @classmethod
+    def is_requested(cls, config_variables: set) -> bool:
+        requested = super().is_requested(config_variables)
+        return requested or cls.INI_VARIABLE in config_variables
+
     def distribute(
         self,
         timestep: datetime,
