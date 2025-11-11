@@ -150,8 +150,8 @@ class TestModelFrameworkLakes(SMRFTestCaseLakes):
         smrf = SMRF(config)
         smrf.topo = TOPO_MOCK
 
-        self.assertEquals(set(output_variables), smrf.output_variables)
-        self.assertEquals({}, smrf.distribute)
+        self.assertEqual(set(output_variables), smrf.output_variables)
+        self.assertEqual({}, smrf.distribute)
 
         smrf.create_distribution()
 
@@ -177,8 +177,8 @@ class TestModelFrameworkLakes(SMRFTestCaseLakes):
         smrf = SMRF(config)
         smrf.topo = TOPO_MOCK
 
-        self.assertEquals(set(output_variables), smrf.output_variables)
-        self.assertEquals({}, smrf.distribute)
+        self.assertEqual(set(output_variables), smrf.output_variables)
+        self.assertEqual({}, smrf.distribute)
 
         smrf.create_distribution()
 
@@ -186,9 +186,7 @@ class TestModelFrameworkLakes(SMRFTestCaseLakes):
             smrf.distribute[distribute.SolarHRRR.DISTRIBUTION_KEY],
             distribute.SolarHRRR,
         )
-        # Special case handling for HRRR Solar
-        self.assertTrue(distribute.Solar.DISTRIBUTION_KEY in smrf.output_variables)
-        self.assertFalse(distribute.SolarHRRR.INI_VARIABLE in smrf.output_variables)
+        self.assertTrue(distribute.SolarHRRR.INI_VARIABLE in smrf.output_variables)
         # Dependencies
         self.assertIsInstance(
             smrf.distribute[distribute.Precipitation.DISTRIBUTION_KEY],
