@@ -145,7 +145,9 @@ class Solar(VariableBase):
 
     def __init__(self, config, topo):
         super().__init__(config, topo)
+        self.init_empty_variables()
 
+    def init_empty_variables(self):
         # For calculations
         self.vis_beam = None
         self.vis_diffuse = None
@@ -281,6 +283,10 @@ class Solar(VariableBase):
 
         else:
             self._logger.debug("Sun is down, see you in the morning!")
+
+            # Set all values back to None so they do not carry over to the next
+            # hour, which uses the same class instance to calculate them.
+            self.init_empty_variables()
 
     def cloud_correct(self):
         """
