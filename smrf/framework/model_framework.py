@@ -270,15 +270,16 @@ class SMRF:
         if Precipitation.is_requested(self.output_variables):
             self.distribute_precip()
 
-        # Cloud_factor
+        # Cloud Factor
         if CloudFactor.is_requested(self.output_variables):
             self.distribute[CloudFactor.DISTRIBUTION_KEY] = CloudFactor(**init_args)
 
+        # Albedo
+        if Albedo.is_requested(self.output_variables):
+            self.distribute[Albedo.DISTRIBUTION_KEY] = Albedo(**init_args)
+
         # Solar radiation; requires albedo and clouds
-        if (
-            Solar.is_requested(self.output_variables) or
-            Albedo.is_requested(self.output_variables)
-        ):
+        if Solar.is_requested(self.output_variables):
             # Need clouds for solar, either use external one or add to distributed list
             if "hrrr_cloud" not in self.output_variables:
                 self.distribute[CloudFactor.DISTRIBUTION_KEY] = CloudFactor(**init_args)
