@@ -82,3 +82,10 @@ class TestSolarHRRR(unittest.TestCase):
         npt.assert_equal(empty, self.subject.solar_dni)
         npt.assert_equal(empty, self.subject.hrrr_solar)
         npt.assert_equal(empty, self.subject.net_solar)
+
+    def test_output_variables(self):
+        for variable in self.subject.OUTPUT_VARIABLES.keys():
+            self.assertTrue(
+                hasattr(self.subject, variable),
+                msg=f"SolarHRRR is missing attribute {variable}",
+            )

@@ -38,10 +38,10 @@ class SolarHRRR(VariableBase):
 
     OUTPUT_PREFIX = "solar_"
     OUTPUT_VARIABLES = {
-        OUTPUT_PREFIX + "ghi": {
+        OUTPUT_PREFIX + "ghi_vis": {
             "units": "watt/m2",
             "standard_name": "global_horizontal_irradiance",
-            "long_name": "HRRR DSWRF - Interpolated to topographic resolution",
+            "long_name": "GHI from beam and diffuse in the visible wavelengths",
             "source": "HRRR Grib",
         },
         OUTPUT_PREFIX + "dhi": {
@@ -75,11 +75,11 @@ class SolarHRRR(VariableBase):
         super().__init__(config, topo)
 
         # Class attributes holding output data
-        self.ghi_vis = None
-        self.dni = None
-        self.dhi = None
-        self.k = None
-        self.solar = None
+        self.solar_ghi_vis = None
+        self.solar_dni = None
+        self.solar_dhi = None
+        self.solar_k = None
+        self.hrrr_solar = None
         self.net_solar = None
 
     @classmethod
