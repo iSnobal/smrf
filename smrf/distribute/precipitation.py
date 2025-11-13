@@ -74,11 +74,6 @@ class Precipitation(VariableBase):
             "standard_name": "precipitation_mass_storm",
             "long_name": "Precipitation mass for the storm period",
         },
-        "last_storm_day": {
-            "units": "day",
-            "standard_name": "day_of_last_storm",
-            "long_name": "Decimal day of the last storm since Oct 1",
-        },
     }
 
     def __init__(self, config, topo, start_date, time_step=60):
