@@ -82,6 +82,13 @@ class Precipitation(VariableBase):
         self.time_step = float(time_step)
         self.start_date = start_date
 
+        # Possible output variables
+        self.precip = None
+        self.percent_snow = None
+        self.snow_density = None
+        self.storm_days = None
+        self.storm_total = None
+
     def initialize(self, data):
         """
         See :mod:`smrf.distribute.ImageData.initialize` for documentation on the base
@@ -92,6 +99,7 @@ class Precipitation(VariableBase):
         """
         super().initialize(data.metadata)
 
+        self.precip = np.zeros((self.topo.ny, self.topo.nx))
         self.percent_snow = np.zeros((self.topo.ny, self.topo.nx))
         self.snow_density = np.zeros((self.topo.ny, self.topo.nx))
         self.storm_days = np.zeros((self.topo.ny, self.topo.nx))
