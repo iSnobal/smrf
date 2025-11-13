@@ -79,21 +79,20 @@ class VaporPressure(VariableBase):
         self._logger.debug('%s -- Calculating dew point' % data.name)
 
         # use the core_c to calculate the dew point
-        dpt = np.zeros_like(self.vapor_pressure, dtype=np.float64)
+        dew_point_temperature = np.zeros_like(self.vapor_pressure, dtype=np.float64)
         envphys_c.cdewpt(
             self.vapor_pressure,
-            dpt,
+            dew_point_temperature,
             self.config["dew_point_tolerance"],
             self.threads,
         )
 
-        # find where dpt > ta
-        ind = dpt >= ta
+        ind = dew_point_temperature >= ta
 
-        if (np.sum(ind) > 0):  # or np.sum(indm) > 0):
-            dpt[ind] = ta[ind] - 0.2
+        if (np.sum(ind) > 0):
+            dew_point_temperature[ind] = ta[ind] - 0.2
 
-        self.dew_point = dpt
+        self.dew_point = dew_point_temperature
 
         # calculate wet bulb temperature
         if self.precip_temp_method == 'wet_bulb':
@@ -102,7 +101,7 @@ class VaporPressure(VariableBase):
             # calculate wet_bulb
             envphys_c.cwbt(
                 ta,
-                dpt,
+                dew_point_temperature,
                 self.dem,
                 wet_bulb,
                 self.config["dew_point_tolerance"],
@@ -113,4 +112,4 @@ class VaporPressure(VariableBase):
             # store in precip temp for use in precip
             self.precip_temp = wet_bulb
         else:
-            self.precip_temp = dpt
+            self.precip_temp = dew_point_temperature.copy()

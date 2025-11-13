@@ -316,6 +316,10 @@ class Precipitation(VariableBase):
                     self.config,
                 )
 
+        # Mask the precip temperature to where we have any precipitation amounts.
+        # This reduces the amount of data saved on disk.
+        precip_temp[self.precip == 0] = np.nan
+
     def distribute_for_marks2017(self, data, precip_temp, ta, time):
         """
         Specialized distribute function for working with the new accumulated
