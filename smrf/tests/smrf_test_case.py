@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 import netCDF4 as nc
-import numpy as np
+import numpy.testing as npt
 from inicheck.config import UserConfig
 
 import smrf
@@ -86,31 +86,6 @@ class SMRFTestCase(unittest.TestCase):
 
     # END
 
-    @staticmethod
-    def assert_gold_equal(gold, not_gold, error_msg):
-        """Compare two arrays
-
-        Arguments:
-            gold {array} -- gold array
-            not_gold {array} -- not gold array
-            error_msg {str} -- error message to display
-        """
-
-        if os.getenv('NOT_ON_GOLD_HOST') is None:
-            np.allclose(
-                not_gold,
-                gold,
-                atol=0,
-                rtol=1e-4
-            )
-        else:
-            np.testing.assert_almost_equal(
-                not_gold,
-                gold,
-                decimal=3,
-                err_msg=error_msg
-            )
-
     def compare_hrrr_gold(self):
         """
         Compare the model results with the gold standard
@@ -127,40 +102,49 @@ class SMRFTestCase(unittest.TestCase):
         the values are exact
         """
 
-        gold = nc.Dataset(self.gold_dir.joinpath(output_file))
-        test = nc.Dataset(self.output_dir.joinpath(output_file))
+        with nc.Dataset(self.gold_dir.joinpath(output_file)) as gold:
+            with nc.Dataset(self.output_dir.joinpath(output_file)) as test:
+                # See AWSM issue #11
+                self.compare_file_variables(gold, test, 0.005)
 
-        np.testing.assert_equal(
+    def compare_file_variables(self, gold, test, tolerance=1e-10):
+        npt.assert_equal(
             gold.variables['time'][:],
             test.variables['time'][:],
-            err_msg="Time steps did not match: \nGOLD {0} \n TEST {1}".format(
-                gold.variables['time'], test.variables['time']
-            )
+            err_msg="Time steps did not match gold standard"
         )
 
-        # go through all variables and compare everything including
-        # the attributes and data
-        for var_name, v in gold.variables.items():
+        for variable, _v in gold.variables.items():
+            # Time was already compared
+            if variable =='time':
+                continue
 
-            # compare the dimensions
-            for att in gold.variables[var_name].ncattrs():
+            for attribute in gold.variables[variable].ncattrs():
                 self.assertEqual(
-                    getattr(gold.variables[var_name], att),
-                    getattr(test.variables[var_name], att),
-                    msg="Variable `{0}` attribute `{1}` did not match gold standard in file {2}".format(
-                        var_name, att, output_file
+                    getattr(gold.variables[variable], attribute),
+                    getattr(test.variables[variable], attribute),
+                    msg="Variable `{0}` attribute `{1}` did not match gold standard".format(
+                        variable, attribute
                     ),
                 )
 
-            # only compare those that are floats
-            if gold.variables[var_name].datatype != np.dtype('S1'):
-                error_msg = "Variable: {0} did not match gold standard". \
-                    format(var_name)
-                self.assert_gold_equal(
-                    gold.variables[var_name][:],
-                    test.variables[var_name][:],
-                    error_msg
+            if variable in ['x', 'y']:
+                npt.assert_equal(
+                    gold.variables[variable][:],
+                    test.variables[variable][:],
+                    err_msg=f"Coordinate {variable} did not match gold standard",
                 )
-
-        gold.close()
-        test.close()
+            elif variable == 'projection':
+                self.assertEqual(
+                    gold.variables[variable].spatial_ref,
+                    test.variables[variable].spatial_ref,
+                    msg="Spatial reference did not match gold standard"
+                )
+            else:
+                for time_slice in range(len(gold.variables[variable])):
+                    npt.assert_allclose(
+                        gold.variables[variable][time_slice][time_slice, ...],
+                        test.variables[variable][time_slice][time_slice, ...],
+                        rtol=tolerance,
+                        err_msg=f"Variable: {variable} at time slice {time_slice} did not match gold standard",
+                    )

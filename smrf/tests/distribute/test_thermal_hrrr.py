@@ -14,7 +14,7 @@ TOPO_MOCK = MagicMock(spec=Topo, sky_view_factor=SKY_VIEW_FACTOR_MOCK, instance=
 DATA_MOCK = MagicMock(thermal=RAW_DATA_MOCK)
 
 
-class TestThermal(unittest.TestCase):
+class TestThermalHRRR(unittest.TestCase):
     def setUp(self):
         self.subject = ThermalHRRR(topo=TOPO_MOCK)
 

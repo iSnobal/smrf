@@ -2,10 +2,12 @@ import unittest
 from unittest.mock import MagicMock, Mock, patch, DEFAULT
 
 import pandas as pd
+import pandas.testing as pdt
+
 from smrf.data.hrrr.grib_file_gdal import GribFileGdal
 from smrf.data.hrrr_grib import InputGribHRRR
 from smrf.data.load_topo import Topo
-from smrf.distribute import ThermalHRRR
+from smrf.distribute import SolarHRRR, ThermalHRRR
 from smrf.distribute.wind.wind_ninja import WindNinjaModel
 
 
@@ -194,7 +196,7 @@ class TestInputGribHRRR(unittest.TestCase):
         self.assertIsInstance(subject.precip, pd.DataFrame)
 
     def test_parse_data_gdal_load(self):
-        data = {
+        mock_data = {
             "air_temp": pd.DataFrame(
                 {
                     "date": pd.to_datetime("2025-01-01"),
@@ -217,15 +219,30 @@ class TestInputGribHRRR(unittest.TestCase):
                 },
             ).set_index("date"),
             ThermalHRRR.GRIB_NAME: pd.DataFrame(
-            {
-                "date": pd.to_datetime("2025-01-01"),
-                "col_1": [4],
-                "col_2": [4],
-            },
+                {
+                    "date": pd.to_datetime("2025-01-01"),
+                    "col_1": [4],
+                    "col_2": [4],
+                },
+            ).set_index("date"),
+            SolarHRRR.DSWRF: pd.DataFrame(
+                {
+                    "date": pd.to_datetime("2025-01-01"),
+                    "col_1": [5],
+                    "col_2": [5],
+                },
+            ).set_index("date"),
+            SolarHRRR.VDDSF: pd.DataFrame(
+                {
+                    "date": pd.to_datetime("2025-01-01"),
+                    "col_1": [6],
+                    "col_2": [6],
+                },
             ).set_index("date"),
         }
 
-        self.SMRF_CONFIG["gridded"]["hrrr_gdal_variables"] = ["hrrr_thermal"]
+        self.SMRF_CONFIG["gridded"]["hrrr_gdal_variables"] = [ThermalHRRR.INI_VARIABLE]
+        self.SMRF_CONFIG["gridded"]["hrrr_gdal_variables"] += SolarHRRR.GRIB_VARIABLES
 
         subject = InputGribHRRR(
             self.START_DATE,
@@ -241,12 +258,18 @@ class TestInputGribHRRR(unittest.TestCase):
             calculate_wind=DEFAULT,
             check_cloud_factor=DEFAULT,
         ) as mocks:
-            subject.parse_data(data)
+            subject.parse_data(mock_data)
 
             mocks["calculate_wind"].assert_called_once()
             mocks["check_cloud_factor"].assert_not_called()
 
-        self.assertIsInstance(subject.air_temp, pd.DataFrame)
+        pdt.assert_frame_equal(subject.air_temp, mock_data["air_temp"])
         self.assertIsInstance(subject.vapor_pressure, pd.DataFrame)
-        self.assertIsInstance(subject.precip, pd.DataFrame)
-        self.assertIsInstance(subject.thermal, pd.DataFrame)
+        pdt.assert_frame_equal(subject.precip, mock_data["precip_int"])
+        pdt.assert_frame_equal(subject.thermal, mock_data[ThermalHRRR.GRIB_NAME])
+        pdt.assert_frame_equal(
+            subject.solar[SolarHRRR.DSWRF], mock_data[SolarHRRR.DSWRF]
+        )
+        pdt.assert_frame_equal(
+            subject.solar[SolarHRRR.VDDSF], mock_data[SolarHRRR.VDDSF]
+        )

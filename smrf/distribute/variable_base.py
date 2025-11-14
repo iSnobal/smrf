@@ -70,6 +70,11 @@ class VariableBase:
         self.topo = topo
         self.metadata = None
 
+        # System wide configurations
+        if config is not None:
+            self.threads = config.get("system", {}).get("threads", 1)
+
+        # Variable specific configurations
         if config and config.get(self.DISTRIBUTION_KEY, False):
             self.config = config[self.DISTRIBUTION_KEY]
 
@@ -110,7 +115,7 @@ class VariableBase:
     @property
     def veg_type(self):
         return self.topo.veg_type
-    
+
     @property
     def veg_height(self):
         return self.topo.veg_height
@@ -208,6 +213,7 @@ class VariableBase:
                     self.topo.Y,
                     self.topo.dem,
                     self.config,
+                    self.threads,
                 )
 
             elif self.distribution_method == Grid.CONFIG_KEY:
