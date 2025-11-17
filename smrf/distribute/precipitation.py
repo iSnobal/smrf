@@ -3,9 +3,10 @@ from datetime import timedelta
 import netCDF4 as nc
 import numpy as np
 from dateutil.parser import parse
-from .variable_base import VariableBase
-from smrf.envphys import precip, Snow, storms
+from smrf.envphys import Snow, precip, storms
 from smrf.utils import utils
+
+from .variable_base import VariableBase
 
 
 class Precipitation(VariableBase):
@@ -73,11 +74,6 @@ class Precipitation(VariableBase):
             "standard_name": "precipitation_mass_storm",
             "long_name": "Precipitation mass for the storm period",
         },
-        "last_storm_day": {
-            "units": "day",
-            "standard_name": "day_of_last_storm",
-            "long_name": "Decimal day of the last storm since Oct 1",
-        },
     }
 
     def __init__(self, config, topo, start_date, time_step=60):
@@ -85,6 +81,13 @@ class Precipitation(VariableBase):
 
         self.time_step = float(time_step)
         self.start_date = start_date
+
+        # Possible output variables
+        self.precip = None
+        self.percent_snow = None
+        self.snow_density = None
+        self.storm_days = None
+        self.storm_total = None
 
     def initialize(self, data):
         """
@@ -96,6 +99,7 @@ class Precipitation(VariableBase):
         """
         super().initialize(data.metadata)
 
+        self.precip = np.zeros((self.topo.ny, self.topo.nx))
         self.percent_snow = np.zeros((self.topo.ny, self.topo.nx))
         self.snow_density = np.zeros((self.topo.ny, self.topo.nx))
         self.storm_days = np.zeros((self.topo.ny, self.topo.nx))
@@ -103,58 +107,59 @@ class Precipitation(VariableBase):
 
         # Assign storm_days array if given
         if self.config["storm_days_restart"] is not None:
-            self._logger.debug('Reading {} from {}'.format(
-                'storm_days', self.config["storm_days_restart"])
+            self._logger.debug(
+                "Reading {} from {}".format(
+                    "storm_days", self.config["storm_days_restart"]
+                )
             )
             f = nc.Dataset(self.config["storm_days_restart"])
             f.set_always_mask(False)
 
-            if 'storm_days' in f.variables:
-                t = f.variables['time']
+            if "storm_days" in f.variables:
+                t = f.variables["time"]
                 t_max = t[:].max()
                 time = nc.num2date(
                     t_max,
-                    t.getncattr('units'),
-                    t.getncattr('calendar'),
+                    t.getncattr("units"),
+                    t.getncattr("calendar"),
                     only_use_cftime_datetimes=False,
-                    only_use_python_datetimes=True
+                    only_use_python_datetimes=True,
                 )
                 # Check whether the last storm day entry and the start
                 # of this run is an hour apart (3600 seconds)
                 max_time = time.replace(tzinfo=self.start_date.tzinfo)
-                delta_seconds = (
-                    self.start_date.to_pydatetime() - parse(str(max_time))
-                )
+                delta_seconds = self.start_date.to_pydatetime() - parse(str(max_time))
 
                 # Python timedelta are handled in seconds and days
-                if delta_seconds > timedelta(seconds=(self.time_step*60)):
-                    self._logger.warning(
-                        'Invalid storm_days input! Setting to 0.0')
+                if delta_seconds > timedelta(seconds=(self.time_step * 60)):
+                    self._logger.warning("Invalid storm_days input! Setting to 0.0")
                     self.storm_days = np.zeros((self.topo.ny, self.topo.nx))
 
                 else:
                     # start at index of storm_days - 1
-                    self.storm_days = f.variables['storm_days'][t_max]
+                    self.storm_days = f.variables["storm_days"][t_max]
             else:
                 self._logger.error(
-                    'Variable storm_days not in {}'.format(
-                        self.config['storm_days_restart'])
+                    "Variable storm_days not in {}".format(
+                        self.config["storm_days_restart"]
+                    )
                 )
 
             f.close()
 
-        self.ppt_threshold = self.config['storm_mass_threshold']
-
-        # Time steps needed to end a storm definition
-        self.time_to_end_storm = self.config['marks2017_timesteps_to_end_storms']  # noqa
-
-        self.nasde_model = self.config['new_snow_density_model']
+        self.ppt_threshold = self.config["storm_mass_threshold"]
+        self.nasde_model = self.config["new_snow_density_model"]
 
         self._logger.info(
-            """Using {0} for the new accumulated snow density"""
-            """ model:  """.format(self.nasde_model))
+            "Using {0} for the new accumulated snow density model: ".format(
+                self.nasde_model
+            )
+        )
 
-        if self.nasde_model == 'marks2017':
+        if self.nasde_model == "marks2017":
+            # Time steps needed to end a storm definition
+            self.time_to_end_storm = self.config["marks2017_timesteps_to_end_storms"]
+
             self.storm_total = np.zeros((self.topo.ny, self.topo.nx))
 
             self.storms = []
@@ -169,42 +174,42 @@ class Precipitation(VariableBase):
             self.storms, storm_count = storms.tracking_by_station(
                 data.precip,
                 mass_thresh=self.ppt_threshold,
-                steps_thresh=self.time_to_end_storm)
+                steps_thresh=self.time_to_end_storm,
+            )
             self.corrected_precip = storms.clip_and_correct(
-                data.precip,
-                self.storms,
-                stations=self.stations)
+                data.precip, self.storms, stations=self.stations
+            )
 
             if storm_count != 0:
-                self._logger.info(
-                    "Identified Storms:\n{0}".format(self.storms))
+                self._logger.info("Identified Storms:\n{0}".format(self.storms))
                 self.storm_id = 0
-                self._logger.info(
-                    "Estimated number of storms: {0}".format(storm_count))
+                self._logger.info("Estimated number of storms: {0}".format(storm_count))
 
             else:
                 if (data.precip.sum() > 0).any():
                     self.storm_id = np.nan
-                    self._logger.warning("Zero events triggered a storm "
-                                         " definition, None of the precip will"
-                                         " be used in this run.")
+                    self._logger.warning(
+                        "Zero events triggered a storm "
+                        " definition, None of the precip will"
+                        " be used in this run."
+                    )
 
         # if redistributing due to wind
-        if self.config['precip_rescaling_model'] == 'winstral':
-            self._tbreak_file = nc.Dataset(
-                self.config['winstral_tbreak_netcdf'], 'r')
-            self.tbreak = self._tbreak_file.variables['tbreak'][:]
-            self.tbreak_direction = self._tbreak_file.variables['direction'][:]
+        if self.config["precip_rescaling_model"] == "winstral":
+            self._tbreak_file = nc.Dataset(self.config["winstral_tbreak_netcdf"], "r")
+            self.tbreak = self._tbreak_file.variables["tbreak"][:]
+            self.tbreak_direction = self._tbreak_file.variables["direction"][:]
             self._tbreak_file.close()
-            self._logger.debug('Read data from {}'
-                               .format(self.config['winstral_tbreak_netcdf']))
+            self._logger.debug(
+                "Read data from {}".format(self.config["winstral_tbreak_netcdf"])
+            )
 
             # get the veg values
             matching = [s for s in self.config.keys() if "winstral_veg_" in s]
             v = {}
             for m in matching:
-                if m != 'winstral_veg_default':
-                    ms = m.split('_')
+                if m != "winstral_veg_default":
+                    ms = m.split("_")
                     # v[ms[1]] = float(self.config[m])
                     if type(self.config[m]) == list:
                         v[ms[1]] = float(self.config[m][0])
@@ -212,9 +217,20 @@ class Precipitation(VariableBase):
                         v[ms[1]] = float(self.config[m])
             self.veg = v
 
-    def distribute(self, data, dpt, precip_temp, ta, time, wind, temp,
-                   wind_direction=None, dir_round_cell=None, wind_speed=None,
-                   cell_maxus=None):
+    def distribute(
+        self,
+        data,
+        dpt,
+        precip_temp,
+        ta,
+        time,
+        wind,
+        temp,
+        wind_direction=None,
+        dir_round_cell=None,
+        wind_speed=None,
+        cell_maxus=None,
+    ):
         """
         Distribute given a Panda's dataframe for a single time step. Calls
         :mod:`smrf.distribute.ImageData._distribute`.
@@ -227,7 +243,6 @@ class Precipitation(VariableBase):
             precipitation temperature
         3. Calculate the storms based on the accumulated mass, time since last
             storm, and precipitation phase threshold
-
 
         Args:
             data:           Pandas dataframe for a single time step from precip
@@ -245,12 +260,12 @@ class Precipitation(VariableBase):
             cell_maxus:     numpy array for maxus at correct wind directions
         """
 
-        self._logger.debug('%s Distributing all precip' % data.name)
+        self._logger.debug("%s Distributing all precip" % data.name)
         if self.stations is not None:
             data = data[self.stations]
 
-        if self.config['distribution'] != 'grid':
-            if self.nasde_model == 'marks2017':
+        if self.config["distribution"] != "grid":
+            if self.nasde_model == "marks2017":
                 # Adjust the precip for undercatch
                 if self.config["station_adjust_for_undercatch"]:
                     self._logger.debug(
@@ -271,23 +286,21 @@ class Precipitation(VariableBase):
 
             else:
                 # Adjust the precip for undercatch
-                if self.config['station_adjust_for_undercatch']:
+                if self.config["station_adjust_for_undercatch"]:
                     self._logger.debug(
-                        '%s Adjusting precip for undercatch...' % data.name)
+                        "%s Adjusting precip for undercatch..." % data.name
+                    )
                     data = precip.adjust_for_undercatch(
-                        data,
-                        wind,
-                        temp,
-                        self.config,
-                        self.metadata)
+                        data, wind, temp, self.config, self.metadata
+                    )
 
                 self.distribute_for_susong1999(data, precip_temp, time)
         else:
             self.distribute_for_susong1999(data, precip_temp, time)
 
-        # redistribute due to wind to account for driftin
-        if self.config['precip_rescaling_model'] == 'winstral':
-            self._logger.debug('%s Redistributing due to wind' % data.name)
+        # redistribute due to wind to account for drifting
+        if self.config["precip_rescaling_model"] == "winstral":
+            self._logger.debug("%s Redistributing due to wind" % data.name)
             if np.any(dpt < 0.5):
                 self.precip = precip.dist_precip_wind(
                     self.precip,
@@ -300,7 +313,12 @@ class Precipitation(VariableBase):
                     self.tbreak_direction,
                     self.veg_type,
                     self.veg,
-                    self.config)
+                    self.config,
+                )
+
+        # Mask the precip temperature to where we have any precipitation amounts.
+        # This reduces the amount of data saved on disk.
+        precip_temp[self.precip == 0] = np.nan
 
     def distribute_for_marks2017(self, data, precip_temp, ta, time):
         """
@@ -311,8 +329,8 @@ class Precipitation(VariableBase):
         if data.sum() > 0.0:
             # Check for time in every storm
             for i, s in self.storms.iterrows():
-                storm_start = s['start']
-                storm_end = s['end']
+                storm_start = s["start"]
+                storm_end = s["end"]
 
                 if time >= storm_start and time <= storm_end:
                     # establish storm info
@@ -339,27 +357,28 @@ class Precipitation(VariableBase):
 
             if time == storm_start:
                 # Entered into a new storm period distribute the storm total
-                self._logger.debug('{0} Entering storm #{1}'
-                                   .format(data.name, self.storm_id+1))
+                self._logger.debug(
+                    "{0} Entering storm #{1}".format(data.name, self.storm_id + 1)
+                )
                 if precip_temp.min() < 2.0:
-                    self._logger.debug('''Distributing Total Precip
-                                        for Storm #{0}'''
-                                       .format(self.storm_id+1))
-                    self._distribute(
-                        storm.astype(float), other_attribute="storm_total"
+                    self._logger.debug(
+                        """Distributing Total Precip
+                                        for Storm #{0}""".format(self.storm_id + 1)
                     )
-                    self.storm_total = utils.set_min_max(self.storm_total,
-                                                         self.min,
-                                                         self.max)
+                    self._distribute(storm.astype(float), other_attribute="storm_total")
+                    self.storm_total = utils.set_min_max(
+                        self.storm_total, self.min, self.max
+                    )
 
             if self.storming and precip_temp.min() < 2.0:
-                self._logger.debug('''Calculating new snow density for
-                                    storm #{0}'''.format(self.storm_id+1))
+                self._logger.debug(
+                    """Calculating new snow density for
+                                    storm #{0}""".format(self.storm_id + 1)
+                )
                 # determine the precip phase and den
                 snow_den, perc_snow = Snow.phase_and_density(
-                    precip_temp,
-                    self.precip,
-                    nasde_model=self.nasde_model)
+                    precip_temp, self.precip, nasde_model=self.nasde_model
+                )
 
             else:
                 snow_den = np.zeros(self.precip.shape)
@@ -371,12 +390,13 @@ class Precipitation(VariableBase):
                 precip_temp,
                 perc_snow,
                 storming=self.storming,
-                time_step=self.time_step/60.0/24.0,
+                time_step=self.time_step / 60.0 / 24.0,
                 stormDays=self.storm_days,
-                mass=self.ppt_threshold)
+                mass=self.ppt_threshold,
+            )
 
         else:
-            self.storm_days += self.time_step/60.0/24.0
+            self.storm_days += self.time_step / 60.0 / 24.0
             self.precip = np.zeros(self.storm_days.shape)
             perc_snow = np.zeros(self.storm_days.shape)
             snow_den = np.zeros(self.storm_days.shape)
@@ -385,46 +405,44 @@ class Precipitation(VariableBase):
         self.percent_snow = perc_snow
         self.snow_density = snow_den
 
-    def distribute_for_susong1999(self, data, ppt_temp, time):
-        """Susong 1999 estimates percent snow and snow density based on
+    def distribute_for_susong1999(self, data, ppt_temp, _time):
+        """
+        Susong 1999 estimates percent snow and snow density based on
         Susong et al, (1999) :cite:`Susong&al:1999`.
 
         Args:
             data (pd.DataFrame): Precipitation mass data
             ppt_temp (pd.DataFrame): Precipitation temperature data
-            time : Unused
+            _time : Unused
         """
 
         if data.sum() > 0:
-
             self._distribute(data)
             self.precip = utils.set_min_max(self.precip, self.min, self.max)
 
             # determine the precip phase and den
             snow_den, perc_snow = Snow.phase_and_density(
-                ppt_temp,
-                self.precip,
-                nasde_model=self.nasde_model)
+                ppt_temp, self.precip, nasde_model=self.nasde_model
+            )
 
             # determine the time since last storm
-            stormDays, stormPrecip = storms.time_since_storm(
+            storm_days, storm_precip = storms.time_since_storm(
                 self.precip,
                 perc_snow,
                 storm_days=self.storm_days,
                 storm_precip=self.storm_total,
-                time_step=self.time_step/60/24,
+                time_step=self.time_step / 60 / 24,
                 mass_threshold=self.ppt_threshold,
             )
 
             # save the model state
             self.percent_snow = perc_snow
             self.snow_density = snow_den
-            self.storm_days = stormDays
-            self.storm_total = stormPrecip
+            self.storm_days = storm_days
+            self.storm_total = storm_precip
 
         else:
-
-            self.storm_days += self.time_step/60/24
+            self.storm_days += self.time_step / 60 / 24
 
             # make everything else zeros
             self.precip = np.zeros(self.storm_days.shape)

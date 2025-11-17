@@ -1,3 +1,8 @@
+import netCDF4
+import numpy as np
+import numpy.testing as npt
+import netCDF4 as nc
+
 
 class CheckSMRFOutputs(object):
     """
@@ -12,7 +17,15 @@ class CheckSMRFOutputs(object):
         self.compare_netcdf_files('air_temp.nc')
 
     def test_precip_temp(self):
-        self.compare_netcdf_files('precip_temp.nc')
+        self.compare_netcdf_files("precip_temp.nc")
+
+        # Check mask of temperature to match precipitation
+        with nc.Dataset(self.output_dir.joinpath("precip_temp.nc")) as temperature:
+            with netCDF4.Dataset(self.output_dir.joinpath("precip.nc")) as precip:
+                npt.assert_equal(
+                    precip.variables["precip"] == np.nan,
+                    temperature.variables["precip_temp"] == np.nan,
+                )
 
     def test_net_solar(self):
         self.compare_netcdf_files('net_solar.nc')
