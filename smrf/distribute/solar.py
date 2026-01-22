@@ -6,6 +6,7 @@ import numpy as np
 from smrf.envphys.constants import IR_WAVELENGTHS, VISIBLE_WAVELENGTHS
 from smrf.envphys.solar import cloud, toporad, vegetation
 from smrf.utils import utils
+from smrf.distribute.albedo import Albedo
 
 from .variable_base import VariableBase
 
@@ -16,7 +17,7 @@ class Solar(VariableBase):
 
     1. Terrain corrected clear sky radiation
     2. Adjust solar radiation for vegetation effects
-    3. Calculate net radiation using the albedo
+    3. Calculate net radiation using the snow surface albedo
 
     The Image Processing Workbench (IPW) includes a utility ``stoporad`` to
     model terrain corrected clear sky radiation over the DEM. Within
@@ -183,8 +184,7 @@ class Solar(VariableBase):
         illumination_angles: np.ndarray,
         cos_z: float,
         azimuth: float,
-        albedo_vis: np.ndarray,
-        albedo_ir: np.ndarray,
+        albedo: Albedo,
     ) -> None:
         """
         Distribute solar radiation given a Panda's dataframe for a single time
@@ -217,10 +217,7 @@ class Solar(VariableBase):
                 :py:mod:`smrf.envphys.radiation.sunang`
             azimuth: azimuth to the sun for the basin, from
                 :py:mod:`smrf.envphys.radiation.sunang`
-            albedo_vis: numpy array for visible albedo, from
-                :py:mod:`smrf.distribute.albedo.Albedo.albedo_vis`
-            albedo_ir: numpy array for infrared albedo, from
-                :py:mod:`smrf.distribute.albedo.Albedo.albedo_ir`
+            albedo: instance of :py:class:`smrf.distribute.albedo.Albedo`
 
         """
 
@@ -237,7 +234,7 @@ class Solar(VariableBase):
                     illumination_angles,
                     cos_z,
                     azimuth,
-                    albedo_ir,
+                    albedo.albedo_ir,
                     IR_WAVELENGTHS,
                 )
             )
@@ -251,7 +248,7 @@ class Solar(VariableBase):
                     illumination_angles,
                     cos_z,
                     azimuth,
-                    albedo_vis,
+                    albedo.albedo_vis,
                     VISIBLE_WAVELENGTHS,
                     horizon_angles,
                 )
@@ -279,7 +276,7 @@ class Solar(VariableBase):
                 self.veg_ir_diffuse = self.ir_diffuse.copy()
 
             # Calculate net radiation
-            self.calc_net(albedo_vis, albedo_ir)
+            self.calc_net(albedo)
 
         else:
             self._logger.debug("Sun is down, see you in the morning!")
@@ -346,26 +343,23 @@ class Solar(VariableBase):
         ## Correct diffuse
         self.ir_diffuse = vegetation.solar_veg_diffuse(self.ir_diffuse, self.veg_tau)
 
-    def calc_net(self, albedo_vis: np.ndarray, albedo_ir: np.ndarray,) -> None:
+    def calc_net(self, albedo: Albedo) -> None:
         """
         Calculate the net radiation using the vegetation adjusted radiation.
         Sets :py:attr:`net_solar`.
 
         Args:
-            albedo_vis: numpy array for visible albedo, from
-                :mod:`smrf.distribute.albedo.Albedo.albedo_vis`
-            albedo_ir: numpy array for infrared albedo, from
-                :mod:`smrf.distribute.albedo.Albedo.albedo_ir`
+            albedo: instance of :py:class:`smrf.distribute.albedo.Albedo`
         """
 
         self._logger.debug("Calculating net radiation")
 
         # Visible
-        vv_n = (self.vis_beam + self.vis_diffuse) * (1 - albedo_vis)
+        vv_n = (self.vis_beam + self.vis_diffuse) * (1 - albedo.albedo_vis)
         vv_n = utils.set_min_max(vv_n, self.min, self.max)
 
         # IR
-        vir_n = (self.ir_beam + self.ir_diffuse) * (1 - albedo_ir)
+        vir_n = (self.ir_beam + self.ir_diffuse) * (1 - albedo.albedo_ir)
         vir_n = utils.set_min_max(vir_n, self.min, self.max)
 
         # Net Solar

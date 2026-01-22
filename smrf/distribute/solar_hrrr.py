@@ -3,6 +3,7 @@ from datetime import datetime
 import numpy as np
 from smrf.envphys.solar.toporad import mask_for_shade
 from smrf.envphys.solar.toposplit import TopoSplit
+from smrf.distribute.albedo import Albedo
 
 from .variable_base import VariableBase
 
@@ -102,8 +103,7 @@ class SolarHRRR(VariableBase):
         cos_z: float,
         azimuth: float,
         illumination_angles: np.ndarray,
-        albedo_vis: np.ndarray,
-        albedo_ir: np.ndarray,
+        albedo: Albedo,
     ) -> None:
         """
         Calculate solar radiation based on the Toposplit model presented in
@@ -136,8 +136,7 @@ class SolarHRRR(VariableBase):
         cos_z:               Solar zenith angle (cos)
         azimuth:             Solar azimuth angles
         illumination_angles: Angles calculated with topocalc.illumination_angle
-        albedo_vis:          Visible albedo
-        albedo_ir:           Infrared albedo
+        albedo:              Instance of :py:class:`smrf.distribute.albedo.Albedo`
 
         """
         self._logger.debug("%s Distributing HRRR solar" % timestep)
@@ -164,8 +163,8 @@ class SolarHRRR(VariableBase):
             hrrr_data[self.VDDSF],
             np.float64(cos_z),
             illumination_angles,
-            albedo_vis.astype(np.float64),
-            albedo_ir.astype(np.float64),
+            albedo.albedo_vis.astype(np.float64),
+            albedo.albedo_ir.astype(np.float64),
         )
 
         self.solar_ghi_vis = results["ghi_vis"]

@@ -19,7 +19,10 @@ DATA_MOCK = {
 COS_Z = np.cos(np.radians(10))
 AZIMUTH = 100
 ILLUMINATION_MOCK = np.array([[40.0, 50.0]])
-ALBEDO_MOCK = np.array([[0.9, 1.0]])
+ALBEDO_MOCK = MagicMock(
+    albedo_vis=np.array([[0.85, 0.9]]),
+    albedo_ir=np.array([[0.85, 0.75]]),
+)
 
 
 class TestSolarHRRR(unittest.TestCase):
@@ -36,7 +39,6 @@ class TestSolarHRRR(unittest.TestCase):
             COS_Z,
             AZIMUTH,
             ILLUMINATION_MOCK,
-            ALBEDO_MOCK,
             ALBEDO_MOCK,
         )
 
@@ -57,7 +59,7 @@ class TestSolarHRRR(unittest.TestCase):
         solar = dni * ILLUMINATION_MOCK + dhi * SKY_VIEW_FACTOR_MOCK
         npt.assert_equal(solar, self.subject.hrrr_solar)
 
-        net_solar = solar * ( 1- (0.54 * ALBEDO_MOCK + 0.46 * ALBEDO_MOCK))
+        net_solar = solar * ( 1- (0.54 * ALBEDO_MOCK.albedo_vis + 0.46 * ALBEDO_MOCK.albedo_ir))
         npt.assert_equal(net_solar, self.subject.net_solar)
 
     def test_distribute_sun_is_down(self):
@@ -67,7 +69,6 @@ class TestSolarHRRR(unittest.TestCase):
             0,
             AZIMUTH,
             ILLUMINATION_MOCK,
-            ALBEDO_MOCK,
             ALBEDO_MOCK,
         )
 
@@ -94,7 +95,6 @@ class TestSolarHRRR(unittest.TestCase):
             COS_Z,
             AZIMUTH,
             ILLUMINATION_MOCK,
-            ALBEDO_MOCK,
             ALBEDO_MOCK,
         )
 

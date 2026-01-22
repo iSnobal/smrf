@@ -508,8 +508,7 @@ class SMRF:
                     illumination_angles,
                     cos_z,
                     azimuth,
-                    self.distribute[Albedo.DISTRIBUTION_KEY].albedo_vis,
-                    self.distribute[Albedo.DISTRIBUTION_KEY].albedo_ir,
+                    self.distribute[Albedo.DISTRIBUTION_KEY],
                 )
             elif isinstance(self.distribute[SolarHRRR.DISTRIBUTION_KEY], SolarHRRR):
                 self.distribute[SolarHRRR.DISTRIBUTION_KEY].distribute(
@@ -518,8 +517,7 @@ class SMRF:
                     cos_z,
                     azimuth,
                     illumination_angles,
-                    albedo_vis=self.distribute[Albedo.DISTRIBUTION_KEY].albedo_vis,
-                    albedo_ir=self.distribute[Albedo.DISTRIBUTION_KEY].albedo_ir,
+                    self.distribute[Albedo.DISTRIBUTION_KEY],
                 )
 
         # Thermal radiation
