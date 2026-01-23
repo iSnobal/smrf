@@ -5,6 +5,7 @@ import os
 import numpy
 from setuptools import Extension, setup
 from Cython.Distutils import build_ext
+from Cython.Build import cythonize
 
 # Give user option to specify local compiler name
 if "CC" not in os.environ:
@@ -20,6 +21,16 @@ extension_params = dict(
     extra_link_args=['-fopenmp'],
     include_dirs=[numpy.get_include()]
 )
+
+directives = {
+    'language_level': "3str",
+    'embedsignature': True,
+    'boundscheck': False,
+    'wraparound': False,
+    'initializedcheck': False,
+    'cdivision': True,
+    'binding': True,
+}
 
 extensions = []
 
@@ -53,17 +64,11 @@ extensions += [
         ],
         **extension_params
     ),
-]
-extensions += [
     Extension(
         'smrf.envphys.solar.toposplit',
         sources=['smrf/envphys/solar/toposplit.pyx'],
         **extension_params
-    )
-]
-
-# wind model c functions
-extensions += [
+    ),
     Extension(
         'smrf.utils.wind.wind_c',
         sources=[
@@ -81,5 +86,9 @@ setup(
     cmdclass={
         'build_ext': build_ext
     },
-    ext_modules=extensions,
+    ext_modules=cythonize(
+        extensions,
+        compiler_directives=directives,
+        annotate=False,
+    ),
 )

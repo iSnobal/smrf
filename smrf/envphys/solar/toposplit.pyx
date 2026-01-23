@@ -1,10 +1,4 @@
-# cython: language_level=3str
-# cython: embedsignature=True
-# cython: boundscheck=False
-# cython: wraparound=False
-# cython: initializedcheck=False
-# cython: cdivision=True
-# cython: binding=True
+# Cython directives are declared in setup.py
 
 import numpy as np
 cimport numpy as np
@@ -47,8 +41,6 @@ cdef class TopoSplit:
         const double[:,:] diffuse_horizontal,
         const double cos_z,
         const double[:,:] illumination_angles,
-        const double[:,:] albedo_vis,
-        const double[:,:] albedo_ir,
         double[:,:] results
     ) noexcept nogil:
         cdef:
@@ -81,19 +73,11 @@ cdef class TopoSplit:
                 results_row[2] = dswrf[row_idx, col] * k_val
                 results_row[3] = (dswrf[row_idx, col] * (1.0 - k_val)) / cos_z
 
-                # HRRR solar
-                results_row[4] = (
-                    results_row[3] * illumination_angles[row_idx, col] +
-                    results_row[2] * self._sky_view_factor[row_idx, col]
-                )
+                # Direct component
+                results_row[4] = results_row[3] * illumination_angles[row_idx, col]
 
-                # Net solar
-                results_row[5] = results_row[4] * (
-                    1 - (
-                        0.54 * albedo_vis[row_idx, col] +
-                        0.46 * albedo_ir[row_idx, col]
-                    )
-                )
+                # Diffuse component
+                results_row[5] = results_row[2] * self._sky_view_factor[row_idx, col]
 
             # Copy results to the shared results array
             # Pattern [row_n_col_m_GHI, row_n_col_m_K, row_n_col_m_DHI,
@@ -110,8 +94,6 @@ cdef class TopoSplit:
         const double[:,:] diffuse_horizontal,
         const double cos_z,
         const double[:,:] illumination_angles,
-        const double[:,:] albedo_vis,
-        const double[:,:] albedo_ir
     ):
         """"
         Parameters
@@ -126,10 +108,6 @@ cdef class TopoSplit:
             Cosine of solar zenith angle
         illumination_angles : ndarray
             Array of illumination angles
-        albedo_vis : ndarray
-            Visible albedo array
-        albedo_ir : ndarray
-            Infrared albedo array
 
         Returns
         -------
@@ -148,8 +126,8 @@ cdef class TopoSplit:
                 'solar_k': zero_array.copy(),
                 'solar_dhi': zero_array.copy(),
                 'solar_dni': zero_array.copy(),
-                'hrrr_solar': zero_array.copy(),
-                'net_solar': zero_array.copy()
+                'direct': zero_array.copy(),
+                'diffuse': zero_array.copy()
             }
 
         # Create one flat array per row to store all calculated components.
@@ -162,7 +140,6 @@ cdef class TopoSplit:
                     row_idx,
                     dswrf, direct_normal, diffuse_horizontal,
                     cos_z, illumination_angles,
-                    albedo_vis, albedo_ir,
                     results
                 )
 
@@ -172,6 +149,6 @@ cdef class TopoSplit:
             'k': results_array[1:results_array.shape[0]:NUM_ARRAYS],
             'dhi': results_array[2:results_array.shape[0]:NUM_ARRAYS],
             'dni': results_array[3:results_array.shape[0]:NUM_ARRAYS],
-            'solar': results_array[4:results_array.shape[0]:NUM_ARRAYS],
-            'net_solar': results_array[5:results_array.shape[0]:NUM_ARRAYS]
+            'direct': results_array[4:results_array.shape[0]:NUM_ARRAYS],
+            'diffuse': results_array[5:results_array.shape[0]:NUM_ARRAYS]
         }
