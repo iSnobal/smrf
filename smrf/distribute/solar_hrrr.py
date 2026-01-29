@@ -1,8 +1,10 @@
 from datetime import datetime
 
 import numpy as np
+import numexpr as ne
 from smrf.envphys.solar.toporad import mask_for_shade
 from smrf.envphys.solar.toposplit import TopoSplit
+from smrf.distribute.albedo import Albedo
 
 from .variable_base import VariableBase
 
@@ -87,6 +89,8 @@ class SolarHRRR(VariableBase):
         self.solar_dni = None
         self.solar_dhi = None
         self.solar_k = None
+        self.direct = None
+        self.diffuse = None
         self.hrrr_solar = None
         self.net_solar = None
 
@@ -102,8 +106,7 @@ class SolarHRRR(VariableBase):
         cos_z: float,
         azimuth: float,
         illumination_angles: np.ndarray,
-        albedo_vis: np.ndarray,
-        albedo_ir: np.ndarray,
+        albedo: Albedo,
     ) -> None:
         """
         Calculate solar radiation based on the Toposplit model presented in
@@ -136,8 +139,7 @@ class SolarHRRR(VariableBase):
         cos_z:               Solar zenith angle (cos)
         azimuth:             Solar azimuth angles
         illumination_angles: Angles calculated with topocalc.illumination_angle
-        albedo_vis:          Visible albedo
-        albedo_ir:           Infrared albedo
+        albedo:              Instance of :py:class:`smrf.distribute.albedo.Albedo`
 
         """
         self._logger.debug("%s Distributing HRRR solar" % timestep)
@@ -150,6 +152,8 @@ class SolarHRRR(VariableBase):
             self.solar_dhi = empty
             self.solar_k = empty
             self.hrrr_solar = empty
+            self.direct = empty
+            self.diffuse = empty
             self.net_solar = empty
 
             return
@@ -164,13 +168,42 @@ class SolarHRRR(VariableBase):
             hrrr_data[self.VDDSF],
             np.float64(cos_z),
             illumination_angles,
-            albedo_vis.astype(np.float64),
-            albedo_ir.astype(np.float64),
         )
 
         self.solar_ghi_vis = results["ghi_vis"]
         self.solar_k = results["k"]
         self.solar_dhi = results["dhi"]
         self.solar_dni = results["dni"]
-        self.hrrr_solar = results["solar"]
-        self.net_solar = results["net_solar"]
+        self.direct = results["direct"]
+        self.diffuse = results["diffuse"]
+
+        self.calculate_net_solar(albedo)
+
+    def calculate_net_solar(self, albedo: Albedo) -> None:
+        """
+        Calculate net solar based on a visible and infrared albedo ratio calculated
+        for a Northern Latitude location in the Western US.
+
+        :param albedo: Instance of :py:class:`smrf.distribute.albedo.Albedo`
+        """
+
+        # Variables for numexpr
+        params = {
+            'VIS_RATIO': np.float32(0.54),
+            'IR_RATIO': np.float32(0.46),
+            'MAX_ALBEDO': np.float32(1.0),
+            'direct': self.direct.astype(np.float32, copy=False, order='C'),
+            'diffuse': self.diffuse.astype(np.float32, copy=False, order='C'),
+            'albedo_vis': albedo.albedo_vis.astype(np.float32, copy=False, order='C'),
+            'albedo_ir': albedo.albedo_ir.astype(np.float32, copy=False, order='C'),
+        }
+
+        params['hrrr_solar'] = ne.evaluate(
+            "direct + diffuse", local_dict=params, casting='safe'
+        )
+        self.hrrr_solar = params['hrrr_solar']
+
+        self.net_solar = ne.evaluate(
+            "hrrr_solar * (MAX_ALBEDO - (VIS_RATIO * albedo_vis + IR_RATIO * albedo_ir))",
+            local_dict=params, casting='safe'
+        )

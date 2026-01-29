@@ -15,7 +15,10 @@ COS_Z = np.cos(np.radians(10))
 AZIMUTH = 100
 CLOUD_FACTOR = np.array([[0.0, 0.5, 1.0]])
 ILLUMINATION_MOCK = np.array([[15.0, 20.0, 18.0]])
-ALBEDO_MOCK = np.array([[0.85, 0.75, 0.9]])
+ALBEDO_MOCK = MagicMock(
+    albedo_vis=np.array([[0.85, 0.75, 0.9]]),
+    albedo_ir=np.array([[0.85, 0.75, 0.9]]),
+)
 MOCK_SOLAR = (
     np.array([[150.0, 200.0, 180.0]]),
     np.array([[120.0, 150.0, 110.0]]),
@@ -70,7 +73,6 @@ class TestSolar(unittest.TestCase):
             COS_Z,
             AZIMUTH,
             ALBEDO_MOCK,
-            ALBEDO_MOCK,
         )
 
         assert toporad_mock.call_count == 2
@@ -105,7 +107,6 @@ class TestSolar(unittest.TestCase):
             ILLUMINATION_MOCK,
             0,
             AZIMUTH,
-            ALBEDO_MOCK,
             ALBEDO_MOCK,
         )
 
@@ -147,7 +148,6 @@ class TestSolar(unittest.TestCase):
             COS_Z,
             AZIMUTH,
             ALBEDO_MOCK,
-            ALBEDO_MOCK,
         )
 
         self.assertIsNotNone(self.subject.vis_beam)
@@ -170,7 +170,6 @@ class TestSolar(unittest.TestCase):
             ILLUMINATION_MOCK,
             0,
             AZIMUTH,
-            ALBEDO_MOCK,
             ALBEDO_MOCK,
         )
 

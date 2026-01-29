@@ -19,7 +19,10 @@ DATA_MOCK = {
 COS_Z = np.cos(np.radians(10))
 AZIMUTH = 100
 ILLUMINATION_MOCK = np.array([[40.0, 50.0]])
-ALBEDO_MOCK = np.array([[0.9, 1.0]])
+ALBEDO_MOCK = MagicMock(
+    albedo_vis=np.array([[0.85, 0.9]]).astype(np.float32, order='C', copy=False),
+    albedo_ir=np.array([[0.85, 0.75]]).astype(np.float32, order='C', copy=False),
+)
 
 
 class TestSolarHRRR(unittest.TestCase):
@@ -37,7 +40,6 @@ class TestSolarHRRR(unittest.TestCase):
             AZIMUTH,
             ILLUMINATION_MOCK,
             ALBEDO_MOCK,
-            ALBEDO_MOCK,
         )
 
         shade_mock.assert_called_once_with(COS_Z, AZIMUTH, ILLUMINATION_MOCK, TOPO_MOCK)
@@ -54,10 +56,16 @@ class TestSolarHRRR(unittest.TestCase):
         dni = (DATA_MOCK[SolarHRRR.DSWRF] * (1 - k)) / COS_Z
         npt.assert_equal(dni, self.subject.solar_dni)
 
-        solar = dni * ILLUMINATION_MOCK + dhi * SKY_VIEW_FACTOR_MOCK
+        direct = dni * ILLUMINATION_MOCK
+        npt.assert_equal(direct, self.subject.direct)
+
+        diffuse = dhi * SKY_VIEW_FACTOR_MOCK
+        npt.assert_equal(diffuse, self.subject.diffuse)
+
+        solar = direct.astype(np.float32, order='C', copy=False) + diffuse.astype(np.float32, order='C', copy=False)
         npt.assert_equal(solar, self.subject.hrrr_solar)
 
-        net_solar = solar * ( 1- (0.54 * ALBEDO_MOCK + 0.46 * ALBEDO_MOCK))
+        net_solar = solar * ( 1- (0.54 * ALBEDO_MOCK.albedo_vis + 0.46 * ALBEDO_MOCK.albedo_ir))
         npt.assert_equal(net_solar, self.subject.net_solar)
 
     def test_distribute_sun_is_down(self):
@@ -67,7 +75,6 @@ class TestSolarHRRR(unittest.TestCase):
             0,
             AZIMUTH,
             ILLUMINATION_MOCK,
-            ALBEDO_MOCK,
             ALBEDO_MOCK,
         )
 
@@ -95,7 +102,6 @@ class TestSolarHRRR(unittest.TestCase):
             AZIMUTH,
             ILLUMINATION_MOCK,
             ALBEDO_MOCK,
-            ALBEDO_MOCK,
         )
 
         empty = np.zeros_like(SKY_VIEW_FACTOR_MOCK)
@@ -104,6 +110,8 @@ class TestSolarHRRR(unittest.TestCase):
         npt.assert_equal(empty, self.subject.solar_k)
         npt.assert_equal(empty, self.subject.solar_dhi)
         npt.assert_equal(empty, self.subject.solar_dni)
+        npt.assert_equal(empty, self.subject.direct)
+        npt.assert_equal(empty, self.subject.diffuse)
         npt.assert_equal(empty, self.subject.hrrr_solar)
         npt.assert_equal(empty, self.subject.net_solar)
 
