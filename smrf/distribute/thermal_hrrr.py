@@ -1,4 +1,5 @@
 import pandas as pd
+import numexpr as ne
 
 from smrf.envphys.constants import EMISS_TERRAIN, STEF_BOLTZ, FREEZE
 
@@ -40,6 +41,18 @@ class ThermalHRRR(VariableBase):
 
     def distribute(self, date_time, forcing_data, air_temp):
         self._logger.debug('%s Distributing HRRR thermal' % date_time)
-        self.thermal = (self.sky_view_factor * forcing_data) + (
-            1 - self.sky_view_factor
-        ) * EMISS_TERRAIN * STEF_BOLTZ * (air_temp + FREEZE) ** 4
+
+        params = {
+            'EMISS_TERRAIN': EMISS_TERRAIN,
+            'FREEZE': FREEZE,
+            'STEF_BOLTZ': STEF_BOLTZ,
+            'air_temp': air_temp,
+            'forcing_data': forcing_data,
+            'sky_view_factor': self.sky_view_factor,
+        }
+
+        self.thermal = ne.evaluate(
+            "(sky_view_factor * forcing_data) + (1 - sky_view_factor) * "
+            "EMISS_TERRAIN * STEF_BOLTZ * (air_temp + FREEZE) ** 4",
+            local_dict=params, casting='safe'
+        )
