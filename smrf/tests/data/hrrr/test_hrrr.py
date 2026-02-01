@@ -67,18 +67,12 @@ class TestHrrrThermal(SMRFTestCaseLakes):
 
 
 class TestHrrrSolar(SMRFTestCaseLakes):
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-
-        config = cls.base_config_copy()
+    def test_load_without_vegetation(self):
+        config = self.base_config_copy()
         config.cfg["output"]["variables"] = ["hrrr_solar", "solar_k"]
+        config.cfg["solar"]["correct_veg"] = False
         config = cast_all_variables(config, config.mcfg)
-
-        cls.config = config
-
-    def test_load(self):
-        run_smrf(self.config)
+        run_smrf(config)
 
         with nc.Dataset(self.gold_dir.joinpath("net_solar_hrrr.nc")) as gold:
             with nc.Dataset(self.output_dir.joinpath("net_solar.nc")) as test:
@@ -86,3 +80,14 @@ class TestHrrrSolar(SMRFTestCaseLakes):
 
         self.compare_netcdf_files(self.gold_dir.joinpath("hrrr_solar.nc"))
         self.compare_netcdf_files(self.gold_dir.joinpath("solar_k.nc"))
+
+    def test_load_with_vegetation(self):
+        config = self.base_config_copy()
+        config.cfg["output"]["variables"] = ["hrrr_solar"]
+        config.cfg["solar"]["correct_veg"] = True
+        config = cast_all_variables(config, config.mcfg)
+        run_smrf(config)
+
+        with nc.Dataset(self.gold_dir.joinpath("net_solar_hrrr_vegetation.nc")) as gold:
+            with nc.Dataset(self.output_dir.joinpath("net_solar.nc")) as test:
+                self.compare_file_variables(gold, test)

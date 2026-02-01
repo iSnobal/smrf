@@ -2,6 +2,7 @@ from datetime import datetime
 
 import numpy as np
 import numexpr as ne
+from smrf.envphys.solar import vegetation
 from smrf.envphys.solar.toporad import mask_for_shade
 from smrf.envphys.solar.toposplit import TopoSplit
 from smrf.distribute.albedo import Albedo
@@ -177,6 +178,9 @@ class SolarHRRR(VariableBase):
         self.direct = results["direct"]
         self.diffuse = results["diffuse"]
 
+        if self.config.get("correct_veg", False):
+            self.correct_vegetation(illumination_angles)
+
         self.calculate_net_solar(albedo)
 
     def calculate_net_solar(self, albedo: Albedo) -> None:
@@ -207,3 +211,15 @@ class SolarHRRR(VariableBase):
             "hrrr_solar * (MAX_ALBEDO - (VIS_RATIO * albedo_vis + IR_RATIO * albedo_ir))",
             local_dict=params, casting='safe'
         )
+
+    def correct_vegetation(self, illumination_angles: np.ndarray) -> None:
+        """
+        Adjust the direct and diffuse components for vegetation.
+
+        Args:
+            illumination_angles: Illumination angles from :py:mod:`smrf.envphys.radiation.sunang`
+        """
+        self.direct = vegetation.solar_veg_beam(
+            self.direct, self.veg_height, illumination_angles, self.veg_k
+        )
+        self.diffuse = vegetation.solar_veg_diffuse(self.diffuse, self.veg_tau)
