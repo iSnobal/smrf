@@ -2,7 +2,7 @@ import netCDF4 as nc
 import numpy as np
 import pandas as pd
 
-from smrf.data.gridded_input import GriddedInput
+from smrf.data.input import GriddedInput
 from smrf.utils.utils import apply_utm
 
 

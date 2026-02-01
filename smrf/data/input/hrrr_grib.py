@@ -6,7 +6,7 @@ from smrf.distribute.wind.wind_ninja import WindNinjaModel
 from smrf.envphys.solar.cloud import get_hrrr_cloud
 from smrf.envphys.vapor_pressure import rh2vp
 
-from .gridded_input import GriddedInput
+from smrf.data.input import GriddedInput
 from smrf.distribute import SolarHRRR, ThermalHRRR
 
 

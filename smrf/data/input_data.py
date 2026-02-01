@@ -3,11 +3,8 @@ import logging
 import numpy as np
 import utm
 
-from .csv import InputCSV
-from .gridded_input import GriddedInput
-from .hrrr_grib import InputGribHRRR
-from .netcdf import InputNetcdf
-from .wrf import InputWRF
+from smrf.data.input.csv import InputCSV
+from smrf.data.input import GriddedInput, InputGribHRRR, InputWRF, InputNetcdf
 
 
 class InputData:

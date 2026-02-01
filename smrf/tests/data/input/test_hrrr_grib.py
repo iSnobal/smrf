@@ -5,7 +5,7 @@ import pandas as pd
 import pandas.testing as pdt
 
 from smrf.data.hrrr.grib_file_gdal import GribFileGdal
-from smrf.data.hrrr_grib import InputGribHRRR
+from smrf.data.input import InputGribHRRR
 from smrf.data.load_topo import Topo
 from smrf.distribute import SolarHRRR, ThermalHRRR
 from smrf.distribute.wind.wind_ninja import WindNinjaModel
@@ -84,7 +84,7 @@ class TestInputGribHRRR(unittest.TestCase):
 
         self.assertFalse(hrrr_input._load_wind)
 
-    @patch("smrf.data.hrrr_grib.FileLoader")
+    @patch("smrf.data.input.hrrr_grib.FileLoader")
     @patch.object(InputGribHRRR, "parse_data")
     def test_load(self, mock_parse_data, mock_file_loader):
         file_loader = MagicMock()
@@ -120,7 +120,7 @@ class TestInputGribHRRR(unittest.TestCase):
 
         mock_parse_data.assert_called_once_with(mock_data)
 
-    @patch("smrf.data.hrrr_grib.FileLoader")
+    @patch("smrf.data.input.hrrr_grib.FileLoader")
     def test_get_metadata(self, mock_file_loader):
         file_loader = MagicMock()
         mock_file_loader.return_value = file_loader

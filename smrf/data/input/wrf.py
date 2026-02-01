@@ -3,8 +3,8 @@ import numpy as np
 import pandas as pd
 import pytz
 
-from .gridded_input import GriddedInput
-from smrf.data.netcdf import metadata_name_from_index
+from smrf.data.input.gridded_input import GriddedInput
+from smrf.data.input.netcdf import metadata_name_from_index
 from smrf.envphys.vapor_pressure import satvp
 from smrf.utils.utils import apply_utm
 
