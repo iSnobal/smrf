@@ -1,3 +1,5 @@
+import os
+import xarray as xr
 import numpy as np
 import pandas as pd
 from smrf.data.hrrr.file_loader import FileLoader
@@ -75,6 +77,7 @@ class InputGribHRRR(GriddedInput):
 
         self.start_date = date_time
         self.load()
+        self.load_albedo()
 
     def parse_data(self, data):
         """
@@ -199,6 +202,58 @@ class InputGribHRRR(GriddedInput):
             self._logger.error("There are NaN values in the cloud factor")
 
         self.cloud_factor = self.cloud_factor_memory.tail(1)
+
+    def load_albedo(self):
+        """
+        Loads external albedo NetCDF using xarray and aligns it 
+        with the current HRRR timestep.
+        """
+        ALBEDO_VARS = ['albedo', 'albedo_direct', 'albedo_diffuse']
+
+        source_dir = self.config.get('albedo', {}).get('albedo_source')
+        if not source_dir:
+            return
+
+        # Expected folder structure as /forcing/YYYY.MM.DD/albedo.nc
+        date_str = self.start_date.strftime('%Y.%m.%d')
+        file_path = os.path.join(source_dir, date_str, 'albedo.nc')
+
+        if not os.path.exists(file_path):
+            self._logger.warning(f"External albedo source configured but file missing: {file_path}")
+            return
+
+        self._logger.debug(f"Loading external albedo: {file_path}")
+
+        # Open albedo data
+        with xr.open_dataset(file_path, decode_coords="all") as ds:
+            
+            # make it work for hour or time
+            if 'hour' in ds.coords:
+                ds = ds.rename({'hour': 'time'})
+            
+            ds['time'] = ds.indexes['time'].tz_localize(self.time_zone)
+
+            albedos = [v for v in ALBEDO_VARS if v in ds.data_vars]
+            if not albedos:
+                raise ValueError(f"No valid albedo variables found in {file_path}. Must be 'albedo' or 'albedo_direct' and 'albedo_diffuse'.")
+
+            for a in albedos:
+                data_flat = ds[a].values.reshape(len(ds.time), -1)
+                
+                df = pd.DataFrame(
+                    data_flat, 
+                    index=ds.indexes['time'], 
+                    columns=self.metadata.index
+                ).astype(np.float32)
+
+                setattr(self, a, df)
+
+            if hasattr(self, 'albedo_direct') and hasattr(self, 'albedo_diffuse'):
+                self.albedo_direct = self.albedo_direct
+                self.albedo_diffuse = self.albedo_diffuse
+            
+            elif hasattr(self, 'albedo'):
+                self.albedo = self.albedo
 
     def get_metadata(self):
         """

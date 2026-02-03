@@ -69,7 +69,7 @@ class Albedo(VariableBase):
         if self.config["decay_method"] is None:
             self._logger.warning("No decay method is set!")
 
-    def distribute(self, current_time_step, cosz, storm_day):
+    def distribute(self, current_time_step, cosz, storm_day, data=None):
         """
         Distribute air temperature given a Panda's dataframe for a single time
         step. Calls :mod:`smrf.distribute.ImageData._distribute`.
@@ -85,9 +85,33 @@ class Albedo(VariableBase):
 
         self._logger.debug('%s Distributing albedo' % current_time_step)
 
+        # set defaults for night time
+        self.albedo_vis = np.zeros(storm_day.shape)
+        self.albedo_ir = np.zeros(storm_day.shape)
+        self.albedo = np.zeros(storm_day.shape)
+        self.albedo_direct = np.zeros(storm_day.shape)
+        self.albedo_diffuse = np.zeros(storm_day.shape)
+
         # only need to calculate albedo if the sun is up
         if cosz is not None:
+            
+            # Grab external albedo data if present
+            if data is not None:
+                # Check for direct and diffuse data (this is best and should be used if both are given)
+                if hasattr(data, 'albedo_direct') and hasattr(data, 'albedo_diffuse'):
+                    self._logger.debug("Using external direct/diffuse albedo")
+                    self.albedo_direct = data.albedo_direct.loc[current_time_step].values
+                    self.albedo_diffuse = data.albedo_diffuse.loc[current_time_step].values
+                    self.albedo = None
 
+                # Fallback to broadband albedo (this is total blue sky albedo).
+                elif hasattr(data, 'albedo'):
+                    self._logger.debug("Using external broadband albedo")
+                    self.albedo = data.albedo.loc[current_time_step].values
+                    self.albedo_direct = None
+                    self.albedo_diffuse = None
+
+            # Always populate decay based albedos
             alb_v, alb_ir = albedo.albedo(
                 storm_day, cosz,
                 self.config['grain_size'],
@@ -121,7 +145,3 @@ class Albedo(VariableBase):
 
             self.albedo_vis = utils.set_min_max(alb_v, self.min, self.max)
             self.albedo_ir = utils.set_min_max(alb_ir, self.min, self.max)
-
-        else:
-            self.albedo_vis = np.zeros(storm_day.shape)
-            self.albedo_ir = np.zeros(storm_day.shape)

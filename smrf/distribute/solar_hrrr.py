@@ -185,9 +185,9 @@ class SolarHRRR(VariableBase):
         for a Northern Latitude location in the Western US.
 
         :param albedo: Instance of :py:class:`smrf.distribute.albedo.Albedo`
-        """
-
-        # Variables for numexpr
+        """ 
+        
+        # Variables for numexpr 
         params = {
             'VIS_RATIO': np.float32(0.54),
             'IR_RATIO': np.float32(0.46),
@@ -203,7 +203,27 @@ class SolarHRRR(VariableBase):
         )
         self.hrrr_solar = params['hrrr_solar']
 
-        self.net_solar = ne.evaluate(
-            "hrrr_solar * (MAX_ALBEDO - (VIS_RATIO * albedo_vis + IR_RATIO * albedo_ir))",
-            local_dict=params, casting='safe'
-        )
+        # 1. If direct and diffuse external albedos, use these.
+        if albedo.albedo_direct is not None and albedo.albedo_diffuse is not None:
+            params['alb_dir'] = albedo.albedo_direct.astype(np.float32, copy=False)
+            params['alb_diff'] = albedo.albedo_diffuse.astype(np.float32, copy=False)
+
+            self.net_solar = ne.evaluate(
+                "direct * alb_dir + diffuse * alb_diff",
+                local_dict=params, casting='safe'
+            )   
+        # 2. Else if, we have total broadband albedo (blue sky albedo), use this.  
+        elif albedo.albedo is not None:
+            params['alb_total'] = albedo.albedo.astype(np.float32, copy=False)
+            
+            self.net_solar = ne.evaluate(
+                "hrrr_solar * alb_total",
+                local_dict=params, casting='safe'
+            )     
+
+        # 3. Else, fall back to the base model that always is running.
+        else:
+            self.net_solar = ne.evaluate(
+                "hrrr_solar * (MAX_ALBEDO - (VIS_RATIO * albedo_vis + IR_RATIO * albedo_ir))",
+                local_dict=params, casting='safe'
+            )
