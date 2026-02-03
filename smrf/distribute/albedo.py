@@ -30,6 +30,21 @@ class Albedo(VariableBase):
             "standard_name": "infrared_albedo",
             "long_name": "Infrared wavelength albedo",
         },
+        "albedo": {
+            "units": "None",
+            "standard_name": "albedo_total",
+            "long_name": "Blue Sky Broadband Albedo",
+        },
+        "albedo_direct": {
+            "units": "None",
+            "standard_name": "albedo_direct",
+            "long_name": "Black Sky Broadband Albedo",
+        },
+        "albedo_diffuse": {
+            "units": "None",
+            "standard_name": "albedo_diffuse",
+            "long_name": "White Sky Broadband Albedo",
+        },
     }
 
     def __init__(self, config: dict, topo):
