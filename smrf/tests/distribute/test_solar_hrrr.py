@@ -6,7 +6,7 @@ import numpy.testing as npt
 import pandas as pd
 
 from smrf.data import Topo
-from smrf.distribute import SolarHRRR
+from smrf.distribute import SolarHRRR, Albedo
 
 SKY_VIEW_FACTOR_MOCK = np.array([[1.0, 1.0]])
 TOPO_MOCK = MagicMock(
@@ -27,22 +27,31 @@ DATA_MOCK = {
 COS_Z = np.cos(np.radians(10))
 AZIMUTH = 100
 ILLUMINATION_MOCK = np.array([[40.0, 50.0]])
-ALBEDO_MOCK = MagicMock(
-    albedo_vis=np.array([[0.85, 0.9]]).astype(np.float32, order="C", copy=False),
-    albedo_ir=np.array([[0.85, 0.75]]).astype(np.float32, order="C", copy=False),
-)
+ALBEDO_1 = np.array([[0.85, 0.9]]).astype(np.float32, order="C", copy=False)
+ALBEDO_2 =np.array([[0.85, 0.75]]).astype(np.float32, order="C", copy=False)
 
 
 class TestSolarHRRR(unittest.TestCase):
     def setUp(self):
+        config = {
+                "time": {
+                    "start_date": "2025-10-01 00:00",
+                    "time_zone": "utc",
+                },
+                "albedo": {
+                    "decay_method": "date_method",
+                },
+            "solar": {
+                "correct_veg": False,
+            }
+            }
         self.subject = SolarHRRR(
-            config={
-                "solar": {
-                    "correct_veg": False,
-                }
-            },
+            config=config,
             topo=TOPO_MOCK,
         )
+        self.albedo = Albedo(config=config, topo=TOPO_MOCK)
+        self.albedo.albedo_vis = ALBEDO_1
+        self.albedo.albedo_ir = ALBEDO_2
 
     @patch("smrf.distribute.solar_hrrr.vegetation")
     @patch("smrf.distribute.solar_hrrr.mask_for_shade")
@@ -55,7 +64,7 @@ class TestSolarHRRR(unittest.TestCase):
             COS_Z,
             AZIMUTH,
             ILLUMINATION_MOCK,
-            ALBEDO_MOCK,
+            self.albedo,
         )
 
         shade_mock.assert_called_once_with(COS_Z, AZIMUTH, ILLUMINATION_MOCK, TOPO_MOCK)
@@ -84,7 +93,7 @@ class TestSolarHRRR(unittest.TestCase):
         npt.assert_equal(solar, self.subject.hrrr_solar)
 
         net_solar = solar * (
-            1 - (0.54 * ALBEDO_MOCK.albedo_vis + 0.46 * ALBEDO_MOCK.albedo_ir)
+            1 - (0.54 * self.albedo.albedo_vis + 0.46 * self.albedo.albedo_ir)
         )
         npt.assert_equal(net_solar, self.subject.net_solar)
 
@@ -118,7 +127,7 @@ class TestSolarHRRR(unittest.TestCase):
             0,
             AZIMUTH,
             ILLUMINATION_MOCK,
-            ALBEDO_MOCK,
+            self.albedo,
         )
 
         empty = np.zeros_like(SKY_VIEW_FACTOR_MOCK)
@@ -144,7 +153,7 @@ class TestSolarHRRR(unittest.TestCase):
             COS_Z,
             AZIMUTH,
             ILLUMINATION_MOCK,
-            ALBEDO_MOCK,
+            self.albedo,
         )
 
         empty = np.zeros_like(SKY_VIEW_FACTOR_MOCK)

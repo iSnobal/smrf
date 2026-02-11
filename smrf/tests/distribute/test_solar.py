@@ -2,8 +2,8 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 import numpy as np
-
 import pandas as pd
+
 from smrf.data import Topo
 from smrf.distribute import Solar
 
@@ -22,7 +22,7 @@ ALBEDO_MOCK = MagicMock(
 MOCK_SOLAR = (
     np.array([[150.0, 200.0, 180.0]]),
     np.array([[120.0, 150.0, 110.0]]),
-    np.array([[22.0, 25.0, 21.0]])
+    np.array([[22.0, 25.0, 21.0]]),
 )
 
 
@@ -30,12 +30,16 @@ class TestSolar(unittest.TestCase):
     def setUp(self):
         self.subject = Solar(
             config={
-                'solar': {
-                    'correct_cloud': False,
-                    'correct_veg': False,
-                }
+                "solar": {
+                    "correct_cloud": False,
+                    "correct_veg": False,
+                },
+                "time": {
+                    "start_date": "2025-10-01 00:00",
+                    "time_zone": "utc",
+                },
             },
-            topo=TOPO_MOCK
+            topo=TOPO_MOCK,
         )
 
     def test_initialize(self):
