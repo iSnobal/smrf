@@ -39,8 +39,13 @@ class VariableBase:
         max:      Maximum allowed value for the variable
         min:      Minimum allowed value for the variable
     """
-    DISTRIBUTION_KEY = ''
+
+    DISTRIBUTION_KEY = ""
     OUTPUT_VARIABLES = {}
+
+    # Configuration key that is available with each section, when an external file
+    # should be read.
+    SOURCE_FILES = "source_files"
 
     def __init__(self, config: dict = None, topo: Topo = None):
         """
@@ -63,7 +68,7 @@ class VariableBase:
 
         :param config: Parsed configuration file
         """
-        if self.DISTRIBUTION_KEY != '':
+        if self.DISTRIBUTION_KEY != "":
             setattr(self, self.DISTRIBUTION_KEY, None)
 
         self.config = None
@@ -86,8 +91,8 @@ class VariableBase:
             if self.config.get("stations", None) is not None:
                 self.stations = sorted(self.config["stations"])
 
-            self.min = self.config.get('min', -np.Inf)
-            self.max = self.config.get('max', np.Inf)
+            self.min = self.config.get("min", -np.Inf)
+            self.max = self.config.get("max", np.Inf)
 
         self._logger = logging.getLogger(self.__class__.__module__)
         self._logger.debug(
@@ -270,11 +275,9 @@ class VariableBase:
             raise Exception("{}: All data values are NaN".format(self.DISTRIBUTION_KEY))
 
         if self.distribution_method == InverseDistanceWeighted.CONFIG_KEY:
-            if self.config['detrend']:
+            if self.config["detrend"]:
                 v = self.idw.detrendedIDW(
-                    data.values,
-                    self.config['detrend_slope'],
-                    zeros=zeros
+                    data.values, self.config["detrend_slope"], zeros=zeros
                 )
             else:
                 v = self.idw.calculateIDW(data.values)
@@ -283,21 +286,18 @@ class VariableBase:
             v = self.dk.calculate(data.values)
 
         elif self.distribution_method == Grid.CONFIG_KEY:
-            if self.config['detrend']:
+            if self.config["detrend"]:
                 v = self.grid.detrended_interpolation(
-                    data,
-                    self.config['detrend_slope'],
-                    self.config['grid_method']
+                    data, self.config["detrend_slope"], self.config["grid_method"]
                 )
             else:
                 v = self.grid.calculate_interpolation(
-                    data.values,
-                    self.config['grid_method']
+                    data.values, self.config["grid_method"]
                 )
 
         elif self.distribution_method == Kriging.CONFIG_KEY:
             v, ss = self.kriging.calculate(data.values)
-            setattr(self, '{}_variance'.format(self.DISTRIBUTION_KEY), ss)
+            setattr(self, "{}_variance".format(self.DISTRIBUTION_KEY), ss)
 
         if other_attribute is not None:
             setattr(self, other_attribute, v)
