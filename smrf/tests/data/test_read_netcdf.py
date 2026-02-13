@@ -20,9 +20,6 @@ class TestReadNetCDF(unittest.TestCase):
         self.mock_logger = mock.MagicMock()
         self.mock_getLogger.return_value = self.mock_logger
 
-        self.atexit_patcher = mock.patch("smrf.data.read_netcdf.atexit.register")
-        self.mock_atexit = self.atexit_patcher.start()
-
         # First create a real in memory NetCDF file, before patching the class
         self.mock_file = self._create_mock_netcdf_file()
         self.dataset_patcher = mock.patch("smrf.data.read_netcdf.netCDF4.Dataset")
@@ -31,7 +28,6 @@ class TestReadNetCDF(unittest.TestCase):
 
     def tearDown(self):
         self.logger_patcher.stop()
-        self.atexit_patcher.stop()
         self.dataset_patcher.stop()
 
         if self.mock_file.isopen():
@@ -41,8 +37,6 @@ class TestReadNetCDF(unittest.TestCase):
         reader = ReadNetCDF(self.test_file, self.time_zone)
 
         self.mock_dataset.assert_called_once_with(self.test_file, "r")
-
-        self.mock_atexit.assert_called_once_with(reader.close)
 
         # Verify attributes were set correctly
         self.assertEqual(reader.time_zone, self.time_zone)
