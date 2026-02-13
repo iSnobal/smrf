@@ -199,10 +199,7 @@ class SolarHRRR(VariableBase):
 
         :param albedo: Instance of :py:class:`smrf.distribute.albedo.Albedo`
         """
-        if albedo.albedo is not None:
-            self._logger.debug("Calculating net solar using broadband albedo")
-            self.net_solar = NetSolar.broadband_albedo(self.hrrr_solar, albedo)
-        elif albedo.albedo_vis is not None and albedo.albedo_ir is not None:
+        if albedo.albedo_vis is not None and albedo.albedo_ir is not None:
             self._logger.debug("Calculating net solar using vis and ir albedo")
             self.net_solar = NetSolar.broadband_from_vis_ir(self.hrrr_solar, albedo)
         elif albedo.albedo_diffuse is not None and albedo.albedo_direct is not None:
@@ -210,6 +207,9 @@ class SolarHRRR(VariableBase):
             self.net_solar = NetSolar.albedo_diffuse_and_direct(
                 direct=self.direct, diffuse=self.diffuse, albedo=albedo
             )
+        elif albedo.albedo is not None:
+            self._logger.debug("Calculating net solar using broadband albedo")
+            self.net_solar = NetSolar.broadband_albedo(self.hrrr_solar, albedo)
         else:
             raise RuntimeError("Albedo variables are not set")
 

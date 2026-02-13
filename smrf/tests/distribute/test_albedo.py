@@ -64,7 +64,7 @@ class TestAlbedo(SMRFConfig, unittest.TestCase):
         values_vis = np.array([0.8, 0.7])
         values_ir = np.array([0.9, 0.5])
         mock_source = MagicMock()
-        mock_source.variables = ["albedo_vis", "albedo_ir"]
+        mock_source.variables = ["albedo_vis", "albedo_ir", "albedo"]
         mock_source.load.side_effect = [values_vis, values_ir]
         mock_read_netcdf.return_value = mock_source
 
@@ -77,6 +77,8 @@ class TestAlbedo(SMRFConfig, unittest.TestCase):
 
         np.testing.assert_array_equal(subject.albedo_vis, values_vis)
         np.testing.assert_array_equal(subject.albedo_ir, values_ir)
+        # Test that the priority is given to vis and ir
+        self.assertIsNone(subject.albedo)
 
         mock_source.load.assert_any_call("albedo_vis", TIMESTEP)
         mock_source.load.assert_any_call("albedo_ir", TIMESTEP)
@@ -86,7 +88,7 @@ class TestAlbedo(SMRFConfig, unittest.TestCase):
         values_direct = np.array([0.85, 0.75])
         values_diffuse = np.array([0.95, 0.59])
         mock_source = MagicMock()
-        mock_source.variables = ["albedo_direct", "albedo_diffuse"]
+        mock_source.variables = ["albedo_direct", "albedo_diffuse", "albedo"]
         mock_source.load.side_effect = [values_direct, values_diffuse]
         mock_read_netcdf.return_value = mock_source
 
@@ -99,6 +101,8 @@ class TestAlbedo(SMRFConfig, unittest.TestCase):
 
         np.testing.assert_array_equal(subject.albedo_direct, values_direct)
         np.testing.assert_array_equal(subject.albedo_diffuse, values_diffuse)
+        # Test that the priority is given to direct and diffuse
+        self.assertIsNone(subject.albedo)
 
         mock_source.load.assert_any_call("albedo_direct", TIMESTEP)
         mock_source.load.assert_any_call("albedo_diffuse", TIMESTEP)
