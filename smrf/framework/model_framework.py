@@ -382,6 +382,11 @@ class SMRF:
                 "{0:.2f} seconds for time step".format(telapsed.total_seconds())
             )
 
+        # Close all opened source files
+        for v in self.distribute:
+            if self.distribute[v].source_files is not None:
+                self.distribute[v].source_files.close()
+
         self.forcing_data = 1
 
     def distribute_single_timestep(self, timestep: datetime) -> None:

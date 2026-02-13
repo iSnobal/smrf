@@ -1,4 +1,3 @@
-import atexit
 import logging
 from datetime import datetime, tzinfo
 from pathlib import Path
@@ -33,8 +32,6 @@ class ReadNetCDF:
         self.dates = None
         self._load_timesteps()
         self.variables = list(self.file.variables.keys())
-
-        atexit.register(self.close)
 
         self._logger.info(f"Opening file: {self.file.name} for reading")
 
@@ -74,7 +71,7 @@ class ReadNetCDF:
             ValueError: If the timestep is not found in the file's dates.
         """
         self._logger.debug(
-            f"Reading variable {variable_name} at time {str(datetime)} from file: {self.file.name}"
+            f"Reading variable {variable_name} at time {str(timestep)} from file: {self.file.name}"
         )
         return self.file[variable_name][self.dates.index(timestep.timestamp())]
 
@@ -84,9 +81,3 @@ class ReadNetCDF:
         """
         if hasattr(self, "file") and self.file.isopen():
             self.file.close()
-
-    def __del__(self):
-        """
-        Close the file when the instance object is garbage collected.
-        """
-        self.close()

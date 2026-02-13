@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytz
@@ -46,6 +46,25 @@ class TestModelFramework(SMRFTestCase):
 
     def test_assert_time_steps(self):
         self.assertEqual(self.smrf.time_steps, 5)
+
+    @patch("smrf.framework.model_framework.SMRF.output")
+    @patch("smrf.framework.model_framework.SMRF.distribute_single_timestep")
+    def test_distribute_data(self, mock_single_timestep, mock_output):
+        mock_variable = MagicMock()
+        mock_variable.source_files =  None
+        mock_variable_2 = MagicMock()
+        mock_variable_2.source_files = MagicMock()
+        mock_data = MagicMock()
+        self.smrf.distribute["Variable"] = mock_variable
+        self.smrf.distribute["Variable_2"] = mock_variable_2
+        self.smrf.data = mock_data
+
+        self.smrf.distribute_data()
+
+        self.assertEqual(mock_single_timestep.call_count, self.smrf.time_steps)
+        self.assertEqual(mock_output.call_count, self.smrf.time_steps)
+
+        mock_variable_2.source_files.close.assert_called()
 
 
 class TestModelFrameworkMST(SMRFTestCase):
