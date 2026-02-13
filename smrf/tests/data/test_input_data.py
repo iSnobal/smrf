@@ -1,7 +1,8 @@
 from unittest import mock
 
 import smrf
-import smrf.data as smrf_data
+import smrf.data.input as smrf_data
+from smrf.data import InputData
 
 from smrf.framework.model_framework import SMRF
 from smrf.tests.smrf_test_case import SMRFTestCase
@@ -15,7 +16,7 @@ class TestInputData(SMRFTestCase):
 
     @mock.patch.object(smrf_data.InputCSV, 'load')
     def test_csv_type(self, mock_load):
-        input_data = smrf_data.InputData(
+        input_data = InputData(
             self.smrf.config,
             self.smrf.start_date,
             self.smrf.end_date,
@@ -40,7 +41,7 @@ class TestInputData(SMRFTestCase):
     def test_missing_data_type(self):
         del self.smrf.config['csv']
         with self.assertRaisesRegex(AttributeError, 'Missing required'):
-            smrf_data.InputData(
+            InputData(
                 self.smrf.config,
                 self.smrf.start_date,
                 self.smrf.end_date,
@@ -62,7 +63,7 @@ class TestInputDataGridded(SMRFTestCaseLakes):
 
     @mock.patch.object(smrf_data.InputGribHRRR, 'load')
     def test_data_type(self, mock_load):
-        self.input_data = smrf_data.InputData(
+        self.input_data = InputData(
             self.smrf.config,
             self.smrf.start_date,
             self.smrf.end_date,
@@ -80,7 +81,7 @@ class TestInputDataGridded(SMRFTestCaseLakes):
     def test_netcdf_type(self, mock_load):
         self.smrf.config['gridded']['data_type'] = 'netcdf'
         self.smrf.config['gridded']['netcdf_file'] = {}
-        self.input_data = smrf_data.InputData(
+        self.input_data = InputData(
             self.smrf.config,
             self.smrf.start_date,
             self.smrf.end_date,
@@ -98,7 +99,7 @@ class TestInputDataGridded(SMRFTestCaseLakes):
     @mock.patch.object(smrf_data.InputWRF, 'load')
     def test_wrf_type(self, mock_load):
         self.smrf.config['gridded']['data_type'] = 'wrf'
-        self.input_data = smrf_data.InputData(
+        self.input_data = InputData(
             self.smrf.config,
             self.smrf.start_date,
             self.smrf.end_date,
@@ -116,7 +117,7 @@ class TestInputDataGridded(SMRFTestCaseLakes):
     def test_unknown_data_type(self):
         self.smrf.config['gridded']['data_type'] = 'unknown'
         with self.assertRaisesRegex(AttributeError, 'Unknown gridded'):
-            self.input_data = smrf_data.InputData(
+            self.input_data = InputData(
                 self.smrf.config,
                 self.smrf.start_date,
                 self.smrf.end_date,

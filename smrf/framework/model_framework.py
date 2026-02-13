@@ -30,7 +30,8 @@ import pytz
 from inicheck.config import UserConfig
 from inicheck.output import generate_config, print_config_report
 from inicheck.tools import check_config, get_user_config
-from smrf.data import GriddedInput, InputData, InputGribHRRR, Topo
+from smrf.data import InputData, Topo
+from smrf.data.input import GriddedInput, InputGribHRRR
 from smrf.distribute import (
     AirTemperature,
     Albedo,

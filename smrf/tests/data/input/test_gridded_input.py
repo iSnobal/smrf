@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 
 import pandas as pd
 
-from smrf.data import GriddedInput
+from smrf.data.input import GriddedInput
 from smrf.data.load_topo import Topo
 
 

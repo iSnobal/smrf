@@ -1,9 +1,12 @@
 import logging
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytz
 
 from smrf.data.load_topo import Topo
+from smrf.data.read_netcdf import ReadNetCDF
 from smrf.spatial import (
     DetrendedKriging,
     Grid,
@@ -39,8 +42,13 @@ class VariableBase:
         max:      Maximum allowed value for the variable
         min:      Minimum allowed value for the variable
     """
-    DISTRIBUTION_KEY = ''
+
+    DISTRIBUTION_KEY = ""
     OUTPUT_VARIABLES = {}
+
+    # Configuration key that is available with each section, when an external file
+    # should be read.
+    SOURCE_FILES = "source_files"
 
     def __init__(self, config: dict = None, topo: Topo = None):
         """
@@ -63,16 +71,22 @@ class VariableBase:
 
         :param config: Parsed configuration file
         """
-        if self.DISTRIBUTION_KEY != '':
+        if self.DISTRIBUTION_KEY != "":
             setattr(self, self.DISTRIBUTION_KEY, None)
 
         self.config = None
         self.topo = topo
         self.metadata = None
+        # Externally loaded forcing files if present in the configuration
+        self.source_files = None
 
         # System wide configurations
         if config is not None:
             self.threads = config.get("system", {}).get("threads", 1)
+            self.start_date = pd.to_datetime(config["time"]["start_date"]).strftime(
+                "%Y%m%d"
+            )
+            self.time_zone = pytz.timezone(config["time"]["time_zone"])
 
         # Variable specific configurations
         if config and config.get(self.DISTRIBUTION_KEY, False):
@@ -86,8 +100,8 @@ class VariableBase:
             if self.config.get("stations", None) is not None:
                 self.stations = sorted(self.config["stations"])
 
-            self.min = self.config.get('min', -np.Inf)
-            self.max = self.config.get('max', np.Inf)
+            self.min = self.config.get("min", -np.Inf)
+            self.max = self.config.get("max", np.Inf)
 
         self._logger = logging.getLogger(self.__class__.__module__)
         self._logger.debug(
@@ -165,6 +179,9 @@ class VariableBase:
 
     def initialize(self, metadata: pd.DataFrame):
         """
+        Second initialzie step to load stations (if configured) and open the configured
+        `source_files` from the `start_date` in the `.ini` file.
+
         Args:
             metadata: metadata Pandas dataframe containing the station metadata
                       from :mod:`smrf.data.loadData` or :mod:`smrf.data.loadGrid
@@ -181,6 +198,12 @@ class VariableBase:
             self.metadata = metadata.loc[self.stations]
         else:
             self.metadata = metadata
+
+        if self.config.get(self.SOURCE_FILES, None) is not None:
+            self._logger.info(
+                f"Using {self.DISTRIBUTION_KEY} files from configured path"
+            )
+            self._open_source_files(self.config[self.SOURCE_FILES])
 
         self._initialize()
 
@@ -270,11 +293,9 @@ class VariableBase:
             raise Exception("{}: All data values are NaN".format(self.DISTRIBUTION_KEY))
 
         if self.distribution_method == InverseDistanceWeighted.CONFIG_KEY:
-            if self.config['detrend']:
+            if self.config["detrend"]:
                 v = self.idw.detrendedIDW(
-                    data.values,
-                    self.config['detrend_slope'],
-                    zeros=zeros
+                    data.values, self.config["detrend_slope"], zeros=zeros
                 )
             else:
                 v = self.idw.calculateIDW(data.values)
@@ -283,23 +304,51 @@ class VariableBase:
             v = self.dk.calculate(data.values)
 
         elif self.distribution_method == Grid.CONFIG_KEY:
-            if self.config['detrend']:
+            if self.config["detrend"]:
                 v = self.grid.detrended_interpolation(
-                    data,
-                    self.config['detrend_slope'],
-                    self.config['grid_method']
+                    data, self.config["detrend_slope"], self.config["grid_method"]
                 )
             else:
                 v = self.grid.calculate_interpolation(
-                    data.values,
-                    self.config['grid_method']
+                    data.values, self.config["grid_method"]
                 )
 
         elif self.distribution_method == Kriging.CONFIG_KEY:
             v, ss = self.kriging.calculate(data.values)
-            setattr(self, '{}_variance'.format(self.DISTRIBUTION_KEY), ss)
+            setattr(self, "{}_variance".format(self.DISTRIBUTION_KEY), ss)
 
         if other_attribute is not None:
             setattr(self, other_attribute, v)
         else:
             setattr(self, self.DISTRIBUTION_KEY, v)
+
+    def _open_source_files(self, base_path: str) -> None:
+        """
+        Construct a file path to read files configured via the `source_files' key in
+        a section. The data is expected to be with the following structure:
+        ```
+        /path/to/forcing/
+            YYYYMMDD/
+                variable.nc
+        ```
+        Where the `variable` should match the [section] in the .ini file
+
+        Example config:
+        ```
+        [my_variable]
+        source_files = /path/to/forcing/
+        ```
+
+        The above example would attempt to load the following file on 2025-10-01:
+        `/path/to/forcing/20251001/my_variable.nc`
+
+        Sets:
+        * :py:attr:`source_files`
+
+        Args:
+            base_path: Configured path from the variable section
+
+        :return:
+        """
+        file = Path(base_path) / self.start_date / (self.DISTRIBUTION_KEY + ".nc")
+        self.source_files = ReadNetCDF(file, self.time_zone)

@@ -43,7 +43,14 @@ class TestOutputNetCDF(SMRFTestCase):
         self.writer.out_config["netcdf_output_precision"] = "double"
 
         writer = OutputNetcdf(
-            {"cloud_factor": CloudFactor({})},
+            {
+                "cloud_factor": CloudFactor({
+                    "time": {
+                        "time_zone": "utc",
+                        "start_date": "2025-10-01 00:00",
+                    },
+                })
+            },
             self.smrf.topo,
             self.smrf.config["time"],
             self.smrf.config["output"],
