@@ -124,73 +124,73 @@ class Albedo(VariableBase):
         """
         self._logger.debug("%s Distributing albedo" % current_time_step)
 
-        if self.source_files is not None:
-            # For files with VIS and IR values (typically a previous run)
-            if (
-                self.ALBEDO_VIS in self.source_files.variables
-                and self.ALBEDO_IR in self.source_files.variables
-            ):
-                self.albedo_vis = self.source_files.load(
-                    self.ALBEDO_VIS, current_time_step
-                )
-                self.albedo_ir = self.source_files.load(
-                    self.ALBEDO_IR, current_time_step
-                )
-            # For files with direct and diffuse values (e.g. Hyperspectral)
-            elif (
-                self.ALBEDO_DIRECT in self.source_files.variables
-                and self.ALBEDO_DIFFUSE in self.source_files.variables
-            ):
-                self.albedo_direct = self.source_files.load(
-                    self.ALBEDO_DIRECT, current_time_step
-                )
-                self.albedo_diffuse = self.source_files.load(
-                    self.ALBEDO_DIFFUSE, current_time_step
-                )
-            # File only contains broadband albedo (e.g. MODIS, SPIRES)
-            elif self.DISTRIBUTION_KEY in self.source_files.variables:
-                self.DISTRIBUTION_KEY = self.source_files.load(
-                    self.DISTRIBUTION_KEY, current_time_step
-                )
-            else:
-                raise Exception(
-                    "Albedo files do not contain recognized albedo variable names"
-                    f"  Only found: {self.source_files.variables}"
-                )
-
         # Only calculated when the sun is up
-        elif cosz is not None:
-            alb_v, alb_ir = albedo.albedo(
-                storm_day,
-                cosz,
-                self.config["grain_size"],
-                self.config["max_grain"],
-                self.config["dirt"],
-            )
-
-            # Perform litter decay
-            if self.config["decay_method"] == "date_method":
-                alb_v_d, alb_ir_d = albedo.decay_alb_power(
-                    self.veg,
-                    self.veg_type,
-                    self.config["date_method_start_decay"],
-                    self.config["date_method_end_decay"],
-                    current_time_step,
-                    self.config["date_method_decay_power"],
-                    alb_v,
-                    alb_ir,
+        if cosz is not None:
+            if self.source_files is not None:
+                # For files with VIS and IR values (typically a previous run)
+                if (
+                    self.ALBEDO_VIS in self.source_files.variables
+                    and self.ALBEDO_IR in self.source_files.variables
+                ):
+                    self.albedo_vis = self.source_files.load(
+                        self.ALBEDO_VIS, current_time_step
+                    )
+                    self.albedo_ir = self.source_files.load(
+                        self.ALBEDO_IR, current_time_step
+                    )
+                # For files with direct and diffuse values (e.g. Hyperspectral)
+                elif (
+                    self.ALBEDO_DIRECT in self.source_files.variables
+                    and self.ALBEDO_DIFFUSE in self.source_files.variables
+                ):
+                    self.albedo_direct = self.source_files.load(
+                        self.ALBEDO_DIRECT, current_time_step
+                    )
+                    self.albedo_diffuse = self.source_files.load(
+                        self.ALBEDO_DIFFUSE, current_time_step
+                    )
+                # File only contains broadband albedo (e.g. MODIS, SPIRES)
+                elif self.DISTRIBUTION_KEY in self.source_files.variables:
+                    self.DISTRIBUTION_KEY = self.source_files.load(
+                        self.DISTRIBUTION_KEY, current_time_step
+                    )
+                else:
+                    raise Exception(
+                        "Albedo files do not contain recognized albedo variable names"
+                        f"  Only found: {self.source_files.variables}"
+                    )
+            else:
+                alb_v, alb_ir = albedo.albedo(
+                    storm_day,
+                    cosz,
+                    self.config["grain_size"],
+                    self.config["max_grain"],
+                    self.config["dirt"],
                 )
 
-                alb_v = alb_v_d
-                alb_ir = alb_ir_d
+                # Perform litter decay
+                if self.config["decay_method"] == "date_method":
+                    alb_v_d, alb_ir_d = albedo.decay_alb_power(
+                        self.veg,
+                        self.veg_type,
+                        self.config["date_method_start_decay"],
+                        self.config["date_method_end_decay"],
+                        current_time_step,
+                        self.config["date_method_decay_power"],
+                        alb_v,
+                        alb_ir,
+                    )
 
-            elif self.config["decay_method"] == "hardy2000":
-                alb_v_d, alb_ir_d = albedo.decay_alb_hardy(
-                    self.litter, self.veg_type, storm_day, alb_v, alb_ir
-                )
+                    alb_v = alb_v_d
+                    alb_ir = alb_ir_d
 
-                alb_v = alb_v_d
-                alb_ir = alb_ir_d
+                elif self.config["decay_method"] == "hardy2000":
+                    alb_v_d, alb_ir_d = albedo.decay_alb_hardy(
+                        self.litter, self.veg_type, storm_day, alb_v, alb_ir
+                    )
 
-            self.albedo_vis = utils.set_min_max(alb_v, self.min, self.max)
-            self.albedo_ir = utils.set_min_max(alb_ir, self.min, self.max)
+                    alb_v = alb_v_d
+                    alb_ir = alb_ir_d
+
+                self.albedo_vis = utils.set_min_max(alb_v, self.min, self.max)
+                self.albedo_ir = utils.set_min_max(alb_ir, self.min, self.max)
