@@ -71,7 +71,7 @@ class ReadNetCDF:
             ValueError: If the timestep is not found in the file's dates.
         """
         self._logger.debug(
-            f"Reading variable {variable_name} at time {str(datetime)} from file: {self.file.name}"
+            f"Reading variable {variable_name} at time {str(timestep)} from file: {self.file.name}"
         )
         return self.file[variable_name][self.dates.index(timestep.timestamp())]
 
