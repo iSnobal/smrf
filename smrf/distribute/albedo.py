@@ -125,13 +125,8 @@ class Albedo(VariableBase):
         self._logger.debug("%s Distributing albedo" % current_time_step)
 
         if self.source_files is not None:
-            # File only contains broadband albedo (e.g. MODIS, SPIRES)
-            if self.DISTRIBUTION_KEY in self.source_files.variables:
-                self.DISTRIBUTION_KEY = self.source_files.load(
-                    self.DISTRIBUTION_KEY, current_time_step
-                )
             # For files with VIS and IR values (typically a previous run)
-            elif (
+            if (
                 self.ALBEDO_VIS in self.source_files.variables
                 and self.ALBEDO_IR in self.source_files.variables
             ):
@@ -151,6 +146,11 @@ class Albedo(VariableBase):
                 )
                 self.albedo_diffuse = self.source_files.load(
                     self.ALBEDO_DIFFUSE, current_time_step
+                )
+            # File only contains broadband albedo (e.g. MODIS, SPIRES)
+            elif self.DISTRIBUTION_KEY in self.source_files.variables:
+                self.DISTRIBUTION_KEY = self.source_files.load(
+                    self.DISTRIBUTION_KEY, current_time_step
                 )
             else:
                 raise Exception(
