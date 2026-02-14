@@ -1,22 +1,12 @@
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import numpy as np
 import numpy.testing as npt
 import pandas as pd
 
-from smrf.data import Topo
-from smrf.distribute import SolarHRRR, Albedo
-
-SKY_VIEW_FACTOR_MOCK = np.array([[1.0, 1.0]])
-TOPO_MOCK = MagicMock(
-    spec=Topo,
-    sky_view_factor=SKY_VIEW_FACTOR_MOCK,
-    veg_height=np.array([[5.0, 10.0]]),
-    veg_k=np.array([[0.8, 0.1]]),
-    veg_tau=np.array([[0.6, 0.7]]),
-    instance=True,
-)
+from smrf.distribute import Albedo, SolarHRRR
+from smrf.tests.distribute import SKY_VIEW_FACTOR_MOCK, TOPO_MOCK
 
 DATETIME = pd.to_datetime("2025-11-01 00:00:00")
 DATA_MOCK = {
@@ -28,23 +18,23 @@ COS_Z = np.cos(np.radians(10))
 AZIMUTH = 100
 ILLUMINATION_MOCK = np.array([[40.0, 50.0]])
 ALBEDO_1 = np.array([[0.85, 0.9]]).astype(np.float32, order="C", copy=False)
-ALBEDO_2 =np.array([[0.85, 0.75]]).astype(np.float32, order="C", copy=False)
+ALBEDO_2 = np.array([[0.85, 0.75]]).astype(np.float32, order="C", copy=False)
 
 
 class TestSolarHRRR(unittest.TestCase):
     def setUp(self):
         config = {
-                "time": {
-                    "start_date": "2025-10-01 00:00",
-                    "time_zone": "utc",
-                },
-                "albedo": {
-                    "decay_method": "date_method",
-                },
+            "time": {
+                "start_date": "2025-10-01 00:00",
+                "time_zone": "utc",
+            },
+            "albedo": {
+                "decay_method": "date_method",
+            },
             "solar": {
                 "correct_veg": False,
-            }
-            }
+            },
+        }
         self.subject = SolarHRRR(
             config=config,
             topo=TOPO_MOCK,
@@ -103,8 +93,8 @@ class TestSolarHRRR(unittest.TestCase):
     @patch("smrf.distribute.solar_hrrr.vegetation")
     def test_distribute_with_vegetation(self, vegetation_mock):
         # Simulate the Toposplit call in distribute which sets the necessary attributes
-        direct = np.array([[5., 5.]])
-        diffuse = np.array([[2., 2.]])
+        direct = np.array([[5.0, 5.0]])
+        diffuse = np.array([[2.0, 2.0]])
         self.subject.direct = direct
         self.subject.diffuse = diffuse
 
