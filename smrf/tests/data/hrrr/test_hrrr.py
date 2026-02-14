@@ -54,17 +54,25 @@ class TestHrrrThermal(SMRFTestCaseLakes):
     def setUp(self):
         config = self.base_config_copy()
         config.cfg["output"]["variables"] = ["hrrr_thermal"]
-        config = cast_all_variables(config, config.mcfg)
-
         self.config = config
 
     def test_load(self):
-        run_smrf(self.config)
+        self.config.cfg["thermal"]["correct_veg"] = False
+        config = cast_all_variables(self.config, self.config.mcfg)
+        run_smrf(config)
 
         with nc.Dataset(self.gold_dir.joinpath("thermal_hrrr.nc")) as gold:
             with nc.Dataset(self.output_dir.joinpath("thermal.nc")) as test:
                 self.compare_file_variables(gold, test)
 
+    def test_load_with_vegetation(self):
+        self.config.cfg["thermal"]["correct_veg"] = True
+        config = cast_all_variables(self.config, self.config.mcfg)
+        run_smrf(config)
+
+        with nc.Dataset(self.gold_dir.joinpath("thermal_hrrr_vegetation.nc")) as gold:
+            with nc.Dataset(self.output_dir.joinpath("thermal.nc")) as test:
+                self.compare_file_variables(gold, test)
 
 class TestHrrrSolar(SMRFTestCaseLakes):
     def test_load_without_vegetation(self):
