@@ -181,6 +181,8 @@ class SolarHRRR(VariableBase):
         self.diffuse = results["diffuse"]
 
         if self.config.get("correct_veg", False):
+            self._logger.debug("* Adjusting HRRR solar for vegetation")
+
             self.correct_vegetation(illumination_angles)
 
         params = {
