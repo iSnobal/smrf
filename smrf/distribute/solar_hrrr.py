@@ -2,6 +2,8 @@ from datetime import datetime
 
 import numpy as np
 import numexpr as ne
+import pandas as pd
+
 from smrf.envphys.solar import vegetation
 from smrf.envphys.solar.toporad import mask_for_shade
 from smrf.envphys.solar.toposplit import TopoSplit
@@ -94,6 +96,14 @@ class SolarHRRR(VariableBase):
         self.diffuse = None
         self.hrrr_solar = None
         self.net_solar = None
+
+    def initialize(self, metadata: pd.DataFrame) -> None:
+        """
+        Trimmed down version of the base class as there is no need to initialize
+        the interpolation method.
+        """
+        self._logger.debug("Initializing")
+        self.metadata = metadata
 
     @classmethod
     def is_requested(cls, config_variables: set) -> bool:
