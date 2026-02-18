@@ -2,10 +2,12 @@ from datetime import datetime
 
 import numpy as np
 import numexpr as ne
+
+from smrf.distribute.albedo import Albedo
 from smrf.envphys.solar import vegetation
+from smrf.envphys.solar.net_solar import NetSolar
 from smrf.envphys.solar.toporad import mask_for_shade
 from smrf.envphys.solar.toposplit import TopoSplit
-from smrf.distribute.albedo import Albedo
 
 from .variable_base import VariableBase
 
@@ -181,36 +183,35 @@ class SolarHRRR(VariableBase):
         if self.config.get("correct_veg", False):
             self.correct_vegetation(illumination_angles)
 
+        params = {
+            "direct": self.direct.astype(np.float32, copy=False, order="C"),
+            "diffuse": self.diffuse.astype(np.float32, copy=False, order="C"),
+        }
+        self.hrrr_solar = ne.evaluate(
+            "direct + diffuse", local_dict=params, casting="safe"
+        )
+
         self.calculate_net_solar(albedo)
 
     def calculate_net_solar(self, albedo: Albedo) -> None:
         """
-        Calculate net solar based on a visible and infrared albedo ratio calculated
-        for a Northern Latitude location in the Western US.
+        Calculate net solar based on the set instance variable in the Albedo class.
 
         :param albedo: Instance of :py:class:`smrf.distribute.albedo.Albedo`
         """
-
-        # Variables for numexpr
-        params = {
-            'VIS_RATIO': np.float32(0.54),
-            'IR_RATIO': np.float32(0.46),
-            'MAX_ALBEDO': np.float32(1.0),
-            'direct': self.direct.astype(np.float32, copy=False, order='C'),
-            'diffuse': self.diffuse.astype(np.float32, copy=False, order='C'),
-            'albedo_vis': albedo.albedo_vis.astype(np.float32, copy=False, order='C'),
-            'albedo_ir': albedo.albedo_ir.astype(np.float32, copy=False, order='C'),
-        }
-
-        params['hrrr_solar'] = ne.evaluate(
-            "direct + diffuse", local_dict=params, casting='safe'
-        )
-        self.hrrr_solar = params['hrrr_solar']
-
-        self.net_solar = ne.evaluate(
-            "hrrr_solar * (MAX_ALBEDO - (VIS_RATIO * albedo_vis + IR_RATIO * albedo_ir))",
-            local_dict=params, casting='safe'
-        )
+        if albedo.albedo_vis is not None and albedo.albedo_ir is not None:
+            self._logger.debug("Calculating net solar using vis and ir albedo")
+            self.net_solar = NetSolar.broadband_from_vis_ir(self.hrrr_solar, albedo)
+        elif albedo.albedo_diffuse is not None and albedo.albedo_direct is not None:
+            self._logger.debug("Calculating net solar using diffuse and direct albedo")
+            self.net_solar = NetSolar.albedo_diffuse_and_direct(
+                direct=self.direct, diffuse=self.diffuse, albedo=albedo
+            )
+        elif albedo.albedo is not None:
+            self._logger.debug("Calculating net solar using broadband albedo")
+            self.net_solar = NetSolar.broadband_albedo(self.hrrr_solar, albedo)
+        else:
+            raise RuntimeError("Albedo variables are not set")
 
     def correct_vegetation(self, illumination_angles: np.ndarray) -> None:
         """
