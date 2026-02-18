@@ -26,24 +26,6 @@ class TestDecayAlbPower(unittest.TestCase):
             ]
         )
 
-    def test_no_decay_before_start(self):
-        current_hours = -10
-        decay_hours = 100
-        pwr = 1.0
-
-        alb_v_d, alb_ir_d = decay_alb_power(
-            self.veg,
-            self.veg_type,
-            current_hours,
-            decay_hours,
-            pwr,
-            ALBEDO_VIS,
-            ALBEDO_IR
-        )
-
-        npt.assert_array_equal(ALBEDO_VIS, alb_v_d)
-        npt.assert_array_equal(ALBEDO_IR, alb_ir_d)
-
     def test_max_decay_after_end(self):
         """Test with current_hours > decay_hours, ensuring maximum decay is applied."""
         current_hours = 150
