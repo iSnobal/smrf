@@ -8,6 +8,7 @@ import pandas as pd
 from smrf.distribute import ThermalHRRR
 from smrf.envphys.constants import EMISS_TERRAIN, FREEZE, STEF_BOLTZ
 from smrf.tests.distribute import SKY_VIEW_FACTOR_MOCK, TOPO_MOCK
+from smrf.tests.smrf_config import SMRFConfig
 
 RAW_DATA_MOCK = np.ones((1, 1))
 AIR_TEMP_MOCK = np.ones((1, 1))
@@ -25,7 +26,7 @@ CONFIG = {
 }
 
 
-class TestThermalHRRR(unittest.TestCase):
+class TestThermalHRRR(unittest.TestCase, SMRFConfig):
     def test_distribute(self):
         self.subject = ThermalHRRR(config=CONFIG, topo=TOPO_MOCK)
 
@@ -34,19 +35,17 @@ class TestThermalHRRR(unittest.TestCase):
         ) * EMISS_TERRAIN * STEF_BOLTZ * (AIR_TEMP_MOCK + FREEZE) ** 4
 
         self.subject.initialize(pd.DataFrame())
-        self.subject.distribute("2025-09-20=9", RAW_DATA_MOCK, AIR_TEMP_MOCK)
+        self.subject.distribute("2025-09-20", RAW_DATA_MOCK, AIR_TEMP_MOCK)
 
         npt.assert_equal(result, self.subject.thermal)
 
     @patch("smrf.distribute.thermal_hrrr.vegetation")
     def test_distribute_vegetation(self, mock_vegetation):
-        CONFIG["thermal"]["correct_veg"] = True
-        self.subject = ThermalHRRR(config=CONFIG, topo=TOPO_MOCK)
+        config = self._copy_config(CONFIG)
+        config["thermal"]["correct_veg"] = True
+        self.subject = ThermalHRRR(config=config, topo=TOPO_MOCK)
 
         self.subject.initialize(pd.DataFrame())
         self.subject.distribute("2025-09-20=9", RAW_DATA_MOCK, AIR_TEMP_MOCK)
 
         mock_vegetation.thermal_correct_canopy.assert_called_once()
-
-        # Reset to original
-        CONFIG["thermal"]["correct_veg"] = False

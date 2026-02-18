@@ -1,7 +1,6 @@
 import numexpr as ne
 import pandas as pd
 
-from smrf.data.load_topo import Topo
 from smrf.envphys.constants import EMISS_TERRAIN, FREEZE, STEF_BOLTZ
 from smrf.envphys.thermal import vegetation
 
