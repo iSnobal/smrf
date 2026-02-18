@@ -165,15 +165,16 @@ class Albedo(VariableBase):
                 # Perform litter decay
                 if self.config["decay_method"] == "date_method":
                     current_hours, decay_hours = self.decay_window(current_time_step)
-                    alb_v, alb_ir = albedo.decay_alb_power(
-                        self.veg,
-                        self.veg_type,
-                        current_hours,
-                        decay_hours,
-                        self.config["date_method_decay_power"],
-                        alb_v,
-                        alb_ir,
-                    )
+                    if current_hours > 0:
+                        alb_v, alb_ir = albedo.decay_alb_power(
+                            self.veg,
+                            self.veg_type,
+                            current_hours,
+                            decay_hours,
+                            self.config["date_method_decay_power"],
+                            alb_v,
+                            alb_ir,
+                        )
                 elif self.config["decay_method"] == "post_fire":
                     current_hours, decay_hours = self.decay_window(current_time_step)
                     if current_hours > 0:

@@ -119,7 +119,7 @@ def decay_alb_power(
     """
     Find a decrease in albedo due to litter accumulation. Decay is based on
     max decay, decay power, and start and end dates. No litter decay occurs
-    before start_date. Fore times between start and end of decay,
+    before start_date. For times between start and end of decay,
 
     .. math::
       \\alpha = \\alpha - (dec_{max}^{\\frac{1.0}{pwr}} \\times
@@ -144,10 +144,8 @@ def decay_alb_power(
     """
     alb_dec = np.zeros_like(alb_v)
 
-    if current_hours <= 0:
-        return alb_v, alb_ir
     # Use max decay if after start
-    elif current_hours > decay_hours:
+    if current_hours > decay_hours:
         # Use default
         alb_dec = alb_dec + veg["default"]
         # Decay based on veg type
