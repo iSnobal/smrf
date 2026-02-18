@@ -56,7 +56,7 @@ class TestAlbedo(SMRFConfig, unittest.TestCase):
 
         subject.distribute(TIMESTEP, np.ndarray([10]), STORM_DAY)
 
-        npt.assert_equal(subject.DISTRIBUTION_KEY, values)
+        npt.assert_equal(subject.albedo, values)
         mock_source.load.assert_called_with("albedo", TIMESTEP)
 
     @patch("smrf.distribute.variable_base.ReadNetCDF")
