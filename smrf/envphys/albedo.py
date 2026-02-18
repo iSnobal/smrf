@@ -143,8 +143,10 @@ def decay_alb_power(
     """
     alb_dec = np.zeros_like(alb_v)
 
+    if current_hours <= 0:
+        return alb_v, alb_ir
     # Use max decay if after start
-    if current_hours > decay_hours:
+    elif current_hours > decay_hours:
         # Use default
         alb_dec = alb_dec + veg["default"]
         # Decay based on veg type
@@ -156,7 +158,7 @@ def decay_alb_power(
     else:
         # Use defaults
         max_dec = veg["default"]
-        tao = current_hours / (max_dec ** (1.0 / pwr))
+        tao = decay_hours / (max_dec ** (1.0 / pwr))
 
         # Add default decay to array of zeros
         alb_dec = alb_dec + (current_hours / tao) ** pwr
