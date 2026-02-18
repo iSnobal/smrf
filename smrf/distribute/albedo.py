@@ -99,7 +99,7 @@ class Albedo(VariableBase):
         self, current_time_step: datetime, cosz: npt.NDArray, storm_day: npt.NDArray
     ):
         """
-        Calculate or load snow albedo for given time step. When calcualted, the configured
+        Calculate or load snow albedo for given time step. When calculated, the configured
         options from the albedo section in the .ini file is used. When loaded, values
         from the NetCDF files are read. File loading has precedence over the
         calculations.
@@ -155,7 +155,7 @@ class Albedo(VariableBase):
                         self.DISTRIBUTION_KEY, current_time_step
                     )
                 else:
-                    raise Exception(
+                    raise ValueError(
                         "Albedo files do not contain recognized albedo variable names"
                         f"  Only found: {self.source_files.variables}"
                     )

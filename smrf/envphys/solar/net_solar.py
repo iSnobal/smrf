@@ -34,7 +34,7 @@ class NetSolar:
     def broadband_from_vis_ir(solar: npt.NDArray, albedo: Albedo) -> npt.NDArray:
         """
         Calculate net solar based on a visible and infrared albedo ratio to
-        compute broadband. The ration is calculated for a Northern Latitude location
+        compute broadband. The ratio is calculated for a Northern Latitude location
         in the Western US.
 
         :param solar: Incoming shortwave radiation
