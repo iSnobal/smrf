@@ -145,6 +145,10 @@ import pandas as pd
 from smrf.distribute.albedo import Albedo
 
 CONFIG = {
+    "time": {
+        "start_date": pd.to_datetime("2025-10-01"),
+        "time_zone": "utc",
+    },
     "albedo": {
         "decay_method": "date_method",
         "decay_start": pd.to_datetime("2025-04-01"),
