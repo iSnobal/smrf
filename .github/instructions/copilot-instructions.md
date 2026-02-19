@@ -19,6 +19,7 @@ When reviewing code, focus on:
 - Be short and concise
 - Explain the "why" behind recommendations
 - Ask clarifying questions when code intent is unclear
+- Do not repeat comments that were previously resolved on new pushes
 
 ## Review Summary
 - Do not repeat any information that was already in the PR description
