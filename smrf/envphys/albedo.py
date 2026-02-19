@@ -1,7 +1,7 @@
 import math
-import numexpr as ne
 from typing import Tuple
 
+import numexpr as ne
 import numpy as np
 
 # define some constants
@@ -142,37 +142,21 @@ def decay_alb_power(
         alb_v_d, alb_ir_d : numpy arrays of decayed albedo
 
     """
-    alb_dec = np.zeros_like(alb_v)
+    decay_rates = np.full(veg_type.shape, veg["default"])
 
-    # Use max decay if after start
-    if current_hours > decay_hours:
-        # Use default
-        alb_dec = alb_dec + veg["default"]
-        # Decay based on veg type
-        for k, v in veg.items():
-            if isint(k):
-                alb_dec[veg_type == int(k)] = v
+    # Map vegetation-specific decay values to the topo grid
+    for k, v in veg.items():
+        if isint(k):
+            decay_rates[veg_type == int(k)] = v
 
-    # Power function decay if during decay period
-    else:
-        # Use defaults
-        max_dec = veg["default"]
-        tao = decay_hours / (max_dec ** (1.0 / pwr))
+    if current_hours < decay_hours:
+        inv_pwr = 1.0 / pwr
+        decay_rates = ne.evaluate(
+            "((current_hours * (decay_rates ** inv_pwr)) / decay_hours) ** pwr"
+        )
 
-        # Add default decay to array of zeros
-        alb_dec = alb_dec + (current_hours / tao) ** pwr
-
-        # Decay based on veg type
-        for k, v in veg.items():
-            max_dec = v
-            tao = decay_hours / (max_dec ** (1.0 / pwr))
-
-            # Set albedo decay at correct veg types
-            if isint(k):
-                alb_dec[veg_type == int(k)] = (current_hours / tao) ** pwr
-
-    alb_v_d = alb_v - alb_dec
-    alb_ir_d = alb_ir - alb_dec
+    alb_v_d = alb_v - decay_rates
+    alb_ir_d = alb_ir - decay_rates
 
     return alb_v_d, alb_ir_d
 
@@ -270,4 +254,3 @@ def decay_burned(
     alb_ir_d = ne.evaluate("alb_ir * decay_factor")
 
     return alb_v_d, alb_ir_d
-
