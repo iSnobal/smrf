@@ -2,6 +2,7 @@ from datetime import datetime
 
 import numpy as np
 import numexpr as ne
+import pandas as pd
 
 from smrf.distribute.albedo import Albedo
 from smrf.envphys.solar import vegetation
@@ -97,6 +98,14 @@ class SolarHRRR(VariableBase):
         self.hrrr_solar = None
         self.net_solar = None
 
+    def initialize(self, metadata: pd.DataFrame) -> None:
+        """
+        Trimmed down version of the base class as there is no need to initialize
+        the interpolation method.
+        """
+        self._logger.debug("Initializing")
+        self.metadata = metadata
+
     @classmethod
     def is_requested(cls, config_variables: set) -> bool:
         requested = super().is_requested(config_variables)
@@ -181,6 +190,8 @@ class SolarHRRR(VariableBase):
         self.diffuse = results["diffuse"]
 
         if self.config.get("correct_veg", False):
+            self._logger.debug("* Adjusting HRRR solar for vegetation")
+
             self.correct_vegetation(illumination_angles)
 
         params = {

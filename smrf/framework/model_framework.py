@@ -315,7 +315,7 @@ class SMRF:
                 ThermalHRRR.GRIB_NAME
             )
 
-            self.distribute[ThermalHRRR.DISTRIBUTION_KEY] = ThermalHRRR(topo=self.topo)
+            self.distribute[ThermalHRRR.DISTRIBUTION_KEY] = ThermalHRRR(**init_args)
 
             # Also swap out the ini variable to treat running HRRR as the standard
             # 'thermal' variable

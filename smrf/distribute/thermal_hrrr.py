@@ -1,7 +1,8 @@
-import pandas as pd
 import numexpr as ne
+import pandas as pd
 
-from smrf.envphys.constants import EMISS_TERRAIN, STEF_BOLTZ, FREEZE
+from smrf.envphys.constants import EMISS_TERRAIN, FREEZE, STEF_BOLTZ
+from smrf.envphys.thermal import vegetation
 
 from .variable_base import VariableBase
 
@@ -24,7 +25,7 @@ class ThermalHRRR(VariableBase):
     GRIB_NAME = "DLWRF"
 
     OUTPUT_VARIABLES = {
-        'thermal': {
+        "thermal": {
             "units": "watt/m2",
             "standard_name": "thermal_radiation",
             "long_name": "Thermal (longwave) radiation",
@@ -40,19 +41,27 @@ class ThermalHRRR(VariableBase):
         self.metadata = metadata
 
     def distribute(self, date_time, forcing_data, air_temp):
-        self._logger.debug('%s Distributing HRRR thermal' % date_time)
+        self._logger.debug("%s Distributing HRRR thermal" % date_time)
 
         params = {
-            'EMISS_TERRAIN': EMISS_TERRAIN,
-            'FREEZE': FREEZE,
-            'STEF_BOLTZ': STEF_BOLTZ,
-            'air_temp': air_temp,
-            'forcing_data': forcing_data,
-            'sky_view_factor': self.sky_view_factor,
+            "EMISS_TERRAIN": EMISS_TERRAIN,
+            "FREEZE": FREEZE,
+            "STEF_BOLTZ": STEF_BOLTZ,
+            "air_temp": air_temp,
+            "forcing_data": forcing_data,
+            "sky_view_factor": self.sky_view_factor,
         }
 
         self.thermal = ne.evaluate(
             "(sky_view_factor * forcing_data) + (1 - sky_view_factor) * "
             "EMISS_TERRAIN * STEF_BOLTZ * (air_temp + FREEZE) ** 4",
-            local_dict=params, casting='safe'
+            local_dict=params,
+            casting="safe",
         )
+
+        if self.config.get("correct_veg", False):
+            self._logger.debug("* Adjusting HRRR thermal for vegetation")
+
+            self.thermal = vegetation.thermal_correct_canopy(
+                self.thermal, air_temp, self.veg_tau, self.veg_height
+            )
