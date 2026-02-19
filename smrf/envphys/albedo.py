@@ -246,6 +246,12 @@ def decay_burned(
     Returns:
         alb_v_d, alb_ir_d : numpy arrays of decayed albedo
     """
+    if k_burned is None or k_unburned is None:
+        raise ValueError(
+            "Post fire albedo decay is configured, but k_burned and k_unburned are not "
+            "set in the config file."
+        )
+
     decay_factor = ne.evaluate(
         "exp(-where(burn_mask == 1, k_burned, k_unburned) * last_snow)"
     )

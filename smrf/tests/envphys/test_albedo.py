@@ -166,3 +166,33 @@ class TestDecayBurned(unittest.TestCase):
         npt.assert_array_almost_equal(
             np.array([[0.686139, 0.485223], [0.6, 0.384316]]), alb_ir, decimal=6
         )
+
+    def test_decay_burned_k_burned_none(self):
+        burn_mask = np.array([[1, 0], [0, 1]])
+
+        with self.assertRaises(ValueError) as context:
+            decay_burned(
+                ALBEDO_VIS, ALBEDO_IR, LAST_SNOW, burn_mask, None, K_UNBURNED
+            )
+
+        self.assertIn("k_burned and k_unburned", str(context.exception))
+
+    def test_decay_burned_k_unburned_none(self):
+        burn_mask = np.array([[1, 0], [0, 1]])
+
+        with self.assertRaises(ValueError) as context:
+            decay_burned(
+                ALBEDO_VIS, ALBEDO_IR, LAST_SNOW, burn_mask, K_BURNED, None
+            )
+
+        self.assertIn("k_burned and k_unburned", str(context.exception))
+
+    def test_decay_burned_both_k_none(self):
+        burn_mask = np.array([[1, 0], [0, 1]])
+
+        with self.assertRaises(ValueError) as context:
+            decay_burned(
+                ALBEDO_VIS, ALBEDO_IR, LAST_SNOW, burn_mask, None, None
+            )
+
+        self.assertIn("k_burned and k_unburned", str(context.exception))
