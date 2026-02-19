@@ -162,8 +162,8 @@ class Albedo(VariableBase):
                     self.config["dirt"],
                 )
 
-                # Perform litter decay
                 if self.config["decay_method"] == "date_method":
+                    self._logger.debug("  Using date method decay")
                     current_hours, decay_hours = self.decay_window(current_time_step)
                     if current_hours > 0:
                         alb_v, alb_ir = albedo.decay_alb_power(
@@ -176,6 +176,7 @@ class Albedo(VariableBase):
                             alb_ir,
                         )
                 elif self.config["decay_method"] == "post_fire":
+                    self._logger.debug("  Using post fire decay")
                     current_hours, decay_hours = self.decay_window(current_time_step)
                     if current_hours > 0:
                         alb_v, alb_ir = albedo.decay_burned(
@@ -188,6 +189,7 @@ class Albedo(VariableBase):
                         )
 
                 elif self.config["decay_method"] == "hardy2000":
+                    self._logger.debug("  Using hardy2000 decay")
                     alb_v, alb_ir = albedo.decay_alb_hardy(
                         self.litter, self.veg_type, storm_day, alb_v, alb_ir
                     )
