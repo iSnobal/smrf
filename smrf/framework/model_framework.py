@@ -117,13 +117,13 @@ class SMRF:
         self._setup_date_and_time()
 
         # need to align date time
-        if "date_method_start_decay" in self.config[Albedo.DISTRIBUTION_KEY].keys():
-            self.config[Albedo.DISTRIBUTION_KEY]["date_method_start_decay"] = self.config[
+        if self.config[Albedo.DISTRIBUTION_KEY].get("decay_start", None):
+            self.config[Albedo.DISTRIBUTION_KEY]["decay_start"] = self.config[
                 Albedo.DISTRIBUTION_KEY
-            ]["date_method_start_decay"].replace(tzinfo=self.time_zone)
-            self.config[Albedo.DISTRIBUTION_KEY]["date_method_end_decay"] = self.config[
+            ]["decay_start"].replace(tzinfo=self.time_zone)
+            self.config[Albedo.DISTRIBUTION_KEY]["decay_end"] = self.config[
                 Albedo.DISTRIBUTION_KEY
-            ]["date_method_end_decay"].replace(tzinfo=self.time_zone)
+            ]["decay_end"].replace(tzinfo=self.time_zone)
 
         # Gridded dataset
         self.forecast_flag = False

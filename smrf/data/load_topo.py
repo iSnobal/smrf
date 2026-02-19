@@ -23,19 +23,18 @@ class GdalAttributes:
 
 class Topo:
     """
-    Class for topo images and processing those images. Images are:
-    - DEM
-    - Mask
-    - veg type
-    - veg height
-    - veg k
-    - veg tau
-
-    Inputs to topo are the topo section of the config file
-
+    Class reading the configured metadata for a model domain.
     """
 
-    IMAGES = ['dem', 'mask', 'veg_type', 'veg_height', 'veg_k', 'veg_tau']
+    IMAGES = [
+        "burn_mask",
+        "dem",
+        "mask",
+        "veg_height",
+        "veg_k",
+        "veg_tau",
+        "veg_type",
+    ]
 
     def __init__(self, topoConfig):
         self.topoConfig = topoConfig
@@ -140,23 +139,22 @@ class Topo:
                 )
 
     def readImages(self, f):
-        """Read images from the netcdf and set as attributes in the Topo class
+        """
+        Read images from the netcdf and set as attributes in the Topo class
 
         Args:
             f: netcdf dataset object
         """
+        for image in self.IMAGES:
+            result = None
 
-        # netCDF files are stored typically as 32-bit float, so convert
-        # to double or int
-        for v_smrf in self.IMAGES:
-
-            if v_smrf in f.variables.keys():
-                if v_smrf == 'veg_type':
-                    result = f.variables[v_smrf][:].astype(int)
+            if image in f.variables.keys():
+                if image == 'veg_type':
+                    result = f.variables[image][:].astype(int)
                 else:
-                    result = f.variables[v_smrf][:].astype(np.float64)
+                    result = f.variables[image][:].astype(np.float64)
 
-            setattr(self, v_smrf, result)
+            setattr(self, image, result)
 
     def get_center(self, ds, mask_name=None):
         '''

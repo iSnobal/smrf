@@ -1,5 +1,7 @@
 from datetime import datetime
+from typing import Tuple
 
+import numexpr as ne
 import numpy as np
 import numpy.typing as npt
 
@@ -51,12 +53,6 @@ class Albedo(VariableBase):
     )
 
     def __init__(self, config: dict, topo):
-        """
-        Initialize albedo()
-
-        Args:
-            config: configuration from [albedo] section
-        """
         super().__init__(config, topo)
 
         # Variables for calculations of external files
@@ -65,6 +61,7 @@ class Albedo(VariableBase):
         self.albedo_ir = None
         self.albedo_direct = None
         self.albedo_diffuse = None
+        self.burn_mask = None
 
         # Get the veg values for the decay methods. Date method uses self.veg
         # Hardy2000 uses self.litter
@@ -89,14 +86,29 @@ class Albedo(VariableBase):
         """
         super().initialize(metadata)
 
+        self.load_burn_mask()
+
         if (
             self.config.get("decay_method", None) is None
             and self.config["source_files"] is None
         ):
             self._logger.warning("No decay method is set!")
 
+    def load_burn_mask(self):
+        """
+        Load a post fire burn mask from the topo file. If none is set all values
+        will be marked as 0.
+
+        Sets: :py:attr:`burn_mask`
+        """
+        burn_mask = getattr(self.topo, "burn_mask", None)
+        if burn_mask is None:
+            self.burn_mask = np.zeros_like(self.topo.dem)
+        else:
+            self.burn_mask = self.topo.burn_mask
+
     def distribute(
-        self, current_time_step: datetime, cosz: npt.NDArray, storm_day: npt.NDArray
+        self, current_time_step: datetime, cos_z: npt.NDArray, storm_day: npt.NDArray
     ):
         """
         Calculate or load snow albedo for given time step. When calculated, the configured
@@ -116,16 +128,13 @@ class Albedo(VariableBase):
 
         Args:
             current_time_step: Current time step in datetime object
-            cosz: numpy array of the illumination angle for the current time
-                step
-            storm_day: numpy array of the decimal days since it last
-                snowed at a grid cell
-
+            cos_z: Illumination angle for the current time step
+            storm_day: Decimal days since it last snowed at a grid cell
         """
         self._logger.debug("%s Distributing albedo" % current_time_step)
 
         # Only calculated when the sun is up
-        if cosz is not None:
+        if cos_z is not None:
             if self.source_files is not None:
                 # For files with VIS and IR values (typically a previous run)
                 if (
@@ -162,35 +171,111 @@ class Albedo(VariableBase):
             else:
                 alb_v, alb_ir = albedo.albedo(
                     storm_day,
-                    cosz,
+                    cos_z,
                     self.config["grain_size"],
                     self.config["max_grain"],
                     self.config["dirt"],
                 )
 
-                # Perform litter decay
                 if self.config["decay_method"] == "date_method":
-                    alb_v_d, alb_ir_d = albedo.decay_alb_power(
-                        self.veg,
-                        self.veg_type,
-                        self.config["date_method_start_decay"],
-                        self.config["date_method_end_decay"],
-                        current_time_step,
-                        self.config["date_method_decay_power"],
-                        alb_v,
-                        alb_ir,
-                    )
-
-                    alb_v = alb_v_d
-                    alb_ir = alb_ir_d
+                    self._logger.debug("  Using date method decay")
+                    current_hours, decay_hours = self.decay_window(current_time_step)
+                    if current_hours >= 0:
+                        alb_v, alb_ir = self.date_method(
+                            alb_v, alb_ir, current_hours, decay_hours, storm_day
+                        )
 
                 elif self.config["decay_method"] == "hardy2000":
-                    alb_v_d, alb_ir_d = albedo.decay_alb_hardy(
+                    self._logger.debug("  Using hardy2000 decay")
+                    alb_v, alb_ir = albedo.decay_alb_hardy(
                         self.litter, self.veg_type, storm_day, alb_v, alb_ir
                     )
 
-                    alb_v = alb_v_d
-                    alb_ir = alb_ir_d
-
                 self.albedo_vis = utils.set_min_max(alb_v, self.min, self.max)
                 self.albedo_ir = utils.set_min_max(alb_ir, self.min, self.max)
+
+        else:
+            self.albedo_vis = np.zeros(storm_day.shape)
+            self.albedo_ir = np.zeros(storm_day.shape)
+
+    def date_method(
+        self,
+        alb_v: npt.NDArray,
+        alb_ir: npt.NDArray,
+        current_hours: float,
+        decay_hours: float,
+        storm_day: npt.NDArray,
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Apply a power law decay to the albedo and an optional post fire decay if configured.
+        The post fire decay uses the initial albedo value of the time decay method after
+        a fresh snowfall.
+
+        :param alb_v: Visibility albedo
+        :param alb_ir: Infrared albedo
+        :param current_hours: Time in hours since start of decay window
+        :param decay_hours: Total hours of the decay window
+        :param storm_day: Time (days) since last snowfall
+
+        :return:
+            alb_v, alb_ir : Decayed albedo for visible and infrared spectrum
+        """
+        # Create a mask of burned pixels with no new snowfall
+        if self.config.get("post_fire", False):
+            burned_no_snowfall = ne.evaluate(
+                "(burn_mask == 1) & (storm_day > 0)",
+                local_dict={"burn_mask": self.burn_mask, "storm_day": storm_day},
+            )
+        else:
+            burned_no_snowfall = np.zeros_like(storm_day)
+
+        alb_v, alb_ir = albedo.decay_alb_power(
+            self.veg,
+            self.veg_type,
+            current_hours,
+            decay_hours,
+            self.config["date_method_decay_power"],
+            alb_v,
+            alb_ir,
+            burned_no_snowfall,
+        )
+
+        if self.config.get("post_fire", False):
+            self._logger.debug("  Applying post fire decay")
+            alb_v, alb_ir = albedo.decay_burned(
+                alb_v,
+                alb_ir,
+                storm_day,
+                self.burn_mask,
+                self.config.get("post_fire_k_burned", None),
+            )
+
+        return alb_v, alb_ir
+
+    def decay_window(self, current_timestep: datetime) -> Tuple[float, float]:
+        """
+        Determine if the current time is within the decay window.
+        When the window has not been reached, a return value of -1 is returned.
+        When the window has been reached, the current and total decay hours are returned.
+
+        :param current_timestep: Timestep to check if it is within the decay window
+
+        :return: Tuple(current_hours, decay_hours)
+            current_hours: Time in hours since start of decay window or -1 if outside the window
+            decay_hours: Total hours of the decay window
+        """
+        # Calculate current hours past the start of the decay window
+        current_difference = current_timestep - self.config["decay_start"]
+        current_hours = (
+            current_difference.days * 24.0 + current_difference.seconds / 3600.0
+        )
+
+        # Exit if we are before the window starts
+        if current_hours < 0:
+            return -1, 0
+
+        # Calculate total time of decay window
+        decay_difference = self.config["decay_end"] - self.config["decay_start"]
+        decay_hours = decay_difference.days * 24.0 + decay_difference.seconds / 3600.0
+
+        return current_hours, decay_hours
