@@ -144,7 +144,7 @@ def decay_alb_power(
         alb_v_d, alb_ir_d : numpy arrays of decayed albedo
 
     """
-    decay_rates = np.full(veg_type.shape, veg["default"])
+    decay_rates = np.full(veg_type.shape, veg["default"]).astype(np.float32, order="C")
 
     # Map vegetation-specific decay values to the topo grid
     for k, v in veg.items():
@@ -157,11 +157,11 @@ def decay_alb_power(
             "((current_hours * (decay_rates ** inv_pwr)) / decay_hours) ** pwr",
             out=decay_rates,
             local_dict={
-                "current_hours": current_hours,
+                "current_hours": np.float32(current_hours),
                 "decay_rates": decay_rates,
-                "decay_hours": decay_hours,
-                "inv_pwr": inv_pwr,
-                "pwr": pwr,
+                "decay_hours": np.float32(decay_hours),
+                "inv_pwr": np.float32(inv_pwr),
+                "pwr": np.float32(pwr),
             },
         )
 
@@ -282,7 +282,7 @@ def decay_burned(
         "exp(-where(burn_mask == 1, k_burned, 0) * last_snow)",
         local_dict={
             "burn_mask": burn_mask,
-            "k_burned": k_burned,
+            "k_burned": np.float32(k_burned),
             "last_snow": last_snow,
         },
     )
