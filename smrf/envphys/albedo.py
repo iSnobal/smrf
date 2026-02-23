@@ -40,7 +40,9 @@ def growth(t):
     return 1.0 - factor
 
 
-def albedo(telapsed, cosz, gsize, maxgsz, dirt=2) -> Tuple[np.ndarray, np.ndarray]:
+def albedo(
+    telapsed: npt.NDArray, cosz: npt.NDArray, gsize: float, maxgsz: float, dirt=2
+) -> Tuple[npt.NDArray, npt.NDArray]:
     """
     Calculate the albedo, adapted from IPW function albedo
 
@@ -252,12 +254,12 @@ def decay_alb_hardy(litter, veg_type, storm_day, alb_v, alb_ir):
 
 
 def decay_burned(
-    alb_v: np.ndarray,
-    alb_ir: np.ndarray,
-    last_snow: np.ndarray,
-    burn_mask: np.ndarray,
+    alb_v: npt.NDArray,
+    alb_ir: npt.NDArray,
+    last_snow: npt.NDArray,
+    burn_mask: npt.NDArray,
     k_burned: float,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> Tuple[npt.NDArray, npt.NDArray]:
     """
     Apply exponential albedo decay as a function of time since last snowfall.
     This changes all pixels which are marked via the burn mask in the topo file.

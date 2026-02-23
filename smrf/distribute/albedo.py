@@ -205,7 +205,7 @@ class Albedo(VariableBase):
         current_hours: float,
         decay_hours: float,
         storm_day: npt.NDArray,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> Tuple[npt.NDArray, npt.NDArray]:
         """
         Apply a power law decay to the albedo and an optional post fire decay if configured.
         The post fire decay uses the initial albedo value of the time decay method after
