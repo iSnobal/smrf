@@ -95,6 +95,23 @@ class Albedo(VariableBase):
         ):
             self._logger.warning("No decay method is set!")
 
+    def verify_albedo(self, a: npt.NDArray, current_time_step: datetime) -> npt.NDArray:
+        """
+        Ensure albedo data is within proper range and not NaN prior to passing to NetSolar.
+
+        Args:
+            a: albedo data
+
+        """
+        # Check min and max from config
+        a = utils.set_min_max(a, self.min, self.max)
+
+        # Ensure data has no NaN
+        if np.isnan(a).any():
+            raise ValueError(f"NaN values detected in albedo for {current_time_step}")
+
+        return a
+
     def distribute(
         self, current_time_step: datetime, cosz: npt.NDArray, storm_day: npt.NDArray
     ):
@@ -138,6 +155,12 @@ class Albedo(VariableBase):
                     self.albedo_ir = self.source_files.load(
                         self.ALBEDO_IR, current_time_step
                     )
+                    self.albedo_vis = self.verify_albedo(
+                        self.albedo_vis, current_time_step
+                    )
+                    self.albedo_ir = self.verify_albedo(
+                        self.albedo_ir, current_time_step
+                    )
                 # For files with direct and diffuse values (e.g. Hyperspectral)
                 elif (
                     self.ALBEDO_DIRECT in self.source_files.variables
@@ -149,11 +172,18 @@ class Albedo(VariableBase):
                     self.albedo_diffuse = self.source_files.load(
                         self.ALBEDO_DIFFUSE, current_time_step
                     )
+                    self.albedo_direct = self.verify_albedo(
+                        self.albedo_direct, current_time_step
+                    )
+                    self.albedo_diffuse = self.verify_albedo(
+                        self.albedo_diffuse, current_time_step
+                    )
                 # File only contains broadband albedo (e.g. MODIS, SPIRES)
                 elif self.DISTRIBUTION_KEY in self.source_files.variables:
                     self.albedo = self.source_files.load(
                         self.DISTRIBUTION_KEY, current_time_step
                     )
+                    self.albedo = self.verify_albedo(self.albedo, current_time_step)
                 else:
                     raise ValueError(
                         "Albedo files do not contain recognized albedo variable names"
@@ -192,5 +222,5 @@ class Albedo(VariableBase):
                     alb_v = alb_v_d
                     alb_ir = alb_ir_d
 
-                self.albedo_vis = utils.set_min_max(alb_v, self.min, self.max)
-                self.albedo_ir = utils.set_min_max(alb_ir, self.min, self.max)
+                self.albedo_vis = self.verify_albedo(alb_v, current_time_step)
+                self.albedo_ir = self.verify_albedo(alb_ir, current_time_step)
