@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, tzinfo
 from pathlib import Path
 
+import numpy as np
 import netCDF4
 import numpy.typing as npt
 from cftime import num2date
@@ -54,7 +55,9 @@ class ReadNetCDF:
             only_use_cftime_datetimes=False,
         )
         self.dates = [date.replace(tzinfo=self.time_zone).timestamp() for date in dates]
-        self._logger.debug(f"Found {len(self.dates)} timesteps in file: {self.file.name}")
+        self._logger.debug(
+            f"Found {len(self.dates)} timesteps in file: {self.file.name}"
+        )
 
     def load(self, variable_name: str, timestep: datetime) -> npt.NDArray:
         """
@@ -73,7 +76,13 @@ class ReadNetCDF:
         self._logger.debug(
             f"Reading variable {variable_name} at time {str(timestep)} from file: {self.file.name}"
         )
-        return self.file[variable_name][self.dates.index(timestep.timestamp())]
+
+        data = self.file[variable_name][self.dates.index(timestep.timestamp())]
+
+        if np.isnan(data).any():
+            raise ValueError(f"NaN values detected in {variable_name} for {timestep}")
+
+        return data
 
     def close(self):
         """
