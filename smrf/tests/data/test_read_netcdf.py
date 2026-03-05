@@ -67,6 +67,14 @@ class TestReadNetCDF(unittest.TestCase):
 
         self.assertFalse(self.mock_file.isopen())
 
+    def test_load_raises_value_error_on_nan(self):
+        self.mock_file["temperature"][0] = np.nan
+        reader = ReadNetCDF(self.test_file, self.time_zone)
+        ts = datetime.fromtimestamp(reader.dates[0], tz=self.time_zone)
+
+        with self.assertRaisesRegex(ValueError, "NaN values"):
+            reader.load("temperature", ts)
+
     @staticmethod
     def _create_mock_netcdf_file():
         """
