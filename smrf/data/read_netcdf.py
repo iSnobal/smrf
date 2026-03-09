@@ -71,7 +71,7 @@ class ReadNetCDF:
             Values for variable at the timestep
 
         Raises:
-            ValueError: If the timestep has a NaN variable
+            ValueError: If the timestep is not found in the file's dates or the variable contains NaN.
         """
         self._logger.debug(
             f"Reading variable {variable_name} at time {str(timestep)} from file: {self.file.name}"
