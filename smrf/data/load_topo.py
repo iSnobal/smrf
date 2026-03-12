@@ -35,13 +35,13 @@ class Topo:
 
     """
 
-    IMAGES = ['dem', 'mask', 'veg_type', 'veg_height', 'veg_k', 'veg_tau']
+    IMAGES = ["dem", "mask", "veg_type", "veg_height", "veg_k", "veg_tau"]
 
     def __init__(self, topoConfig):
         self.topoConfig = topoConfig
 
         self._logger = logging.getLogger(__name__)
-        self._logger.info('Reading [TOPO] and making stoporad input')
+        self._logger.info("Reading [TOPO] and making stoporad input")
 
         self.readNetCDF()
 
@@ -53,7 +53,7 @@ class Topo:
 
     @property
     def file(self):
-        return self.topoConfig['filename']
+        return self.topoConfig["filename"]
 
     def readNetCDF(self):
         """
@@ -62,25 +62,25 @@ class Topo:
         """
 
         # read in the images
-        f = Dataset(self.file, 'r')
+        f = Dataset(self.file, "r")
 
         # netCDF>1.4.0 returns as masked arrays even if no missing values
         # are present. This will ensure that if the array has no missing
         # values, a normal numpy array is returned
         f.set_always_mask(False)
 
-        if 'projection' not in f.variables.keys():
+        if "projection" not in f.variables.keys():
             raise IOError("Topo input files must have projection information")
 
         self.readImages(f)
 
         # get some general information about the model domain from the dem
-        self.nx = f.dimensions['x'].size
-        self.ny = f.dimensions['y'].size
+        self.nx = f.dimensions["x"].size
+        self.ny = f.dimensions["y"].size
 
         # create the x,y vectors
-        self.x = f.variables['x'][:]
-        self.y = f.variables['y'][:]
+        self.x = f.variables["x"][:]
+        self.y = f.variables["y"][:]
         [self.X, self.Y] = np.meshgrid(self.x, self.y)
 
         # There is not a great NetCDF convention on direction for the y-axis.
@@ -90,30 +90,34 @@ class Topo:
         self.dy = np.abs(np.mean(np.diff(self.y)))
 
         # Calculate the center of the basin
-        self.cx, self.cy = self.get_center(f, mask_name='mask')
+        self.cx, self.cy = self.get_center(f, mask_name="mask")
 
         # Is the modeling domain in the northern hemisphere
-        self.northern_hemisphere = self.topoConfig['northern_hemisphere']
+        self.northern_hemisphere = self.topoConfig["northern_hemisphere"]
 
         # Assign the UTM zone
-        self.zone_number = int(f.variables['projection'].utm_zone_number)
+        self.zone_number = int(f.variables["projection"].utm_zone_number)
 
         # Calculate the lat long
         self.basin_lat, self.basin_long = to_latlon(
-            self.cx,
-            self.cy,
-            self.zone_number,
-            northern=self.northern_hemisphere)
+            self.cx, self.cy, self.zone_number, northern=self.northern_hemisphere
+        )
 
-        self._logger.info('Domain center in UTM Zone {:d} = {:0.1f}m, {:0.1f}m'
-                          ''.format(self.zone_number, self.cx, self.cy))
-        self._logger.info('Domain center as Latitude/Longitude = {:0.5f}, '
-                          '{:0.5f}'.format(self.basin_lat, self.basin_long))
+        self._logger.info(
+            "Domain center in UTM Zone {:d} = {:0.1f}m, {:0.1f}m".format(
+                self.zone_number, self.cx, self.cy
+            )
+        )
+        self._logger.info(
+            "Domain center as Latitude/Longitude = {:0.5f}, {:0.5f}".format(
+                self.basin_lat, self.basin_long
+            )
+        )
 
         # Load or calculate the sky view factor
-        if 'sky_view_factor' in f.variables:
-            self.sky_view_factor = f['sky_view_factor'][:]
-            self.terrain_config_factor = f['terrain_config_factor'][:]
+        if "sky_view_factor" in f.variables:
+            self.sky_view_factor = f["sky_view_factor"][:]
+            self.terrain_config_factor = f["terrain_config_factor"][:]
             f.close()
         else:
             f.close()
@@ -133,25 +137,23 @@ class Topo:
                 spatial_info.SetFromUserInput(dataset.GetProjection())
 
                 return GdalAttributes(
-                    srs = Topo.gdal_osr_authority(spatial_info),
-                    outputBounds = self.gdal_output_bounds(dataset),
-                    xRes = dataset.GetGeoTransform()[1],
-                    yRes = dataset.GetGeoTransform()[1],
+                    srs=Topo.gdal_osr_authority(spatial_info),
+                    outputBounds=self.gdal_output_bounds(dataset),
+                    xRes=dataset.GetGeoTransform()[1],
+                    yRes=dataset.GetGeoTransform()[1],
                 )
 
     def readImages(self, f):
-        """Read images from the netcdf and set as attributes in the Topo class
+        """
+        Read images from the netcdf and set as attributes in the Topo class
 
         Args:
             f: netcdf dataset object
         """
-
-        # netCDF files are stored typically as 32-bit float, so convert
-        # to double or int
+        # netCDF files are stored typically as 32-bit float, so convert to double or int
         for v_smrf in self.IMAGES:
-
             if v_smrf in f.variables.keys():
-                if v_smrf == 'veg_type':
+                if v_smrf == "veg_type":
                     result = f.variables[v_smrf][:].astype(int)
                 else:
                     result = f.variables[v_smrf][:].astype(np.float64)
@@ -159,7 +161,7 @@ class Topo:
             setattr(self, v_smrf, result)
 
     def get_center(self, ds, mask_name=None):
-        '''
+        """
         Function returns the basin center in the native coordinates of the
         a netcdf object.
 
@@ -174,9 +176,9 @@ class Topo:
                     in the mask
         Returns:
             tuple: x,y of the data center in the datas native coordinates
-        '''
-        x = ds.variables['x'][:]
-        y = ds.variables['y'][:]
+        """
+        x = ds.variables["x"][:]
+        y = ds.variables["y"][:]
 
         # Calculate the center of the basin
         if mask_name is not None:
@@ -195,17 +197,15 @@ class Topo:
         """
         Calculate the gradient and aspect
         """
-
-        func = self.topoConfig['gradient_method']
+        func = self.topoConfig["gradient_method"]
 
         # calculate the gradient and aspect
-        g, a = getattr(gradient, func)(
-            self.dem, self.dx, self.dy, aspect_rad=True)
-        self.slope_radians = g
+        self.slope_radians, self.aspect = getattr(gradient, func)(
+            self.dem, self.dx, self.dy, aspect_rad=True
+        )
 
         # following IPW convention for slope as sin(Slope)
-        self.sin_slope = np.sin(g)
-        self.aspect = a
+        self.sin_slope = np.sin(self.slope_radians)
 
     def calculate_sky_view_factor(self):
         """
@@ -219,33 +219,41 @@ class Topo:
         svf, tcf = viewf(
             self.dem,
             self.dx,
-            nangles=self.topoConfig['sky_view_factor_angles'],
+            nangles=self.topoConfig["sky_view_factor_angles"],
         )
 
-        topo = Dataset(self.topoConfig['filename'], 'r+')
+        topo = Dataset(self.topoConfig["filename"], "r+")
 
         sky_view_factor = topo.createVariable(
-            'sky_view_factor', 'f8', ('y', 'x',), **compression
+            "sky_view_factor",
+            "f8",
+            ("y", "x"),
+            **compression,
         )
         sky_view_factor.setncattr(
-            'long_name',
-            f"Sky view factor for "
-            f"{self.topoConfig['sky_view_factor_angles']} angles"
+            "long_name",
+            f"Sky view factor for {self.topoConfig['sky_view_factor_angles']} angles",
         )
 
         terrain_config_factor = topo.createVariable(
-            'terrain_config_factor', 'f8', ('y', 'x',), **compression,
+            "terrain_config_factor",
+            "f8",
+            ("y", "x"),
+            **compression,
         )
         terrain_config_factor.setncattr(
-            'long_name',
+            "long_name",
             f"Terrain config factor for "
-            f"{self.topoConfig['sky_view_factor_angles']} angles"
+            f"{self.topoConfig['sky_view_factor_angles']} angles",
         )
 
         slope = topo.createVariable(
-            'slope', 'f8', ('y', 'x',), **compression,
+            "slope",
+            "f8",
+            ("y", "x"),
+            **compression,
         )
-        slope.setncattr('long_name', "Slope angle (degrees)")
+        slope.setncattr("long_name", "Slope angle (degrees)")
 
         sky_view_factor[:, :] = svf
         terrain_config_factor[:, :] = tcf
@@ -279,5 +287,5 @@ class Topo:
             geo_transform[0],
             geo_transform[3] + geo_transform[5] * topo.RasterYSize,
             geo_transform[0] + geo_transform[1] * topo.RasterXSize,
-            geo_transform[3]
+            geo_transform[3],
         ]
