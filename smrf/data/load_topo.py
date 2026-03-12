@@ -214,19 +214,18 @@ class Topo:
         year.
         """
         self.gradient()
+        compression = dict(compression="zlib", complevel=4)
 
         svf, tcf = viewf(
             self.dem,
             self.dx,
             nangles=self.topoConfig['sky_view_factor_angles'],
-            sin_slope=self.sin_slope,
-            aspect=self.aspect
         )
 
         topo = Dataset(self.topoConfig['filename'], 'r+')
 
         sky_view_factor = topo.createVariable(
-            'sky_view_factor', 'f8', ('y', 'x',), zlib=True
+            'sky_view_factor', 'f8', ('y', 'x',), **compression
         )
         sky_view_factor.setncattr(
             'long_name',
@@ -235,7 +234,7 @@ class Topo:
         )
 
         terrain_config_factor = topo.createVariable(
-            'terrain_config_factor', 'f8', ('y', 'x',), zlib=True
+            'terrain_config_factor', 'f8', ('y', 'x',), **compression,
         )
         terrain_config_factor.setncattr(
             'long_name',
@@ -244,9 +243,9 @@ class Topo:
         )
 
         slope = topo.createVariable(
-            'slope', 'f8', ('y', 'x',), zlib=True
+            'slope', 'f8', ('y', 'x',), **compression,
         )
-        slope.setncattr('long_name', f"Slope angle (degrees)")
+        slope.setncattr('long_name', "Slope angle (degrees)")
 
         sky_view_factor[:, :] = svf
         terrain_config_factor[:, :] = tcf
