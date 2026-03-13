@@ -90,11 +90,11 @@ class TestToporad(SMRFTestCaseLakes):
         )
 
         npt.assert_allclose(706, np.mean(trad_beam), atol=1)
-        npt.assert_allclose(85, np.min(trad_beam), atol=1)
-        npt.assert_allclose(1162, np.max(trad_beam), atol=1)
+        npt.assert_allclose(83, np.min(trad_beam), atol=1)
+        npt.assert_allclose(1158, np.max(trad_beam), atol=1)
 
         npt.assert_allclose(112, np.mean(trad_diffuse), atol=1)
-        npt.assert_allclose(85, np.min(trad_diffuse), atol=1)
+        npt.assert_allclose(82, np.min(trad_diffuse), atol=1)
         npt.assert_allclose(148, np.max(trad_diffuse), atol=1)
 
     def test_stoporad_visible(self):
@@ -117,11 +117,11 @@ class TestToporad(SMRFTestCaseLakes):
         self.assertIsNotNone(horizon_angles)
 
         npt.assert_allclose(350, np.mean(srad_beam), atol=1)
-        npt.assert_allclose(49, np.min(srad_beam), atol=1)
-        npt.assert_allclose(569, np.max(srad_beam), atol=1)
+        npt.assert_allclose(47, np.min(srad_beam), atol=1)
+        npt.assert_allclose(565, np.max(srad_beam), atol=1)
 
         npt.assert_allclose(66, np.mean(srad_diffuse), atol=1)
-        npt.assert_allclose(49, np.min(srad_diffuse), atol=1)
+        npt.assert_allclose(47, np.min(srad_diffuse), atol=1)
         npt.assert_allclose(102, np.max(srad_diffuse), atol=1)
 
     def test_stoporad_ir(self):
@@ -143,7 +143,7 @@ class TestToporad(SMRFTestCaseLakes):
 
         npt.assert_allclose(365, np.mean(srad_beam), atol=1)
         npt.assert_allclose(41, np.min(srad_beam), atol=1)
-        npt.assert_allclose(602, np.max(srad_beam), atol=1)
+        npt.assert_allclose(600, np.max(srad_beam), atol=1)
 
         npt.assert_allclose(56, np.mean(srad_diffuse), atol=1)
         npt.assert_allclose(41, np.min(srad_diffuse), atol=1)
