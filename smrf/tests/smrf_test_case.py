@@ -8,6 +8,8 @@ import numpy.testing as npt
 from inicheck.config import UserConfig
 from inicheck.tools import get_user_config
 
+import smrf
+
 
 class SMRFTestCase(unittest.TestCase):
     """
@@ -17,19 +19,22 @@ class SMRFTestCase(unittest.TestCase):
 
     Runs the short simulation over Reynolds Mountain East (RME)
     """
-    DISTRIBUTION_VARIABLES = frozenset([
-        'air_temp',
-        'cloud_factor',
-        'precip',
-        'thermal',
-        'vapor_pressure',
-        'wind',
-    ])
 
-    BASE_INI_FILE_NAME = 'config.ini'
+    DISTRIBUTION_VARIABLES = frozenset(
+        [
+            "air_temp",
+            "cloud_factor",
+            "precip",
+            "thermal",
+            "vapor_pressure",
+            "wind",
+        ]
+    )
 
-    test_dir = Path(smrf.__file__).parent.joinpath('tests')
-    basin_dir = test_dir.joinpath('basins', 'RME')
+    BASE_INI_FILE_NAME = "config.ini"
+
+    test_dir = Path(smrf.__file__).parent.joinpath("tests")
+    basin_dir = test_dir.joinpath("basins", "RME")
     config_file = os.path.join(basin_dir, BASE_INI_FILE_NAME)
     gold_dir = basin_dir.joinpath("gold_hrrr")
     netcdf_comparison_failed = False
@@ -46,7 +51,7 @@ class SMRFTestCase(unittest.TestCase):
 
         :return: UserConfig object
         """
-        return get_user_config(cls.config_file, modules='smrf')
+        return get_user_config(cls.config_file, modules="smrf")
 
     @classmethod
     def setUpClass(cls):
@@ -56,13 +61,13 @@ class SMRFTestCase(unittest.TestCase):
         can be used to configure a run differently, without having to redefine a whole
         file.
         """
-        cls.base_config = get_user_config(cls.config_file, modules='smrf')
+        cls.base_config = get_user_config(cls.config_file, modules="smrf")
         cls.create_output_dir()
 
     @classmethod
     def tearDownClass(cls):
         cls.remove_output_dir()
-        delattr(cls, 'output_dir')
+        delattr(cls, "output_dir")
 
     # START - Required test setup folder structure methods
 
@@ -72,7 +77,7 @@ class SMRFTestCase(unittest.TestCase):
 
     @classmethod
     def create_output_dir(cls):
-        folder = os.path.join(cls.base_config.cfg['output']['out_location'])
+        folder = os.path.join(cls.base_config.cfg["output"]["out_location"])
 
         # Remove any potential files to ensure fresh run
         if os.path.isdir(folder):
@@ -95,7 +100,7 @@ class SMRFTestCase(unittest.TestCase):
         """
         [
             self.compare_netcdf_files(file_name.name)
-            for file_name in self.gold_dir.glob('*.nc')
+            for file_name in self.gold_dir.glob("*.nc")
         ]
 
     def compare_netcdf_files(self, output_file):
@@ -104,7 +109,6 @@ class SMRFTestCase(unittest.TestCase):
         tests will compare the attributes of each variable and ensure that
         the values are exact
         """
-
         with nc.Dataset(self.gold_dir.joinpath(output_file)) as gold:
             with nc.Dataset(self.output_dir.joinpath(output_file)) as test:
                 # See AWSM issue #11
