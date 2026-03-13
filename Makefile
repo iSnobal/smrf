@@ -63,6 +63,9 @@ lint:
 tests:
 	python3 -m unittest discover -s smrf/tests/
 
+tests_fast_fail:
+	python3 -m unittest discover -s smrf/tests/ -f
+
 coverage: ## run coverage and submit
 	coverage run --source smrf setup.py test
 	coverage report --fail-under=75
