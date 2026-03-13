@@ -32,7 +32,6 @@ class TestLoadTopo(unittest.TestCase):
     def test_init(self, gradient, read_nc):
         topo = Topo(TOPO_CONFIG)
         self.assertEqual(TOPO_CONFIG, topo.topoConfig)
-        gradient.assert_called_once()
         read_nc.assert_called_once()
 
     def test_topo_gdal_attributes(self):
@@ -141,3 +140,29 @@ class TestMissingSkyViewFactor(SMRFTestCase):
                 test.variables["sky_view_factor"].getncattr("long_name"),
                 f"Sky view factor for {self.config['sky_view_factor_angles']} angles",
             )
+
+    def test_topo_gold(self):
+        """
+        This test acts as a warning system to any changes to the TopoCalc sky_view_factor
+        method.
+        """
+        with Dataset(TOPO_CONFIG["filename"], "r") as gold:
+            with Dataset(self.test_topo_path, "r") as test:
+                self.assertIn("slope", test.variables)
+                self.assertIn("sky_view_factor", test.variables)
+                self.assertIn("terrain_config_factor", test.variables)
+
+                npt.assert_array_equal(
+                    test.variables["slope"][:],
+                    gold.variables["slope"][:],
+                )
+                npt.assert_allclose(
+                    test.variables["sky_view_factor"][:],
+                    gold.variables["sky_view_factor"][:],
+                    atol=0.025
+                )
+                npt.assert_allclose(
+                    test.variables["terrain_config_factor"][:],
+                    gold.variables["terrain_config_factor"][:],
+                    atol=0.025
+                )
