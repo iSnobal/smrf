@@ -27,11 +27,13 @@ class TestLoadTopo(unittest.TestCase):
     def tearDown(cls):
         cls.ds.close()
 
+    @mock.patch.object(Topo, "gradient")
     @mock.patch.object(Topo, "readNetCDF")
-    def test_init(self, read_nc):
+    def test_init(self, read_nc, gradient):
         topo = Topo(TOPO_CONFIG)
         self.assertEqual(TOPO_CONFIG, topo.topoConfig)
         read_nc.assert_called_once()
+        gradient.assert_called_once()
 
     def test_topo_gdal_attributes(self):
         self.assertEqual("EPSG:32611", self.topo.gdal_attributes.srs)
