@@ -28,8 +28,7 @@ class TestLoadTopo(unittest.TestCase):
         cls.ds.close()
 
     @mock.patch.object(Topo, "readNetCDF")
-    @mock.patch.object(Topo, "gradient")
-    def test_init(self, gradient, read_nc):
+    def test_init(self, read_nc):
         topo = Topo(TOPO_CONFIG)
         self.assertEqual(TOPO_CONFIG, topo.topoConfig)
         read_nc.assert_called_once()
@@ -84,6 +83,7 @@ class TestLoadTopo(unittest.TestCase):
 
 class TestMissingSkyViewFactor(SMRFTestCase):
     def setUp(self):
+        super().setUp()
         self.test_topo_path = self.output_dir.joinpath("test_topo_svf.nc")
 
         # Create a skeleton NetCDF copy of the topo file.

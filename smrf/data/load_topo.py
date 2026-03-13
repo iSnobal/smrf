@@ -152,6 +152,8 @@ class Topo:
         """
         # netCDF files are stored typically as 32-bit float, so convert to double or int
         for v_smrf in self.IMAGES:
+            result = None
+
             if v_smrf in f.variables.keys():
                 if v_smrf == "veg_type":
                     result = f.variables[v_smrf][:].astype(int)
