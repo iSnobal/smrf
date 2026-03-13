@@ -6,8 +6,6 @@ from pathlib import Path
 import netCDF4 as nc
 import numpy.testing as npt
 from inicheck.config import UserConfig
-
-import smrf
 from inicheck.tools import get_user_config
 
 
@@ -34,6 +32,7 @@ class SMRFTestCase(unittest.TestCase):
     basin_dir = test_dir.joinpath('basins', 'RME')
     config_file = os.path.join(basin_dir, BASE_INI_FILE_NAME)
     gold_dir = basin_dir.joinpath("gold_hrrr")
+    netcdf_comparison_failed = False
 
     @classmethod
     def topo_nc(cls):
@@ -67,6 +66,10 @@ class SMRFTestCase(unittest.TestCase):
 
     # START - Required test setup folder structure methods
 
+    def setUp(self):
+        super().setUp()
+        self.__class__.netcdf_comparison_failed = False
+
     @classmethod
     def create_output_dir(cls):
         folder = os.path.join(cls.base_config.cfg['output']['out_location'])
@@ -80,9 +83,9 @@ class SMRFTestCase(unittest.TestCase):
 
     @classmethod
     def remove_output_dir(cls):
-        if hasattr(cls, 'output_dir') and \
-                os.path.exists(cls.output_dir):
-            shutil.rmtree(cls.output_dir, ignore_errors=True)
+        if not cls.netcdf_comparison_failed:
+            if hasattr(cls, "output_dir") and os.path.exists(cls.output_dir):
+                shutil.rmtree(cls.output_dir, ignore_errors=True)
 
     # END
 
@@ -108,43 +111,47 @@ class SMRFTestCase(unittest.TestCase):
                 self.compare_file_variables(gold, test, 0.005)
 
     def compare_file_variables(self, gold, test, tolerance=1e-10):
-        npt.assert_equal(
-            gold.variables['time'][:],
-            test.variables['time'][:],
-            err_msg="Time steps did not match gold standard"
-        )
+        try:
+            npt.assert_equal(
+                gold.variables["time"][:],
+                test.variables["time"][:],
+                err_msg="Time steps did not match gold standard",
+            )
 
-        for variable, _v in gold.variables.items():
-            # Time was already compared
-            if variable =='time':
-                continue
+            for variable, _v in gold.variables.items():
+                # Time was already compared
+                if variable == "time":
+                    continue
 
-            for attribute in gold.variables[variable].ncattrs():
-                self.assertEqual(
-                    getattr(gold.variables[variable], attribute),
-                    getattr(test.variables[variable], attribute),
-                    msg="Variable `{0}` attribute `{1}` did not match gold standard".format(
-                        variable, attribute
-                    ),
-                )
-
-            if variable in ['x', 'y']:
-                npt.assert_equal(
-                    gold.variables[variable][:],
-                    test.variables[variable][:],
-                    err_msg=f"Coordinate {variable} did not match gold standard",
-                )
-            elif variable == 'projection':
-                self.assertEqual(
-                    gold.variables[variable].spatial_ref,
-                    test.variables[variable].spatial_ref,
-                    msg="Spatial reference did not match gold standard"
-                )
-            else:
-                for time_slice in range(len(gold.variables[variable])):
-                    npt.assert_allclose(
-                        gold.variables[variable][time_slice][time_slice, ...],
-                        test.variables[variable][time_slice][time_slice, ...],
-                        rtol=tolerance,
-                        err_msg=f"Variable: {variable} at time slice {time_slice} did not match gold standard",
+                for attribute in gold.variables[variable].ncattrs():
+                    self.assertEqual(
+                        getattr(gold.variables[variable], attribute),
+                        getattr(test.variables[variable], attribute),
+                        msg="Variable `{0}` attribute `{1}` did not match gold standard".format(
+                            variable, attribute
+                        ),
                     )
+
+                if variable in ["x", "y"]:
+                    npt.assert_equal(
+                        gold.variables[variable][:],
+                        test.variables[variable][:],
+                        err_msg=f"Coordinate {variable} did not match gold standard",
+                    )
+                elif variable == "projection":
+                    self.assertEqual(
+                        gold.variables[variable].spatial_ref,
+                        test.variables[variable].spatial_ref,
+                        msg="Spatial reference did not match gold standard",
+                    )
+                else:
+                    for time_slice in range(len(gold.variables[variable])):
+                        npt.assert_allclose(
+                            gold.variables[variable][time_slice][time_slice, ...],
+                            test.variables[variable][time_slice][time_slice, ...],
+                            rtol=tolerance,
+                            err_msg=f"Variable: {variable} at time slice {time_slice} did not match gold standard",
+                        )
+        except AssertionError:
+            self.__class__.netcdf_comparison_failed = True
+            raise
