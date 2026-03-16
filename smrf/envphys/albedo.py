@@ -140,7 +140,8 @@ def decay_alb_power(
         pwr: power for power law decay
         alb_v: numpy array of albedo for visible spectrum
         alb_ir: numpy array of albedo for IR spectrum
-        burned_no_snowfall: numpy array of burned pixels with no new snowfall in a burn mask
+        burned_no_snowfall: numpy array of burned pixels with at least one day since
+                            last snowfall
 
     Returns: Tuple
         alb_v_d, alb_ir_d : numpy arrays of decayed albedo
@@ -257,19 +258,22 @@ def decay_burned(
     alb_v: npt.NDArray,
     alb_ir: npt.NDArray,
     last_snow: npt.NDArray,
-    burn_mask: npt.NDArray,
+    burned_no_snowfall: npt.NDArray,
     k_burned: float,
 ) -> Tuple[npt.NDArray, npt.NDArray]:
     """
     Apply exponential albedo decay as a function of time since last snowfall.
-    This changes all pixels which are marked via the burn mask in the topo file.
+    This changes all pixels which are marked via the burn mask in the topo file and
+    had at least one day since it snowed. The one day minimum is applied to account
+    for the `exp()` function, where less than 1 values would cause a growth instead
+    of a decline.
 
     Args:
-        alb_v:      Visible albedo
-        alb_ir:     Infrared albedo
-        last_snow:  Time since last snow storm (decimal days)
-        burn_mask:  Mask of burned area
-        k_burned:   Decay rate for burned area
+        alb_v:              Visible albedo
+        alb_ir:             Infrared albedo
+        last_snow:          Time since last snow storm (decimal days)
+        burned_no_snowfall: Mask of burned area with at least one day since snowfall
+        k_burned:           Decay rate for burned area
 
     Returns: Tuple
         alb_v_d, alb_ir_d : numpy arrays of decayed albedo
@@ -283,7 +287,7 @@ def decay_burned(
     decay_factor = ne.evaluate(
         "exp(-where(burn_mask == 1, k_burned, 0) * last_snow)",
         local_dict={
-            "burn_mask": burn_mask,
+            "burn_mask": burned_no_snowfall,
             "k_burned": np.float32(k_burned),
             "last_snow": last_snow,
         },

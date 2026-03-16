@@ -164,6 +164,7 @@ class TestDecayAlbPower(unittest.TestCase):
         npt.assert_array_almost_equal(expected_v, alb_v_d, decimal=5)
         npt.assert_array_almost_equal(expected_ir, alb_ir_d, decimal=5)
 
+
 class TestDecayBurned(unittest.TestCase):
     def test_decay_burned_with_burned_and_unburned_areas(self):
         burn_mask = np.array([[1, 0], [0, 1]])
@@ -174,10 +175,14 @@ class TestDecayBurned(unittest.TestCase):
         )
 
         npt.assert_array_almost_equal(
-            np.array([[0.753412, ALBEDO_VIS[0][1]], [ALBEDO_VIS[1][0], 0.44346]]), alb_vis, decimal=6
+            np.array([[0.753412, ALBEDO_VIS[0][1]], [ALBEDO_VIS[1][0], 0.44346]]),
+            alb_vis,
+            decimal=6,
         )
         npt.assert_array_almost_equal(
-            np.array([[0.659235, ALBEDO_IR[0][1]], [ALBEDO_IR[1][0], 0.354768]]), alb_ir, decimal=6
+            np.array([[0.659235, ALBEDO_IR[0][1]], [ALBEDO_IR[1][0], 0.354768]]),
+            alb_ir,
+            decimal=6,
         )
 
     def test_decay_burned_all_burned(self):
@@ -210,8 +215,6 @@ class TestDecayBurned(unittest.TestCase):
         burn_mask = np.array([[1, 0], [0, 1]])
 
         with self.assertRaises(ValueError) as context:
-            decay_burned(
-                ALBEDO_VIS, ALBEDO_IR, LAST_SNOW, burn_mask, None
-            )
+            decay_burned(ALBEDO_VIS, ALBEDO_IR, LAST_SNOW, burn_mask, None)
 
         self.assertIn("k_burned", str(context.exception))

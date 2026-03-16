@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import numpy as np
 import numpy.testing as npt
@@ -7,10 +7,11 @@ import pandas as pd
 import pytz
 
 from smrf.distribute.albedo import Albedo
+from smrf.envphys.albedo import decay_alb_power, decay_burned
 from smrf.tests.smrf_config import SMRFConfig
 
 TOPO = MagicMock(
-    veg_type=MagicMock("veg_type"),
+    veg_type=np.array([[1.0, 1.0], [1.0, 1.0]]),
 )
 CONFIG = {
     "time": {
@@ -69,7 +70,9 @@ class TestAlbedo(SMRFConfig, unittest.TestCase):
 
         self.subject.load_burn_mask()
 
-        np.testing.assert_array_equal(self.subject.burn_mask, self.subject.topo.burn_mask)
+        np.testing.assert_array_equal(
+            self.subject.burn_mask, self.subject.topo.burn_mask
+        )
 
     def test_load_burn_mask_without_defined_mask(self):
         self.subject.topo.burn_mask = None
@@ -238,8 +241,96 @@ class TestAlbedo(SMRFConfig, unittest.TestCase):
             power_v,
             power_ir,
             STORM_DAYS,
-            self.subject.burn_mask,
+            ANY,
+            self.subject.config["post_fire_k_burned"],
+        )
+        npt.assert_array_equal(mock_decay_burned.call_args[0][3], expected_mask)
+
+        npt.assert_array_equal(res_v, final_v)
+
+    @patch("smrf.envphys.albedo.decay_burned")
+    @patch("smrf.envphys.albedo.decay_alb_power")
+    def test_date_method_mask_with_post_fire_post_storm(
+        self, mock_decay_power, mock_decay_burned
+    ):
+        """
+        Test the window where a snow storm was within the last 24 hrs. There, the burn
+        decay is noe applied.
+        """
+        self.subject.config["post_fire"] = True
+        self.subject.config["post_fire_k_burned"] = 1.2
+        burn_mask = np.array([[1.0, 1.0], [0.0, 0.0]])
+        self.subject.burn_mask = burn_mask
+        storm_days = np.array([[0.3, 2.0], [1.0, 0.0]])
+
+        # Preserve the method return signature of mocked methods
+        power_v = 1
+        power_ir = 1
+        mock_decay_power.return_value = (power_v, power_ir)
+        mock_decay_burned.return_value = (1, 1)
+
+        current_hours, decay_hours = self.subject.decay_window(DECAY_TIME)
+
+        self.subject.date_method(
+            ALBEDO_VIS, ALBEDO_IR, current_hours, decay_hours, storm_days
+        )
+
+        expected_mask = np.array([[False, True], [False, False]])
+        npt.assert_array_equal(mock_decay_power.call_args[0][-1], expected_mask)
+
+        mock_decay_burned.assert_called_once_with(
+            power_v,
+            power_ir,
+            storm_days,
+            ANY,
+            self.subject.config["post_fire_k_burned"],
+        )
+        npt.assert_array_equal(mock_decay_burned.call_args[0][3], expected_mask)
+
+    def test_date_method_with_post_fire_post_storm(self):
+        """
+        Integration test that uses both decay methods
+        """
+        self.subject.config["post_fire"] = True
+        self.subject.config["post_fire_k_burned"] = 1.2
+        self.subject.burn_mask = np.array([[1.0, 1.0], [1.0, 0.0]])
+        storm_days = np.array([[0.3, 2.0], [1.0, 0.0]])
+
+        current_hours, decay_hours = self.subject.decay_window(DECAY_TIME)
+        expected_mask = np.array([[False, True], [True, False]])
+        power_vis, power_ir = decay_alb_power(
+            self.subject.veg,
+            self.subject.veg_type,
+            current_hours,
+            decay_hours,
+            self.subject.config["date_method_decay_power"],
+            ALBEDO_VIS.copy(),
+            ALBEDO_IR.copy(),
+            expected_mask
+        )
+        burn_vis, burn_ir = decay_burned(
+            power_vis.copy(),
+            power_ir.copy(),
+            storm_days,
+            expected_mask,
             self.subject.config["post_fire_k_burned"],
         )
 
-        npt.assert_array_equal(res_v, final_v)
+        albedo_v, albedo_ir = self.subject.date_method(
+            ALBEDO_VIS.copy(), ALBEDO_IR.copy(), current_hours, decay_hours, storm_days
+        )
+
+        npt.assert_array_equal(
+            albedo_v,
+            np.array([
+                [power_vis[0][0], burn_vis[0][1]],
+                [burn_vis[1][0], power_vis[1][1]]
+            ]),
+        )
+        npt.assert_array_equal(
+            albedo_ir,
+            np.array([
+                [power_ir[0][0], burn_ir[0][1]],
+                [burn_ir[1][0], power_ir[1][1]]
+            ]),
+        )
