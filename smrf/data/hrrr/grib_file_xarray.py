@@ -153,22 +153,23 @@ class GribFileXarray:
             first_hour, sixth_hour = self._first_or_sixth_variable(
                 variable.smrf_map, sixth_hour_variables
             )
-            variable_data.append(
-                self.load_variable_level(
-                    file,
-                    {
-                        variable.grib_identifier: first_hour,
-                        **variable.grib_keys,
-                        **FIRST_HOUR,
-                    },
-                    {key: value for key, value in variable.smrf_map.items()
-                     if key in first_hour},
-                    variable.level,
+            if first_hour and len(first_hour) > 0:
+                variable_data.append(
+                    self.load_variable_level(
+                        file,
+                        {
+                            variable.grib_identifier: first_hour,
+                            **variable.grib_keys,
+                            **FIRST_HOUR,
+                        },
+                        {key: value for key, value in variable.smrf_map.items()
+                         if key in first_hour},
+                        variable.level,
+                    )
                 )
-            )
-            loaded_variables += first_hour
+                loaded_variables += first_hour
 
-            if sixth_hour is not None and sixth_hour:
+            if sixth_hour is not None and len(sixth_hour) > 0:
                 variable_data.append(
                     self.load_variable_level(
                         sixth_hour_file,
