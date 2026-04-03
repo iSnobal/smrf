@@ -1,7 +1,7 @@
 # Copilot Instructions for SMRF
 
 ## Repository Description
-The Spatial Modeling for Resources Framework (SMRF) is a Python-based framework designed to provide a modular approach to spatial modeling of meteorological data. SMRF acts as the primary forcing data engine for the **Automated Water Supply Model (AWSM)**, distributing point measurements or gridded data over a digital elevation model (DEM) to provide inputs for snow mass and energy balance models.
+The Spatial Modeling for Resources Framework (SMRF) is a Python-based framework designed to provide a modular approach to spatial modeling of meteorological data. SMRF acts as the primary forcing data engine for the **Automated Water Supply Model (iSnobal/awsm)**, distributing point measurements or gridded data over a digital elevation model (DEM) to provide inputs for snow mass and energy balance models.
 
 ## Repository Structure
 The project follows a modular Python package structure:
@@ -21,18 +21,18 @@ The project follows a modular Python package structure:
 ## Key Guidelines
 
 ### 1. Code Style & Standards
-Adhere to the specialized iSnobal organization agents defined in `.github/instructions/`:
-- **Python Style**: Follow `python-style-agent.md` for Ruff formatting, type hints, and naming conventions.
-- **Legacy Migration**: Consult `legacy-migrator-agent.md` when refactoring complex or obscure legacy code.
-- **Documentation**: Follow `documentation-agent.md` for NumPy-style docstrings and RST formatting.
-- **Dependencies**: Consult `dependency-modernization-agent.md` for Conda-based environment management.
-- **Performance**: Use `performance-cython-agent.md` for C/Cython optimizations and NumPy vectorization.
-- **Snow Physics**: Defer to `snow-physics-agent.md` for physical correctness in radiation and energy balance logic.
+Adhere to the specialized iSnobal organization agents defined in **`iSnobal/.github`**:
+- **Python Style**: Follow `@iSnobal/.github/instructions/python-style-agent.md` for Ruff formatting, type hints, and naming conventions.
+- **Legacy Migration**: Consult `@iSnobal/.github/instructions/legacy-migrator-agent.md` when refactoring complex or obscure legacy code.
+- **Documentation**: Follow `@iSnobal/.github/instructions/documentation-agent.md` for NumPy-style docstrings and RST formatting.
+- **Dependencies**: Consult `@iSnobal/.github/instructions/dependency-modernization-agent.md` for Conda-based environment management.
+- **Performance**: Use `@iSnobal/.github/instructions/performance-cython-agent.md` for C/Cython optimizations and NumPy vectorization.
+- **Snow Physics**: Defer to `@iSnobal/.github/instructions/snow-physics-agent.md` for physical correctness in radiation and energy balance logic.
 
 ### 2. Domain Context
-- **Models**: Always consider the relationship between **SMRF** (forcing data/spatial modeling), `pysnobal` (iSnobal wrapper), and **AWSM** (orchestrator). SMRF provides the critical spatial distribution of meteorological variables required by AWSM to drive snow mass and energy balance models.
-- **Topographic Context**: SMRF relies on **topocalc** for all topographic processing (slope, aspect, skyview, etc.). When performing domain context checks or modifying spatial calculations (e.g., in `smrf/data/load_topo.py` or `smrf/envphys/solar/toporad.py`), ensure the dependency on `topocalc` is maintained for physical consistency and topographic layer generation.
-- **Config Files**: SMRF heavily relies on `.ini` configuration files (managed via `inicheck`). Ensure any changes to distribution methods or parameters are reflected in the expected `.ini` structure to maintain compatibility with model initialization.
+- **Models**: Always consider the relationship between **SMRF** (forcing data/spatial modeling), `pysnobal` (iSnobal wrapper), and **iSnobal/awsm** (orchestrator). SMRF provides the critical spatial distribution of meteorological variables required by **iSnobal/awsm** to drive snow mass and energy balance models.
+- **Topographic Context**: SMRF relies on **iSnobal/topocalc** for all topographic processing (slope, aspect, skyview, etc.). When performing domain context checks or modifying spatial calculations (e.g., in `smrf/data/load_topo.py` or `smrf/envphys/solar/toporad.py`), ensure the dependency on **iSnobal/topocalc** is maintained for physical consistency and topographic layer generation.
+- **Config Files**: SMRF heavily relies on `.ini` configuration files (managed via `inicheck`). Ensure any changes to distribution methods or parameters are reflected in the expected `.ini` structure to maintain compatibility with model initialization and **iSnobal/awsm** orchestration workflows.
 
 ### 3. Review Style
 When providing feedback or reviewing code:
@@ -43,7 +43,7 @@ When providing feedback or reviewing code:
 - **Prioritization**: Focus on logic and physical correctness over purely technical changes.
 
 ### 4. Testing & Build
-Follow the specialized `testing-coverage-agent.md` for detailed quality and coverage standards:
+Follow the specialized `@iSnobal/.github/instructions/testing-coverage-agent.md` for detailed quality and coverage standards:
 - **Framework**: Use the standard Python `unittest` framework for all tests.
 - **Location**: Place new tests in `smrf/tests`.
 - **Execution**:
