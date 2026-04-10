@@ -403,7 +403,8 @@ class SMRF:
         # Air temperature
         if AirTemperature.DISTRIBUTION_KEY in self.distribute:
             self.distribute[AirTemperature.DISTRIBUTION_KEY].distribute(
-                self.data.air_temp.loc[timestep]
+                self.data.air_temp.loc[timestep],
+                timestep
             )
 
         # Vapor pressure
