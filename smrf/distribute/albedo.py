@@ -220,12 +220,13 @@ class Albedo(VariableBase):
         :return:
             alb_v, alb_ir : Decayed albedo for visible and infrared spectrum
         """
-        # Create a mask of burned pixels with snow more than one day ago.
+        # Create a mask of burned pixels with snow more than one full day ago.
+        # The comparison uses 1.03 since one hour is ~0.42 in decimal days (1/24)
         # Only burned pixels that have at least one day since the last snow will
         # have a different decay rate applied. See :py:meth:`albedo.decay_burned`
         if self.config.get("post_fire", False):
             burned_no_snowfall = ne.evaluate(
-                "(burn_mask == 1) & (storm_day >= 1)",
+                "(burn_mask == 1) & (storm_day > 1.03)",
                 local_dict={"burn_mask": self.burn_mask, "storm_day": storm_day},
             )
         else:

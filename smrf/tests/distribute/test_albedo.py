@@ -37,7 +37,7 @@ TIMESTEP = pd.to_datetime(CONFIG["time"]["start_date"])
 DECAY_TIME = pd.to_datetime("2025-04-30")
 NO_DECAY_TIME = pd.to_datetime("2025-03-01")
 
-STORM_DAYS = np.array([[0.0, 1.0], [1.0, 0.0]])
+STORM_DAYS = np.array([[0.0, 1.042], [1.0, 0.0]])
 COS_Z = np.array([[10.0, 10.0], [10.0, 10.0]])
 
 DATA = MagicMock()
@@ -254,12 +254,12 @@ class TestAlbedo(SMRFConfig, unittest.TestCase):
         self, mock_decay_power, mock_decay_burned
     ):
         """
-        Test the window where a snow storm was within the last 24 hrs. There, the burn
-        decay is noe applied.
+        Test the window where a snow storm was within the last 24 hrs.
+        Only after one full day, the burn decay is applied.
         """
         self.subject.config["post_fire"] = True
         self.subject.config["post_fire_k_burned"] = 1.2
-        burn_mask = np.array([[1.0, 1.0], [0.0, 0.0]])
+        burn_mask = np.array([[1.0, 1.0], [1.0, 0.0]])
         self.subject.burn_mask = burn_mask
         storm_days = np.array([[0.3, 2.0], [1.0, 0.0]])
 
@@ -294,7 +294,7 @@ class TestAlbedo(SMRFConfig, unittest.TestCase):
         self.subject.config["post_fire"] = True
         self.subject.config["post_fire_k_burned"] = 1.2
         self.subject.burn_mask = np.array([[1.0, 1.0], [1.0, 0.0]])
-        storm_days = np.array([[0.3, 2.0], [1.0, 0.0]])
+        storm_days = np.array([[0.3, 2.0], [1.042, 0.0]])
 
         current_hours, decay_hours = self.subject.decay_window(DECAY_TIME)
         expected_mask = np.array([[False, True], [True, False]])
