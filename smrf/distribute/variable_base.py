@@ -179,7 +179,7 @@ class VariableBase:
 
     def initialize(self, metadata: pd.DataFrame):
         """
-        Second initialzie step to load stations (if configured) and open the configured
+        Second initialize step to load stations (if configured) and open the configured
         `source_files` from the `start_date` in the `.ini` file.
 
         Args:

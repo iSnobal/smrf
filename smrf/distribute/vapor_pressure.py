@@ -13,8 +13,8 @@ class VaporPressure(VariableBase):
     :mod:`smrf.envphys.vapor_pressure.rh2vp`. The vapor pressure is distributed
     instead of the relative humidity as it is an absolute measurement of the
     vapor within the atmosphere and will follow elevational trends (typically
-    negative).  Were as relative humidity is a relative measurement which
-    varies in complex ways over the topography.  From the distributed vapor
+    negative). Whereas relative humidity is a relative measurement which
+    varies in complex ways over the topography. From the distributed vapor
     pressure, the dew point is calculated for use by other distribution
     methods. The dew point temperature is further corrected to ensure that it
     does not exceed the distributed air temperature.
@@ -48,7 +48,7 @@ class VaporPressure(VariableBase):
 
     def distribute(self, data, ta):
         """
-        Distribute air temperature given a Panda's dataframe for a single time
+        Distribute vapor pressure given a Panda's dataframe for a single time
         step. Calls :mod:`smrf.distribute.ImageData._distribute`.
 
         The following steps are performed when distributing vapor pressure:
