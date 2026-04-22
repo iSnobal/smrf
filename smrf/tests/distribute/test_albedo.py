@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import ANY, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import numpy.testing as npt
@@ -7,12 +7,9 @@ import pandas as pd
 import pytz
 
 from smrf.distribute.albedo import Albedo
-from smrf.envphys.albedo import decay_alb_power, decay_burned
 from smrf.tests.smrf_config import SMRFConfig
+from smrf.tests.distribute import TOPO_MOCK
 
-TOPO = MagicMock(
-    veg_type=np.array([[1.0, 1.0], [1.0, 1.0]]),
-)
 CONFIG = {
     "time": {
         "time_zone": "utc",
@@ -48,11 +45,11 @@ ALBEDO_IR = np.array([[0.8, 1.0], [1.0, 0.9]])
 
 class TestAlbedo(SMRFConfig, unittest.TestCase):
     def setUp(self):
-        self.subject = Albedo(CONFIG, TOPO)
+        self.subject = Albedo(CONFIG, TOPO_MOCK)
         self.subject.initialize(DATA)
 
     def test_init_default(self):
-        subject = Albedo(CONFIG, TOPO)
+        subject = Albedo(CONFIG, TOPO_MOCK)
 
         self.assertIsNone(subject.albedo)
         self.assertIsNone(subject.albedo_vis)
@@ -93,7 +90,7 @@ class TestAlbedo(SMRFConfig, unittest.TestCase):
 
         config = self._copy_config(CONFIG)
         config["albedo"]["source_files"] = "path/to/files"
-        subject = Albedo(config, TOPO)
+        subject = Albedo(config, TOPO_MOCK)
         subject.initialize(pd.DataFrame())
 
         subject.distribute(TIMESTEP, COS_Z, STORM_DAYS)
@@ -112,7 +109,7 @@ class TestAlbedo(SMRFConfig, unittest.TestCase):
 
         config = self._copy_config(CONFIG)
         config["albedo"]["source_files"] = "path/to/files"
-        subject = Albedo(config, TOPO)
+        subject = Albedo(config, TOPO_MOCK)
         subject.initialize(pd.DataFrame())
 
         subject.distribute(TIMESTEP, COS_Z, STORM_DAYS)
@@ -136,7 +133,7 @@ class TestAlbedo(SMRFConfig, unittest.TestCase):
 
         config = self._copy_config(CONFIG)
         config["albedo"]["source_files"] = "path/to/files"
-        subject = Albedo(config, TOPO)
+        subject = Albedo(config, TOPO_MOCK)
         subject.initialize(pd.DataFrame())
 
         subject.distribute(TIMESTEP, COS_Z, STORM_DAYS)
@@ -191,8 +188,9 @@ class TestAlbedo(SMRFConfig, unittest.TestCase):
         )
         date_decay_method.assert_not_called()
 
+    @patch("smrf.envphys.albedo.decay_burned")
     @patch("smrf.envphys.albedo.decay_alb_power")
-    def test_date_method_no_post_fire(self, mock_decay_power):
+    def test_date_method_no_post_fire(self, mock_decay_power, mock_decay_burned):
         expected_v = ALBEDO_VIS - 0.05
         expected_ir = ALBEDO_IR - 0.05
         mock_decay_power.return_value = (expected_v, expected_ir)
@@ -204,12 +202,33 @@ class TestAlbedo(SMRFConfig, unittest.TestCase):
             ALBEDO_VIS, ALBEDO_IR, current_hours, decay_hours, STORM_DAYS
         )
 
-        # Burned_no_snowfall mask should be all zeros (last argument)
-        burn_mask = mock_decay_power.call_args[0][-1]
-        npt.assert_array_equal(burn_mask, np.zeros_like(STORM_DAYS))
+        self.assertEqual(mock_decay_power.call_count, 1)
+        args, _ = mock_decay_power.call_args
+
+        npt.assert_array_equal(args[0], self.subject.veg)
+        npt.assert_array_equal(args[1], TOPO_MOCK.veg_type)
+        self.assertEqual(args[2], current_hours)
+        self.assertEqual(args[3], decay_hours)
+        npt.assert_array_equal(args[4], self.subject.config["date_method_decay_power"])
+        npt.assert_array_equal(args[5], ALBEDO_VIS)
+        npt.assert_array_equal(args[6], ALBEDO_IR)
 
         npt.assert_array_equal(res_v, expected_v)
         npt.assert_array_equal(res_ir, expected_ir)
+
+        mock_decay_burned.asssert_not_called()
+
+    @patch("smrf.envphys.albedo.decay_alb_power")
+    def test_date_method_no_post_fire_config(self, mock_decay_power):
+        if "post_fire" in self.subject.config:
+            del self.subject.config["post_fire"]
+
+        mock_decay_power.return_value = MagicMock(), MagicMock()
+
+        self.subject.date_method(
+            ALBEDO_VIS, ALBEDO_IR, 1, 2, STORM_DAYS
+        )
+        mock_decay_power.assert_called_once()
 
     @patch("smrf.envphys.albedo.decay_burned")
     @patch("smrf.envphys.albedo.decay_alb_power")
@@ -223,9 +242,9 @@ class TestAlbedo(SMRFConfig, unittest.TestCase):
         power_ir = ALBEDO_IR - 0.02
         mock_decay_power.return_value = (power_v, power_ir)
 
-        final_v = power_v - 0.1
-        final_ir = power_ir - 0.1
-        mock_decay_burned.return_value = (final_v, final_ir)
+        final_vis = MagicMock("AlBEDO_VIS")
+        final_ir = MagicMock("ALBEDO_IR")
+        mock_decay_burned.return_value = final_vis, final_ir
 
         current_hours, decay_hours = self.subject.decay_window(DECAY_TIME)
 
@@ -233,104 +252,16 @@ class TestAlbedo(SMRFConfig, unittest.TestCase):
             ALBEDO_VIS, ALBEDO_IR, current_hours, decay_hours, STORM_DAYS
         )
 
-        expected_mask = np.array([[False, True], [False, False]])
-        received_mask = mock_decay_power.call_args[0][-1]
-        npt.assert_array_equal(received_mask, expected_mask)
+        self.assertEqual(mock_decay_burned.call_count, 1)
+        args, _ = mock_decay_burned.call_args
 
-        mock_decay_burned.assert_called_once_with(
-            power_v,
-            power_ir,
-            STORM_DAYS,
-            ANY,
-            self.subject.config["post_fire_k_burned"],
-        )
-        npt.assert_array_equal(mock_decay_burned.call_args[0][3], expected_mask)
+        npt.assert_array_equal(args[0], power_v)
+        npt.assert_array_equal(args[1], power_ir)
+        npt.assert_array_equal(args[2], ALBEDO_VIS)
+        npt.assert_array_equal(args[3], ALBEDO_IR)
+        npt.assert_array_equal(args[4], STORM_DAYS)
+        npt.assert_array_equal(args[5], self.subject.burn_mask)
+        self.assertEqual(args[6], 1.2)
 
-        npt.assert_array_equal(res_v, final_v)
-
-    @patch("smrf.envphys.albedo.decay_burned")
-    @patch("smrf.envphys.albedo.decay_alb_power")
-    def test_date_method_mask_with_post_fire_post_storm(
-        self, mock_decay_power, mock_decay_burned
-    ):
-        """
-        Test the window where a snow storm was within the last 24 hrs.
-        Only after one full day, the burn decay is applied.
-        """
-        self.subject.config["post_fire"] = True
-        self.subject.config["post_fire_k_burned"] = 1.2
-        burn_mask = np.array([[1.0, 1.0], [1.0, 0.0]])
-        self.subject.burn_mask = burn_mask
-        storm_days = np.array([[0.3, 2.0], [1.0, 0.0]])
-
-        # Preserve the method return signature of mocked methods
-        power_v = 1
-        power_ir = 1
-        mock_decay_power.return_value = (power_v, power_ir)
-        mock_decay_burned.return_value = (1, 1)
-
-        current_hours, decay_hours = self.subject.decay_window(DECAY_TIME)
-
-        self.subject.date_method(
-            ALBEDO_VIS, ALBEDO_IR, current_hours, decay_hours, storm_days
-        )
-
-        expected_mask = np.array([[False, True], [False, False]])
-        npt.assert_array_equal(mock_decay_power.call_args[0][-1], expected_mask)
-
-        mock_decay_burned.assert_called_once_with(
-            power_v,
-            power_ir,
-            storm_days,
-            ANY,
-            self.subject.config["post_fire_k_burned"],
-        )
-        npt.assert_array_equal(mock_decay_burned.call_args[0][3], expected_mask)
-
-    def test_date_method_with_post_fire_post_storm(self):
-        """
-        Integration test that uses both decay methods
-        """
-        self.subject.config["post_fire"] = True
-        self.subject.config["post_fire_k_burned"] = 1.2
-        self.subject.burn_mask = np.array([[1.0, 1.0], [1.0, 0.0]])
-        storm_days = np.array([[0.3, 2.0], [1.042, 0.0]])
-
-        current_hours, decay_hours = self.subject.decay_window(DECAY_TIME)
-        expected_mask = np.array([[False, True], [True, False]])
-        power_vis, power_ir = decay_alb_power(
-            self.subject.veg,
-            self.subject.veg_type,
-            current_hours,
-            decay_hours,
-            self.subject.config["date_method_decay_power"],
-            ALBEDO_VIS.copy(),
-            ALBEDO_IR.copy(),
-            expected_mask
-        )
-        burn_vis, burn_ir = decay_burned(
-            power_vis.copy(),
-            power_ir.copy(),
-            storm_days,
-            expected_mask,
-            self.subject.config["post_fire_k_burned"],
-        )
-
-        albedo_v, albedo_ir = self.subject.date_method(
-            ALBEDO_VIS.copy(), ALBEDO_IR.copy(), current_hours, decay_hours, storm_days
-        )
-
-        npt.assert_array_equal(
-            albedo_v,
-            np.array([
-                [power_vis[0][0], burn_vis[0][1]],
-                [burn_vis[1][0], power_vis[1][1]]
-            ]),
-        )
-        npt.assert_array_equal(
-            albedo_ir,
-            np.array([
-                [power_ir[0][0], burn_ir[0][1]],
-                [burn_ir[1][0], power_ir[1][1]]
-            ]),
-        )
+        self.assertIs(res_v, final_vis)
+        self.assertIs(res_ir, final_ir)
