@@ -53,7 +53,6 @@ class TestDecayAlbPower(unittest.TestCase):
             pwr,
             ALBEDO_VIS.copy(),
             ALBEDO_IR.copy(),
-            BURNED_NO_SNOWFALL,
         )
 
         npt.assert_array_almost_equal(expected_v, alb_v_d)
@@ -86,44 +85,6 @@ class TestDecayAlbPower(unittest.TestCase):
             pwr,
             ALBEDO_VIS.copy(),
             ALBEDO_IR.copy(),
-            BURNED_NO_SNOWFALL,
-        )
-
-        npt.assert_array_almost_equal(expected_v, alb_v_d, decimal=5)
-        npt.assert_array_almost_equal(expected_ir, alb_ir_d, decimal=5)
-
-    def test_power_decay_during_window_with_burn(self):
-        """Burned pixels will not be changed by power decay after snowfall"""
-        current_hours = 50
-        decay_hours = 100
-        pwr = 2.0
-        burned_no_snowfall = np.array([[0.0, 1.0], [0.0, 0.0]])
-
-        # Decay rates
-        tao_default = decay_hours / (self.veg["default"] ** (1.0 / pwr))
-        tao_41 = decay_hours / (self.veg["41"] ** (1.0 / pwr))
-        tao_42 = decay_hours / (self.veg["42"] ** (1.0 / pwr))
-
-        expected_decay = np.zeros_like(self.veg_type, dtype=float)
-        expected_decay[self.veg_type == 0] = (current_hours / tao_default) ** pwr
-        expected_decay[self.veg_type == 41] = (current_hours / tao_41) ** pwr
-        expected_decay[self.veg_type == 42] = (current_hours / tao_42) ** pwr
-
-        # Burned pixels should not be changed by power decay
-        expected_v = ALBEDO_VIS - expected_decay
-        expected_v[0][1] = ALBEDO_VIS[0][1]
-        expected_ir = ALBEDO_IR - expected_decay
-        expected_ir[0][1] = ALBEDO_IR[0][1]
-
-        alb_v_d, alb_ir_d = decay_alb_power(
-            self.veg,
-            self.veg_type,
-            current_hours,
-            decay_hours,
-            pwr,
-            ALBEDO_VIS.copy(),
-            ALBEDO_IR.copy(),
-            burned_no_snowfall,
         )
 
         npt.assert_array_almost_equal(expected_v, alb_v_d, decimal=5)
@@ -158,7 +119,6 @@ class TestDecayAlbPower(unittest.TestCase):
             pwr,
             ALBEDO_VIS.copy(),
             ALBEDO_IR.copy(),
-            BURNED_NO_SNOWFALL,
         )
 
         npt.assert_array_almost_equal(expected_v, alb_v_d, decimal=5)
@@ -166,12 +126,16 @@ class TestDecayAlbPower(unittest.TestCase):
 
 
 class TestDecayBurned(unittest.TestCase):
+    """
+    NOTE: All arrays passed in as arguments are updated in place, so pass a `copy()`
+    """
     def test_decay_burned_with_burned_and_unburned_areas(self):
         burn_mask = np.array([[1, 0], [0, 1]])
 
-        # Arrays are updated in place, so pass a copy
         alb_vis, alb_ir = decay_burned(
-            ALBEDO_VIS.copy(), ALBEDO_IR.copy(), LAST_SNOW, burn_mask, K_BURNED
+            ALBEDO_VIS.copy(), ALBEDO_IR.copy(),
+            ALBEDO_VIS.copy(), ALBEDO_IR.copy(),
+            LAST_SNOW, burn_mask, K_BURNED
         )
 
         npt.assert_array_almost_equal(
@@ -188,9 +152,10 @@ class TestDecayBurned(unittest.TestCase):
     def test_decay_burned_all_burned(self):
         burn_mask = np.ones_like(ALBEDO_VIS)
 
-        # Arrays are updated in place, so pass a copy
         alb_vis, alb_ir = decay_burned(
-            ALBEDO_VIS.copy(), ALBEDO_IR.copy(), LAST_SNOW, burn_mask, K_BURNED
+            ALBEDO_VIS.copy(), ALBEDO_IR.copy(),
+            ALBEDO_VIS.copy(), ALBEDO_IR.copy(),
+            LAST_SNOW, burn_mask, K_BURNED
         )
 
         npt.assert_array_almost_equal(
@@ -203,18 +168,59 @@ class TestDecayBurned(unittest.TestCase):
     def test_decay_burned_all_unburned(self):
         burn_mask = np.zeros_like(ALBEDO_VIS)
 
-        # Arrays are updated in place, so pass a copy
         alb_vis, alb_ir = decay_burned(
-            ALBEDO_VIS.copy(), ALBEDO_IR.copy(), LAST_SNOW, burn_mask, K_BURNED
+            ALBEDO_VIS.copy(), ALBEDO_IR.copy(),
+            ALBEDO_VIS.copy(), ALBEDO_IR.copy(),
+            LAST_SNOW, burn_mask, K_BURNED
         )
 
         npt.assert_array_equal(ALBEDO_VIS, alb_vis)
         npt.assert_array_equal(ALBEDO_IR, alb_ir)
 
+    def test_decay_burned_initial_lower_than_calculated(self):
+        """
+        Test that the minimum of current albedo and calculated burn decay is taken.
+        Tests the nested where condition: where(alb_v < calculated, alb_v, calculated)
+        """
+        burn_mask = np.ones_like(ALBEDO_VIS)
+        k_burned = 0.1
+        last_snow = np.array([[10.0, 10.0], [10.0, 10.0]])
+
+        alb_v_current = np.array([[0.2, 0.6], [0.7, 0.1]])
+        # [0,0]: Time decay
+        # [0,1]: Burn decay
+        # [1,0]: Burn decay
+        # [1,1]: Time decay
+
+        initial_v = ALBEDO_VIS.copy()
+        initial_ir = ALBEDO_IR.copy()
+
+        decay_factor = np.exp(-k_burned * last_snow)
+        expected_v = np.minimum(alb_v_current, initial_v * decay_factor)
+        # ALBEDO_IR values are all higher than decay here
+        expected_ir = np.minimum(ALBEDO_IR, initial_ir * decay_factor)
+
+        alb_v_out, alb_ir_out = decay_burned(
+            alb_v_current.copy(), ALBEDO_IR.copy(),
+            initial_v, initial_ir,
+            last_snow, burn_mask, k_burned
+        )
+
+        npt.assert_array_almost_equal(expected_v, alb_v_out, decimal=6)
+        npt.assert_array_almost_equal(expected_ir, alb_ir_out, decimal=6)
+
     def test_decay_burned_k_burned_none(self):
         burn_mask = np.array([[1, 0], [0, 1]])
 
         with self.assertRaises(ValueError) as context:
-            decay_burned(ALBEDO_VIS, ALBEDO_IR, LAST_SNOW, burn_mask, None)
+            decay_burned(
+                ALBEDO_VIS.copy(),
+                ALBEDO_IR.copy(),
+                ALBEDO_VIS.copy(),
+                ALBEDO_IR.copy(),
+                LAST_SNOW,
+                burn_mask,
+                None,
+            )
 
         self.assertIn("k_burned", str(context.exception))

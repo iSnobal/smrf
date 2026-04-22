@@ -117,7 +117,6 @@ def decay_alb_power(
     pwr: float,
     alb_v: npt.NDArray,
     alb_ir: npt.NDArray,
-    burned_no_snowfall: npt.NDArray,
 ) -> Tuple[npt.NDArray, npt.NDArray]:
     """
     Find a decrease in albedo due to litter accumulation. Decay is based on
@@ -140,12 +139,9 @@ def decay_alb_power(
         pwr: power for power law decay
         alb_v: numpy array of albedo for visible spectrum
         alb_ir: numpy array of albedo for IR spectrum
-        burned_no_snowfall: numpy array of burned pixels with at least one day since
-                            last snowfall
 
     Returns: Tuple
         alb_v_d, alb_ir_d : numpy arrays of decayed albedo
-
     """
     decay_rates = np.full(veg_type.shape, veg["default"]).astype(np.float32, order="C")
 
@@ -168,27 +164,8 @@ def decay_alb_power(
             },
         )
 
-    # Only apply the standard decay rate if it is not in a pixel that was burned and
-    # no new snow was deposited. Burned pixels still get the initial albedo after a storm
-    # in the decay window from the power law
-    ne.evaluate(
-        "where(burned_no_snowfall == 0, alb_v - decay_rates, alb_v)",
-        out=alb_v,
-        local_dict={
-            "alb_v": alb_v,
-            "decay_rates": decay_rates,
-            "burned_no_snowfall": burned_no_snowfall,
-        },
-    )
-    ne.evaluate(
-        "where(burned_no_snowfall == 0, alb_ir - decay_rates, alb_ir)",
-        out=alb_ir,
-        local_dict={
-            "alb_ir": alb_ir,
-            "decay_rates": decay_rates,
-            "burned_no_snowfall": burned_no_snowfall,
-        },
-    )
+    alb_v -= decay_rates
+    alb_ir -= decay_rates
 
     return alb_v, alb_ir
 
@@ -253,26 +230,27 @@ def decay_alb_hardy(litter, veg_type, storm_day, alb_v, alb_ir):
 
     return alb_v_d, alb_ir_d
 
-
 def decay_burned(
     alb_v: npt.NDArray,
     alb_ir: npt.NDArray,
+    alb_v_initial: npt.NDArray,
+    alb_ir_initial: npt.NDArray,
     last_snow: npt.NDArray,
-    burned_no_snowfall: npt.NDArray,
+    burn_mask: npt.NDArray,
     k_burned: float,
 ) -> Tuple[npt.NDArray, npt.NDArray]:
     """
     Apply exponential albedo decay as a function of time since last snowfall.
     This changes all pixels which are marked via the burn mask in the topo file and
-    had at least one day since it snowed. The one day minimum is applied to account
-    for the `exp()` function, where less than 1 values would cause a growth instead
-    of a decline.
+    result in faster decay through this exponential method over the time decay.
 
     Args:
         alb_v:              Visible albedo
         alb_ir:             Infrared albedo
+        alb_v_initial:      Visible albedo before the time decay
+        alb_ir_initial:     Infrared albedo after the time decay
         last_snow:          Time since last snow storm (decimal days)
-        burned_no_snowfall: Mask of burned area with at least one day since snowfall
+        burn_mask:          Mask of burned area from the topo
         k_burned:           Decay rate for burned area
 
     Returns: Tuple
@@ -284,24 +262,29 @@ def decay_burned(
             "in the config file."
         )
 
-    decay_factor = ne.evaluate(
-        "exp(-where(burn_mask == 1, k_burned, 0) * last_snow)",
+    # Pre-calculate the exponential decay factor once
+    decay_factor = np.exp(-k_burned * last_snow)
+
+    ne.evaluate(
+        "where(burn_mask == 1, where(alb_v < (alb_v_initial * decay_factor), alb_v, (alb_v_initial * decay_factor)), alb_v)",
+        out=alb_v,
         local_dict={
-            "burn_mask": burned_no_snowfall,
-            "k_burned": np.float32(k_burned),
-            "last_snow": last_snow,
+            "burn_mask": burn_mask,
+            "alb_v": alb_v,
+            "alb_v_initial": alb_v_initial,
+            "decay_factor": decay_factor,
+        },
+    )
+    ne.evaluate(
+        "where(burn_mask == 1, where(alb_ir < (alb_ir_initial * decay_factor), alb_ir, (alb_ir_initial * decay_factor)), alb_ir)",
+        out=alb_ir,
+        local_dict={
+            "burn_mask": burn_mask,
+            "alb_ir": alb_ir,
+            "alb_ir_initial": alb_ir_initial,
+            "decay_factor": decay_factor,
         },
     )
 
-    ne.evaluate(
-        "alb_v * decay_factor",
-        out=alb_v,
-        local_dict={"alb_v": alb_v, "decay_factor": decay_factor},
-    )
-    ne.evaluate(
-        "alb_ir * decay_factor",
-        out=alb_ir,
-        local_dict={"alb_ir": alb_ir, "decay_factor": decay_factor},
-    )
 
     return alb_v, alb_ir

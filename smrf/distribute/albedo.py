@@ -1,7 +1,6 @@
 from datetime import datetime
 from typing import Tuple
 
-import numexpr as ne
 import numpy as np
 import numpy.typing as npt
 
@@ -209,7 +208,7 @@ class Albedo(VariableBase):
         """
         Apply a power law decay to the albedo and an optional post fire decay if configured.
         The post fire decay uses the initial albedo value of the time decay method after
-        a fresh snowfall.
+        a fresh snowfall until the power decay reduces the albedo faster.
 
         :param alb_v: Visibility albedo
         :param alb_ir: Infrared albedo
@@ -220,17 +219,16 @@ class Albedo(VariableBase):
         :return:
             alb_v, alb_ir : Decayed albedo for visible and infrared spectrum
         """
-        # Create a mask of burned pixels with snow more than one full day ago.
-        # The comparison uses 1.03 since one hour is ~0.42 in decimal days (1/24)
-        # Only burned pixels that have at least one day since the last snow will
-        # have a different decay rate applied. See :py:meth:`albedo.decay_burned`
+
         if self.config.get("post_fire", False):
-            burned_no_snowfall = ne.evaluate(
-                "(burn_mask == 1) & (storm_day > 1.03)",
-                local_dict={"burn_mask": self.burn_mask, "storm_day": storm_day},
-            )
+            burned_mask = self.burn_mask == 1
+            # Keep originals before power decay
+            alb_v_initial = alb_v.copy()
+            alb_ir_initial = alb_ir.copy()
         else:
-            burned_no_snowfall = np.zeros_like(storm_day)
+            burned_mask = None
+            alb_v_initial = None
+            alb_ir_initial = None
 
         alb_v, alb_ir = albedo.decay_alb_power(
             self.veg,
@@ -240,20 +238,21 @@ class Albedo(VariableBase):
             self.config["date_method_decay_power"],
             alb_v,
             alb_ir,
-            burned_no_snowfall,
         )
 
         if self.config.get("post_fire", False):
-            self._logger.debug("  Applying post fire decay")
             alb_v, alb_ir = albedo.decay_burned(
                 alb_v,
                 alb_ir,
+                alb_v_initial,
+                alb_ir_initial,
                 storm_day,
-                burned_no_snowfall,
+                burned_mask,
                 self.config.get("post_fire_k_burned", None),
             )
 
         return alb_v, alb_ir
+
 
     def decay_window(self, current_timestep: datetime) -> Tuple[float, float]:
         """
