@@ -62,7 +62,7 @@ jobs:
         if: runner.os == 'Linux'
         env:
           CC: gcc-${{ env.GCC_VERSION }}
-        uses: mamba-org/setup-micromamba@v2
+        uses: mamba-org/setup-micromamba@v3
         with:
           environment-file: ${{ env.LINUX_YAML }}
           init-shell: bash
@@ -73,7 +73,7 @@ jobs:
         if: runner.os == 'macOS'
         env:
           CONDA_SUBDIR: osx-64
-        uses: mamba-org/setup-micromamba@v2
+        uses: mamba-org/setup-micromamba@v3
         with:
           environment-file: ${{ env.MACOS_YAML }}
           init-shell: bash
