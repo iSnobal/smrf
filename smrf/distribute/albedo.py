@@ -225,8 +225,16 @@ class Albedo(VariableBase):
             # Keep originals before power decay
             alb_v_initial = alb_v.copy()
             alb_ir_initial = alb_ir.copy()
+
+            k_burned = self.config.get("post_fire_k_burned", None)
+            if k_burned is None:
+                raise ValueError(
+                    "Post fire albedo decay is configured, but post_fire_k_burned is "
+                    "not set in the config file."
+                )
         else:
             burned_mask = None
+            k_burned = None
             alb_v_initial = None
             alb_ir_initial = None
 
@@ -248,7 +256,7 @@ class Albedo(VariableBase):
                 alb_ir_initial,
                 storm_day,
                 burned_mask,
-                self.config.get("post_fire_k_burned", None),
+                k_burned,
             )
 
         return alb_v, alb_ir

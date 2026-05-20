@@ -265,3 +265,14 @@ class TestAlbedo(SMRFConfig, unittest.TestCase):
 
         self.assertIs(res_v, final_vis)
         self.assertIs(res_ir, final_ir)
+
+    def test_date_method_with_post_fire_missing_k(self):
+        self.subject.config["post_fire"] = True
+        self.subject.config["post_fire_k_burned"] = None
+
+        with self.assertRaises(ValueError) as context:
+            self.subject.date_method(
+                ALBEDO_VIS, ALBEDO_IR, 1, 1, STORM_DAYS
+            )
+
+        self.assertIn("post_fire_k_burned is not set", str(context.exception))

@@ -248,12 +248,6 @@ def decay_burned(
     Returns: Tuple
         alb_v_d, alb_ir_d : numpy arrays of decayed albedo
     """
-    if k_burned is None:
-        raise ValueError(
-            "Post fire albedo decay is configured, but post_fire_k_burned is not configured "
-            "in the config file."
-        )
-
     # Pre-calculate the exponential decay factor once
     decay_factor = np.exp(-k_burned * last_snow)
 

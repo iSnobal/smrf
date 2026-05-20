@@ -208,19 +208,3 @@ class TestDecayBurned(unittest.TestCase):
 
         npt.assert_array_almost_equal(expected_v, alb_v_out, decimal=6)
         npt.assert_array_almost_equal(expected_ir, alb_ir_out, decimal=6)
-
-    def test_decay_burned_k_burned_none(self):
-        burn_mask = np.array([[1, 0], [0, 1]])
-
-        with self.assertRaises(ValueError) as context:
-            decay_burned(
-                ALBEDO_VIS.copy(),
-                ALBEDO_IR.copy(),
-                ALBEDO_VIS.copy(),
-                ALBEDO_IR.copy(),
-                LAST_SNOW,
-                burn_mask,
-                None,
-            )
-
-        self.assertIn("k_burned", str(context.exception))
