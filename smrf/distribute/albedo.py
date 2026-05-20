@@ -208,7 +208,7 @@ class Albedo(VariableBase):
         """
         Apply a power law decay to the albedo and an optional post fire decay if configured.
         The post fire decay uses the initial albedo value of the time decay method after
-        a fresh snowfall until the power decay reduces the albedo faster.
+        a fresh snowfall until the burn decay reduces the albedo faster.
 
         :param alb_v: Visibility albedo
         :param alb_ir: Infrared albedo
