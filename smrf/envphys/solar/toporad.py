@@ -11,8 +11,8 @@ from smrf.envphys.constants import (
     SEA_LEVEL,
     STD_AIRTMP,
     STD_LAPSE,
-    VISIBLE_MAX,
-    VISIBLE_MIN,
+    VIS_MAX,
+    VIS_MIN,
 )
 from smrf.envphys.solar.irradiance import direct_solar_irradiance
 from smrf.envphys.solar.twostream import twostream
@@ -21,7 +21,7 @@ from topocalc.horizon import horizon
 
 
 def check_wavelengths(wavelength_range):
-    if wavelength_range[0] >= VISIBLE_MIN and wavelength_range[1] <= VISIBLE_MAX:
+    if wavelength_range[0] >= VIS_MIN and wavelength_range[1] <= VIS_MAX:
         return
     elif wavelength_range[0] >= IR_MIN and wavelength_range[1] <= IR_MAX:
         return

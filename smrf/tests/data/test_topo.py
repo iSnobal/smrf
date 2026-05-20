@@ -29,11 +29,34 @@ class TestLoadTopo(unittest.TestCase):
     def tearDown(cls):
         cls.ds.close()
 
-    @mock.patch.object(Topo, "gradient")
-    @mock.patch.object(Topo, "readNetCDF")
-    def test_init(self, read_nc, gradient):
+    def test_read_topo_images(self):
+        self.assertEqual(
+            [
+                "burn_mask",
+                "dem",
+                "mask",
+                "veg_height",
+                "veg_k",
+                "veg_tau",
+                "veg_type",
+            ],
+            Topo.IMAGES
+        )
+
+        for variable in Topo.IMAGES:
+            self.assertTrue(hasattr(self.topo, variable))
+
+    def test_no_burn_mask_required(self):
+        self.assertIsNone(self.topo.burn_mask)
+
+    @mock.patch.object(Topo, 'readNetCDF')
+    @mock.patch.object(Topo, 'gradient')
+    def test_init(self, gradient, read_nc):
+        # Need to create a local topo instance to test the mock patch calls
         topo = Topo(TOPO_CONFIG)
         self.assertEqual(TOPO_CONFIG, topo.topoConfig)
+        gradient.assert_called_once()
+
         read_nc.assert_called_once()
         gradient.assert_called_once()
 
