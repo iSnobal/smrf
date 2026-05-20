@@ -5,15 +5,7 @@ import numexpr as ne
 import numpy as np
 import numpy.typing as npt
 
-MAXV = 1.0  # vis albedo when gsize = 0
-MAXIR = 0.85447  # IR albedo when gsize = 0
-IRFAC = -0.02123  # IR decay factor
-VFAC = 500.0  # visible decay factor
-VZRG = 1.375e-3  # vis zenith increase range factor
-IRZRG = 2.0e-3  # ir zenith increase range factor
-IRZ0 = 0.1  # ir zenith increase range, gsize=0
-BOIL = 373.15  # boiling temperature K
-GRAVITY = 9.80665  # gravity (m/s^2)
+from .constants import IR_FACTOR, IR_Z_0, IR_Z_RF, IR_MAX_0, VIS_MAX_0, VIS_FACTOR, VIS_Z_RF
 
 
 # TODO - Need to raise here instead of silently fail to make the user aware
@@ -88,14 +80,14 @@ def albedo(
     gir = radius_ir + (range_ir * growth_factor)
 
     # calc albedo for cos(z)=1
-    alb_v_1 = MAXV - (gv / VFAC)
-    alb_ir_1 = MAXIR * np.exp(IRFAC * gir)
+    alb_v_1 = VIS_MAX_0 - (gv / VIS_FACTOR)
+    alb_ir_1 = IR_MAX_0 * np.exp(IR_FACTOR * gir)
 
     # calculate effect of cos(z)<1
 
     # adjust diurnal increase range
-    dzv = gv * VZRG
-    dzir = (gir * IRZRG) + IRZ0
+    dzv = gv * VIS_Z_RF
+    dzir = (gir * IR_Z_RF) + IR_Z_0
 
     # calculate albedo
     alb_v = alb_v_1
