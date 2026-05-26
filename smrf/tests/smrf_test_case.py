@@ -115,9 +115,7 @@ class SMRFTestCase(unittest.TestCase):
         """
         with nc.Dataset(self.gold_dir.joinpath(output_file)) as gold:
             with nc.Dataset(self.output_dir.joinpath(output_file)) as test:
-                # This matches the significant digits set in output files.
-                # See :attr:`smrf.output.output_netcdf.OutputNetCDF.SIGNIFICANT_DIGITS`
-                self.compare_file_variables(gold, test, 0.0001)
+                self.compare_file_variables(gold, test, self.VARIABLE_TOLERANCE)
 
     def compare_file_variables(self, gold, test, tolerance=1e-10):
         try:
