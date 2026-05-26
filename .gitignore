@@ -99,8 +99,9 @@ docs/smrf.rst
 
 */tmp/*
 
-# notebooks
+# Notebooks
 .ipynb_checkpoints
+smrf/tests/basins/notebooks/*.png
 
 # grib2 .idx files
 *.grib2.*.idx
