@@ -20,6 +20,10 @@ class SMRFTestCase(unittest.TestCase):
     Runs the short simulation over Reynolds Mountain East (RME)
     """
 
+    # This matches the significant digits set in output files.
+    # See :attr:`smrf.output.output_netcdf.OutputNetcdf.LEAST_SIGNIFICANT_DIGITS`
+    VARIABLE_TOLERANCE = 0.0001
+
     DISTRIBUTION_VARIABLES = frozenset(
         [
             "air_temp",
@@ -111,7 +115,8 @@ class SMRFTestCase(unittest.TestCase):
         """
         with nc.Dataset(self.gold_dir.joinpath(output_file)) as gold:
             with nc.Dataset(self.output_dir.joinpath(output_file)) as test:
-                # See AWSM issue #11
+                # This matches the significant digits set in output files.
+                # See :attr:`smrf.output.output_netcdf.OutputNetCDF.SIGNIFICANT_DIGITS`
                 self.compare_file_variables(gold, test, 0.0001)
 
     def compare_file_variables(self, gold, test, tolerance=1e-10):

@@ -20,6 +20,7 @@ class OutputNetcdf:
     fmt = "%Y-%m-%d %H:%M:%S"
     COMPRESSION = dict(compression="zlib", complevel=4)
     DIMENSIONS = ("time", "y", "x")
+    LEAST_SIGNIFICANT_DIGITS=4
 
     def __init__(
         self, output_variables: dict, topo: Topo, time: dict, out_config: dict
@@ -131,7 +132,7 @@ class OutputNetcdf:
                 nc_variable,
                 self.out_config["netcdf_output_precision"],
                 self.DIMENSIONS,
-                least_significant_digit=4,
+                least_significant_digit=self.LEAST_SIGNIFICANT_DIGITS,
                 **self.COMPRESSION,
             )  # type: ignore
 
