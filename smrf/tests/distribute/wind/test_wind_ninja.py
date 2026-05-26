@@ -37,7 +37,7 @@ class TestWindNinja(SMRFTestCaseLakes):
     def test_wind_ninja(self):
 
         config = self.base_config.cfg
-        topo, wn, g_vel, g_ang = self.setup_wind_ninja(config)
+        _, wn, _, _ = self.setup_wind_ninja(config)
 
         # The x values are ascending
         self.assertTrue(np.all(np.diff(wn.windninja_x) > 0))
@@ -49,7 +49,7 @@ class TestWindNinja(SMRFTestCaseLakes):
 
         config = self.base_config_copy().cfg
         config["wind"]["wind_ninja_dxdy"] = 50
-        topo, wn, g_vel, g_ang = self.setup_wind_ninja(config)
+        _, wn, g_vel, _ = self.setup_wind_ninja(config)
 
         # The implied assumption is that this does not throw an
         # exception when running
