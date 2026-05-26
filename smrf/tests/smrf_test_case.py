@@ -156,8 +156,8 @@ class SMRFTestCase(unittest.TestCase):
                 else:
                     for time_slice in range(len(gold.variables[variable])):
                         npt.assert_allclose(
-                            gold.variables[variable][time_slice][time_slice, ...],
-                            test.variables[variable][time_slice][time_slice, ...],
+                            gold.variables[variable][time_slice, ...],
+                            test.variables[variable][time_slice, ...],
                             rtol=tolerance,
                             err_msg=f"Variable: {variable} at time slice {time_slice} did not match gold standard",
                         )
