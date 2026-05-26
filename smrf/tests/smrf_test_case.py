@@ -112,7 +112,7 @@ class SMRFTestCase(unittest.TestCase):
         with nc.Dataset(self.gold_dir.joinpath(output_file)) as gold:
             with nc.Dataset(self.output_dir.joinpath(output_file)) as test:
                 # See AWSM issue #11
-                self.compare_file_variables(gold, test, 0.005)
+                self.compare_file_variables(gold, test, 0.0001)
 
     def compare_file_variables(self, gold, test, tolerance=1e-10):
         try:
