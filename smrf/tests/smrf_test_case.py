@@ -20,6 +20,10 @@ class SMRFTestCase(unittest.TestCase):
     Runs the short simulation over Reynolds Mountain East (RME)
     """
 
+    # This matches the significant digits set in output files.
+    # See :attr:`smrf.output.output_netcdf.OutputNetcdf.LEAST_SIGNIFICANT_DIGITS`
+    VARIABLE_TOLERANCE = 0.0001
+
     DISTRIBUTION_VARIABLES = frozenset(
         [
             "air_temp",
@@ -111,8 +115,7 @@ class SMRFTestCase(unittest.TestCase):
         """
         with nc.Dataset(self.gold_dir.joinpath(output_file)) as gold:
             with nc.Dataset(self.output_dir.joinpath(output_file)) as test:
-                # See AWSM issue #11
-                self.compare_file_variables(gold, test, 0.005)
+                self.compare_file_variables(gold, test, self.VARIABLE_TOLERANCE)
 
     def compare_file_variables(self, gold, test, tolerance=1e-10):
         try:
@@ -151,8 +154,8 @@ class SMRFTestCase(unittest.TestCase):
                 else:
                     for time_slice in range(len(gold.variables[variable])):
                         npt.assert_allclose(
-                            gold.variables[variable][time_slice][time_slice, ...],
-                            test.variables[variable][time_slice][time_slice, ...],
+                            gold.variables[variable][time_slice, ...],
+                            test.variables[variable][time_slice, ...],
                             rtol=tolerance,
                             err_msg=f"Variable: {variable} at time slice {time_slice} did not match gold standard",
                         )

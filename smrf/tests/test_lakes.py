@@ -1,8 +1,9 @@
+import netCDF4 as nc
+from inicheck.tools import cast_all_variables
+
 from smrf.framework.model_framework import run_smrf
 from smrf.tests.smrf_output_test import CheckSMRFOutputs
 from smrf.tests.smrf_test_case_lakes import SMRFTestCaseLakes
-from inicheck.tools import cast_all_variables
-import netCDF4 as nc
 
 
 class TestLakes(CheckSMRFOutputs, SMRFTestCaseLakes):
@@ -15,6 +16,7 @@ class TestLakes(CheckSMRFOutputs, SMRFTestCaseLakes):
         super().setUpClass()
 
         cls.smrf = run_smrf(cls.base_config)
+
 
 class TestLakesExternalAlbedo(SMRFTestCaseLakes):
     @classmethod
