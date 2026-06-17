@@ -170,9 +170,10 @@ class SolarHRRR(VariableBase):
 
             return
 
-        illumination_angles, _horizon_angles = mask_for_shade(
-            cos_z, azimuth, illumination_angles, self.topo
-        )
+        # Model 3.1 - No shade
+        # illumination_angles, _horizon_angles = mask_for_shade(
+        #     cos_z, azimuth, illumination_angles, self.topo
+        # )
 
         results = self.toposplit.calculate(
             hrrr_data[self.DSWRF],

@@ -77,7 +77,8 @@ cdef class TopoSplit:
                 results_row[4] = results_row[3] * illumination_angles[row_idx, col]
 
                 # Diffuse component
-                results_row[5] = results_row[2] * self._sky_view_factor[row_idx, col]
+                # Model 3.1 - No terrain
+                results_row[5] = results_row[2] # * self._sky_view_factor[row_idx, col]
 
             # Copy results to the shared results array
             # Pattern [row_n_col_m_GHI, row_n_col_m_K, row_n_col_m_DHI,
