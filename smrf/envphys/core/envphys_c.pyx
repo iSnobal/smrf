@@ -1,14 +1,6 @@
-# cython: embedsignature=True
-# cython: language_level=3
-"""
-C implementation of some radiation functions
-"""
-
-
-import cython
-import numpy as np
-
-cimport numpy as np
+cimport numpy as np # noqa
+cimport cython # noqa
+import numpy as np # noqa
 
 # Numpy must be initialized. When using numpy from C or Cython you must
 # _always_ do that, or you will have segfaults
@@ -16,13 +8,40 @@ np.import_array()
 
 
 cdef extern from "envphys_c.h":
-    void topotherm(int ngrid, double *ta, double *tw, double *z, double *skvfac, int nthreads, double *thermal);
-    void dewpt(int ngrid, double *ea, int nthreads, double tol, double *dpt);
-    void iwbt(int ngrid, double *ta, double *td,	double *z, int nthreads, double tol, double *tw);
+    void topotherm(int ngrid, double *ta, double *tw, double *z, double *skvfac, int nthreads, double *thermal)
+    void dewpt(int ngrid, double *ea, int nthreads, double tol, double *dpt)
+    void iwbt(int ngrid, double *ta, double *td,	double *z, int nthreads, double tol, double *tw)
+    double saturation_vapor_pressure(double *ta)
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
+def svp_for_temperatures(double[:, ::1] temperature_k, double[:, ::1] output_array):
+    """
+    Wrapper function to calculate the saturation vapor pressure for given temperature.
+
+    This is not parallelized since the math is very minimal and only serves to reduce
+    duplicated code when trying to apply this to a numpy array.
+    Main use:
+    * :mod:`smrf.envphys.vapor_pressure`
+
+    Args:
+        temperature_k: Input array with air temperatures
+        output_array: Output array to write the results to
+    """
+    cdef Py_ssize_t i, j
+    cdef Py_ssize_t rows = temperature_k.shape[0]
+    cdef Py_ssize_t cols = temperature_k.shape[1]
+    cdef double value
+
+    for i in range(rows):
+        for j in range(cols):
+            value = temperature_k[i, j]
+
+            if value <= 0.0 or np.isnan(value):
+                output_array[i, j] = np.nan
+            else:
+                output_array[i, j] = saturation_vapor_pressure(&value)
+
+
 # https://github.com/cython/cython/wiki/tutorials-NumpyPointerToC
 def ctopotherm(np.ndarray[double, mode="c", ndim=2] ta,
                np.ndarray[double, mode="c", ndim=2] tw,
@@ -67,8 +86,6 @@ def ctopotherm(np.ndarray[double, mode="c", ndim=2] ta,
     return None
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 # https://github.com/cython/cython/wiki/tutorials-NumpyPointerToC
 def cdewpt(np.ndarray[double, mode="c", ndim=2] vp,
                np.ndarray[double, mode="c", ndim=2] dwpt not None,
@@ -97,8 +114,6 @@ def cdewpt(np.ndarray[double, mode="c", ndim=2] vp,
     return None
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 # https://github.com/cython/cython/wiki/tutorials-NumpyPointerToC
 def cwbt(np.ndarray[double, mode="c", ndim=2] ta,
          np.ndarray[double, mode="c", ndim=2] td,

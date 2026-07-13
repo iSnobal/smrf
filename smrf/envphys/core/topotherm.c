@@ -1,14 +1,10 @@
-
+#include "envphys.h"
+#include "envphys_c.h"
+#include <errno.h>
+#include <math.h>
+#include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
-#include <errno.h>
-#include <omp.h>
-#include "envphys_c.h"
-#include "envphys.h"
-
-// stephman boltzman constant
-#define STEF_BOLTZ 5.6697e-8
 
 extern int errno;
 
@@ -63,7 +59,7 @@ void topotherm(
 				tw_p = ta_p;
 			}
 
-			ea = sati(tw_p);
+			ea = saturation_vapor_pressure(&tw_p);
 			emiss = brutsaert(ta_p,
 					STD_LAPSE_M, ea,
 					z_p, SEA_LEVEL);
@@ -102,73 +98,77 @@ void topotherm(
 
 }
 
-
 /*
- * Saturation vapor pressure over water
+ * Saturation vapor pressure over water using Goff-Gratch formulations.
+ * Originally from IPW `satw()`
+ *
+ * References:
+ *      World Meteorological Organization (1988), General Meteorology, WMO-No. 49,
+ *      Technical Regulations, Volume I, Appendix A, Geneva, Switzerland.
+ *
+ * Arguments:
+ *      tk - air temperature (Kelvin)
  */
-double
-satw(
-		double tk)		/* air temperature (K)		*/
-{
-	double  x;
-	double  l10;
+double satw(double tk) {
+  double x;
+  errno = 0;
 
-	if (tk <= 0.) {
-		printf("tk < 0 satw");
-		exit(-1);
-	}
+  x = -7.90298 * (BOIL / tk - 1.) + 5.02808 * log(BOIL / tk) / LOG_10 -
+      1.3816e-7 * (pow(1.e1, 1.1344e1 * (1. - tk / BOIL)) - 1.) +
+      8.1328e-3 * (pow(1.e1, -3.49149 * (BOIL / tk - 1.)) - 1.) +
+      log(SEA_LEVEL) / LOG_10;
 
-	errno = 0;
-	l10 = log(1.e1);
+  x = pow(1.e1, x);
 
-	x = -7.90298*(BOIL/tk-1.) + 5.02808*log(BOIL/tk)/l10 -
-			1.3816e-7*(pow(1.e1,1.1344e1*(1.-tk/BOIL))-1.) +
-			8.1328e-3*(pow(1.e1,-3.49149*(BOIL/tk-1.))-1.) +
-			log(SEA_LEVEL)/l10;
+  if (errno) {
+    perror("satw: bad return from log or pow");
+  }
 
-	x = pow(1.e1,x);
-
-	if (errno) {
-		perror("satw: bad return from log or pow");
-	}
-
-	return(x);
+  return (x);
 }
 
-
 /*
- * Saturation vapor pressure over ice
+ *  Saturation vapor pressure over ice using Goff-Gratch formulations.
+ *  Originally from IPW `sati()`
+ *
+ *  References:
+ *      Goff, J. A., and S. Gratch (1946), Low-pressure properties of water from −160 to 212 F,
+ *      Transactions of the American Society of Heating and Ventilating Engineers, 52, 95–122.
+ *
+ *      List, R. J. (1951), Smithsonian Meteorological Tables, 6th Revised Edition,
+ *      Smithsonian Institution, Washington, D.C.
+ *
+ * Arguments:
+ *      tk - air temperature (Kelvin)
  */
-double
-sati(
-		double tk)		/* air temperature (K)	*/
-{
-	double  l10;
-	double  x;
+double sati(double tk) {
+  double x;
+  errno = 0;
 
-	if (tk <= 0.) {
-		printf("tk < 0 satw");
-		exit(-1);
-	}
+  x = pow(1.e1, -9.09718 * ((FREEZE / tk) - 1.) -
+                    3.56654 * log(FREEZE / tk) / LOG_10 +
+                    8.76793e-1 * (1. - (tk / FREEZE)) + log(6.1071) / LOG_10);
 
-	if (tk > FREEZE) {
-		x = satw(tk);
-		return(x);
-	}
+  if (errno) {
+    perror("sati: bad return from log or pow");
+  }
 
-	errno = 0;
-	l10 = log(1.e1);
-
-	x = pow(1.e1,-9.09718*((FREEZE/tk)-1.) - 3.56654*log(FREEZE/tk)/l10 +
-			8.76793e-1*(1.-(tk/FREEZE)) + log(6.1071)/l10);
-
-	if (errno) {
-		perror("sati: bad return from log or pow");
-	}
-
-	return(x*1.e2);
+  return (x * 1.e2);
 }
 
+/*
+ * Wrapper function to calculate saturation vapor pressure depending on temperature.
+ *
+ * Arguments:
+ *      temperature - air temperature (Kelvin)
+ */
+double saturation_vapor_pressure(double *temperature) {
+	if (*temperature > FREEZE) {
+		return(satw(*temperature));
+	} else {
+		return(sati(*temperature));
+	}
+}
 
 /*
  * calculates atmospheric emissivity using a modified form of the equations by W. Brutsaert
@@ -187,12 +187,11 @@ brutsaert(
 	double 	air_emiss;
 
 	t_prime = ta - (lmba * z);
-	rh = ea / sati(ta);
+	rh = ea / saturation_vapor_pressure(&ta);
 	if (rh > 1.0) {
 		rh = 1.0;
 	}
-	e_prime = (rh * sati(t_prime))/100.0;
-	/*	e_prime = rh * sati(t_prime);	*/
+	e_prime = (rh * saturation_vapor_pressure(&t_prime))/100.0;
 
 	air_emiss = (1.24*pow((e_prime/t_prime), 1./7.))*pa/SEA_LEVEL;
 	/* "if" statement below is new */

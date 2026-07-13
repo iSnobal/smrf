@@ -52,7 +52,7 @@ static double e_pass;
 static double
 satm(double t)
 {
-	return(e_pass - sati(t));
+	return(e_pass - saturation_vapor_pressure(&t));
 }
 
 /* ------------------------------------------------------------------------ */
@@ -74,12 +74,12 @@ dew_pointp(
 
 	/* lower */
 	a = FREEZE;
-	while (e < sati(a))
+	while (e < saturation_vapor_pressure(&a))
 		a *= .75;
 
 	/* upper */
 	b = FREEZE + 15;
-	while (e > sati(b))
+	while (e > saturation_vapor_pressure(&b))
 		b *= 1.25;
 
 	e_pass = e;

@@ -9,7 +9,12 @@
 /*
  *  Constants
  */
- 
+
+/*
+ *  Logarithm 10
+ */
+#define LOG_10          log(1.e1)
+
 /*
  *  molecular weight of air (kg / kmole)
  */
