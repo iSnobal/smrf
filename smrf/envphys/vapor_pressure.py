@@ -69,15 +69,15 @@ def rh2vp(ta: npt.NDArray, rh: npt.NDArray) -> npt.NDArray:
     return satvp * rh
 
 
-def satvp(dpt: npt.NDArray) -> npt.NDArray:
+def svp_for_celsius(t_in_c: npt.NDArray) -> npt.NDArray:
     """
-    Calculate the saturation vapor pressure at the dew point temperature.
+    Calculate the saturation vapor pressure for temperatures in Celsius
 
     Args:
-        dpt: array of dew point temperature in [C]
+        t_in_c: array of temperatures in [C]
 
     Returns:
         vapor_pressure
     """
 
-    return saturation_vapor_pressure(dpt + 273.15)
+    return saturation_vapor_pressure(t_in_c + 273.15)
