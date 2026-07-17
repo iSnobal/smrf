@@ -1,13 +1,9 @@
 #include "envphys.h"
 #include "envphys_c.h"
-#include <errno.h>
-#include <float.h>
+
 #include <math.h>
 #include <omp.h>
 #include <stdio.h>
-#include <tgmath.h>
-
-extern int errno;
 
 void dewpt(
     int ngrid,        /* number of grid points */
@@ -49,15 +45,19 @@ void dewpt(
  * Calculates the residual between two pressures.
  */
 static double svp_residual(
-    double t,   /* temperature (K) */
-    double *svp /* vapor pressure  */
+    double t,  /* temperature (K) */
+    double svp /* vapor pressure  */
 ) {
-    return (*svp - saturation_vapor_pressure(&t));
+    return (svp - saturation_vapor_pressure(&t));
 }
 
 /* ------------------------------------------------------------------------ */
 
-double dew_pointp(
+/*
+ * Finds the dew point by numerically inverting the saturation vapor pressure (SVP) function via
+ * a bracketed root-finder (`zero_break` — Brent's method)
+ */
+double dew_point_temperature(
     double vp_current, /* vapor pressure (Pa) */
     double tolerance   /* tolerable relative error */
 ) {
@@ -66,10 +66,12 @@ double dew_pointp(
     double result;
 
     if (vp_current < 0 || vp_current > 1.5 * SEA_LEVEL) {
-        perror("dew_point: vapor pressure < 0 or 1.5*SEA_LEVEL");
+        fprintf(
+            stderr, "Vapor pressure %.4f Pa out of range [0, %.1f]\n", vp_current, 1.5 * SEA_LEVEL
+        );
     }
 
-    /* select starting guesses to span root */
+    /* Select starting guesses to span root */
     lower_temperature = FREEZE;
     while (vp_current < saturation_vapor_pressure(&lower_temperature))
         lower_temperature *= .75;
@@ -86,10 +88,10 @@ double dew_pointp(
 /* ------------------------------------------------------------------------ */
 
 double zero_break(
-    double lower_temperature, /* spanning guess for root */
-    double upper_temperature, /* spanning guess for root */
-    double vp_current,        /* current vapor pressure */
-    double tolerance          /* tolerable relative error */
+    double lower_temperature, /* Spanning guess for root */
+    double upper_temperature, /* Spanning guess for root */
+    double vp_current,        /* Current vapor pressure */
+    double tolerance          /* Tolerable relative error */
 ) {
     double c = 0.;
     double d = 0.;
@@ -102,43 +104,31 @@ double zero_break(
     double q;
     double r;
     double s;
-    double tol;
-    double meps;
-    int maxfun;
+    int max_iter;
 
-    meps  = DBL_EPSILON;
-    errno = 0;
+    fa = svp_residual(lower_temperature, vp_current);
+    fb = svp_residual(upper_temperature, vp_current);
 
-    if (lower_temperature == upper_temperature) {
-        perror("zerobr: a = b");
-        return (lower_temperature);
+    if (fa <= fb || (upper_temperature - lower_temperature) <= tolerance) {
+        fprintf(
+            stderr,
+            "Invalid bracket [%.6f, %.6f] K with f(a)=%.4e, f(b)=%.4e\n",
+            lower_temperature,
+            fa,
+            upper_temperature,
+            fb
+        );
+        return 0.;
     }
 
-    fb     = (fabs(upper_temperature) >= fabs(lower_temperature)) ? fabs(upper_temperature)
-                                                                  : fabs(lower_temperature);
-    tol    = 5.e-1 * tolerance + 2 * meps * fb;
-    s      = log(fabs(upper_temperature - lower_temperature) / tol) / log(2.);
-    maxfun = s * s + 1;
+    s        = log(fabs(upper_temperature - lower_temperature) / tolerance) / log(2.);
+    max_iter = (int)ceil(s) + 2;
 
-    fa = svp_residual(lower_temperature, &vp_current);
-    fc = fb = svp_residual(upper_temperature, &vp_current);
-    if (errno) {
-        return (0.);
-    }
+    fc = fb; /* initialize so first iteration resets c via sign-agreement check */
 
-    if (fabs(fb) <= tol)
-        return (upper_temperature);
-    if (fabs(fa) <= tol)
-        return (lower_temperature);
+    while (max_iter--) {
 
-    if (fb * fa > 0) {
-        perror("zerobr: root not spanned");
-        return (0.);
-    }
-
-    while (maxfun--) {
-
-        if ((fb > 0 && fc > 0) || (fb <= 0 && fc <= 0)) {
+        if (fb * fc >= 0) {
             c  = lower_temperature;
             fc = fa;
             d = e = upper_temperature - lower_temperature;
@@ -153,14 +143,13 @@ double zero_break(
             fc                = fa;
         }
 
-        tol = meps * fabs(upper_temperature) + tolerance;
-        m   = (c - upper_temperature) / 2;
+        m = (c - upper_temperature) / 2;
 
-        if (fabs(m) < tol || fb == 0)
-            return (upper_temperature);
+        if (fabs(m) < tolerance || fb == 0)
+            return upper_temperature;
 
         /* see if bisection is forced */
-        if (fabs(e) < tol || fabs(fa) <= fabs(fb))
+        if (fabs(e) < tolerance || fabs(fa) <= fabs(fb))
             d = e = m;
 
         else {
@@ -187,7 +176,7 @@ double zero_break(
             s = e;
             e = d;
 
-            if (2 * p < 3 * m * q - fabs(tol * q) && p < fabs(s * q / 2))
+            if (2 * p < 3 * m * q - fabs(tolerance * q) && p < fabs(s * q / 2))
                 d = p / q;
             else
                 d = e = m;
@@ -196,19 +185,22 @@ double zero_break(
         lower_temperature = upper_temperature;
         fa                = fb;
 
-        if (fabs(d) > tol)
+        if (fabs(d) > tolerance)
             upper_temperature += d;
         else if (m > 0)
-            upper_temperature += tol;
+            upper_temperature += tolerance;
         else
-            upper_temperature -= tol;
+            upper_temperature -= tolerance;
 
-        fb = svp_residual(upper_temperature, &vp_current);
-        if (errno) {
-            return (0.);
-        }
+        fb = svp_residual(upper_temperature, vp_current);
     }
-    perror("did not converge");
 
-    return (0.);
+    fprintf(
+        stderr,
+        "Dew point temperature id not converge with set tolerance %.2f ; last estimate %.2f K\n",
+        tolerance,
+        upper_temperature
+    );
+
+    return 0.;
 }
