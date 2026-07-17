@@ -10,11 +10,11 @@
 extern int errno;
 
 void dewpt(
-    int ngrid,    /* number of grid points */
-    double *ea,   /* vapor pressure */
-    int nthreads, /* number of threads for parrallel processing */
-    double tol,   /* dew_point tolerance threshold */
-    double *dpt   /* dew point temp (return) */
+    int ngrid,        /* number of grid points */
+    double *ea,       /* vapor pressure */
+    int nthreads,     /* number of threads for parrallel processing */
+    double tolerance, /* dew_point tolerance threshold */
+    double *dpt       /* dew point temp (return) */
 ) {
     int samp;
     double ea_p; // pixel values
@@ -31,7 +31,7 @@ void dewpt(
 
             ea_p = ea[samp];
 
-            dpt_p = (float)dew_pointp((double)ea_p, tol);
+            dpt_p = (float)dew_pointp((double)ea_p, tolerance);
 
             /*	convert from K to C	*/
             dpt_p -= FREEZE;
@@ -45,52 +45,52 @@ void dewpt(
 
 /* ------------------------------------------------------------------------ */
 
-static double e_pass;
-#pragma omp threadprivate(e_pass)
-
-static double satm(double t) { return (e_pass - saturation_vapor_pressure(&t)); }
-
-/* ------------------------------------------------------------------------ */
-
-double dew_pointp(
-    double e, /* vapor pressure (Pa) */
-    double tol
-) /* tolerance threshold */
-{
-    double a;
-    double b;
-    double result;
-
-    if (e < 0 || e > 1.5 * SEA_LEVEL) {
-        perror("dew_point: vapor pressure < 0 or 1.5*SEA_LEVEL");
-    }
-
-    /* select starting guesses to span root */
-
-    /* lower */
-    a = FREEZE;
-    while (e < saturation_vapor_pressure(&a))
-        a *= .75;
-
-    /* upper */
-    b = FREEZE + 15;
-    while (e > saturation_vapor_pressure(&b))
-        b *= 1.25;
-
-    e_pass = e;
-    result = zerobr(a, b, tol);
-
-    return (result);
+/*
+ * Calculates the residual between two pressures.
+ */
+static double svp_residual(
+    double t,   /* temperature (K) */
+    double *svp /* vapor pressure  */
+) {
+    return (*svp - saturation_vapor_pressure(&t));
 }
 
 /* ------------------------------------------------------------------------ */
 
-double zerobr(
-    double a, /* spanning guess for root	*/
-    double b, /* spanning guess for root	*/
-    double t
-) /* tolerable relative error	*/
-{
+double dew_pointp(
+    double vp_current, /* vapor pressure (Pa) */
+    double tolerance   /* tolerable relative error */
+) {
+    double lower_temperature;
+    double upper_temperature;
+    double result;
+
+    if (vp_current < 0 || vp_current > 1.5 * SEA_LEVEL) {
+        perror("dew_point: vapor pressure < 0 or 1.5*SEA_LEVEL");
+    }
+
+    /* select starting guesses to span root */
+    lower_temperature = FREEZE;
+    while (vp_current < saturation_vapor_pressure(&lower_temperature))
+        lower_temperature *= .75;
+
+    upper_temperature = FREEZE + 15;
+    while (vp_current > saturation_vapor_pressure(&upper_temperature))
+        upper_temperature *= 1.25;
+
+    result = zero_break(lower_temperature, upper_temperature, vp_current, tolerance);
+
+    return result;
+}
+
+/* ------------------------------------------------------------------------ */
+
+double zero_break(
+    double lower_temperature, /* spanning guess for root */
+    double upper_temperature, /* spanning guess for root */
+    double vp_current,        /* current vapor pressure */
+    double tolerance          /* tolerable relative error */
+) {
     double c = 0.;
     double d = 0.;
     double e = 0.;
@@ -109,27 +109,27 @@ double zerobr(
     meps  = DBL_EPSILON;
     errno = 0;
 
-    /* compute max number of function evaluations */
-    if (a == b) {
+    if (lower_temperature == upper_temperature) {
         perror("zerobr: a = b");
-        return (a);
+        return (lower_temperature);
     }
 
-    fb     = (fabs(b) >= fabs(a)) ? fabs(b) : fabs(a);
-    tol    = 5.e-1 * t + 2 * meps * fb;
-    s      = log(fabs(b - a) / tol) / log(2.);
+    fb     = (fabs(upper_temperature) >= fabs(lower_temperature)) ? fabs(upper_temperature)
+                                                                  : fabs(lower_temperature);
+    tol    = 5.e-1 * tolerance + 2 * meps * fb;
+    s      = log(fabs(upper_temperature - lower_temperature) / tol) / log(2.);
     maxfun = s * s + 1;
 
-    fa = satm(a);
-    fc = fb = satm(b);
+    fa = svp_residual(lower_temperature, &vp_current);
+    fc = fb = svp_residual(upper_temperature, &vp_current);
     if (errno) {
         return (0.);
     }
 
     if (fabs(fb) <= tol)
-        return (b);
+        return (upper_temperature);
     if (fabs(fa) <= tol)
-        return (a);
+        return (lower_temperature);
 
     if (fb * fa > 0) {
         perror("zerobr: root not spanned");
@@ -139,25 +139,25 @@ double zerobr(
     while (maxfun--) {
 
         if ((fb > 0 && fc > 0) || (fb <= 0 && fc <= 0)) {
-            c  = a;
+            c  = lower_temperature;
             fc = fa;
-            d = e = b - a;
+            d = e = upper_temperature - lower_temperature;
         }
 
         if (fabs(fc) < fabs(fb)) {
-            a  = b;
-            b  = c;
-            c  = a;
-            fa = fb;
-            fb = fc;
-            fc = fa;
+            lower_temperature = upper_temperature;
+            upper_temperature = c;
+            c                 = lower_temperature;
+            fa                = fb;
+            fb                = fc;
+            fc                = fa;
         }
 
-        tol = meps * fabs(b) + t;
-        m   = (c - b) / 2;
+        tol = meps * fabs(upper_temperature) + tolerance;
+        m   = (c - upper_temperature) / 2;
 
         if (fabs(m) < tol || fb == 0)
-            return (b);
+            return (upper_temperature);
 
         /* see if bisection is forced */
         if (fabs(e) < tol || fabs(fa) <= fabs(fb))
@@ -166,7 +166,7 @@ double zerobr(
         else {
             s = fb / fa;
 
-            if (a == c) { /* linear interpolation */
+            if (lower_temperature == c) { /* linear interpolation */
                 p = 2 * m * s;
                 q = 1 - s;
             }
@@ -174,7 +174,7 @@ double zerobr(
             else { /* inverse quadratic interpolation */
                 q = fa / fc;
                 r = fb / fc;
-                p = s * (2 * m * q * (q - r) - (b - a) * (r - 1));
+                p = s * (2 * m * q * (q - r) - (upper_temperature - lower_temperature) * (r - 1));
                 q -= 1;
                 q *= (r - 1) * (s - 1);
             }
@@ -193,17 +193,17 @@ double zerobr(
                 d = e = m;
         }
 
-        a  = b;
-        fa = fb;
+        lower_temperature = upper_temperature;
+        fa                = fb;
 
         if (fabs(d) > tol)
-            b += d;
+            upper_temperature += d;
         else if (m > 0)
-            b += tol;
+            upper_temperature += tol;
         else
-            b -= tol;
+            upper_temperature -= tol;
 
-        fb = satm(b);
+        fb = svp_residual(upper_temperature, &vp_current);
         if (errno) {
             return (0.);
         }

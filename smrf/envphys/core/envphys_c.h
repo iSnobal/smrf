@@ -8,9 +8,10 @@ double sati(double tk);
 double brutsaert(double ta, double lmba, double ea, double z, double pa);
 
 /* from dewpt.c */
-void dewpt(int ngrid, double *ea, int nthreads, double tol, double *dpt);
-double dew_pointp(double e, double tol);
-double zerobr(double a, double b, double t);
+void dewpt(int ngrid, double *ea, int nthreads, double tolerance, double *dpt);
+double dew_pointp(double vp_current, double tolerance);
+double
+zero_break(double lower_temperature, double upper_temperature, double vp_current, double tolerance);
 
 /* from iwbt.c */
 void iwbt(int ngrid, double *ta, double *td, double *z, int nthreads, double tol, double *tw);
