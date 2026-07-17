@@ -9,7 +9,7 @@ np.import_array()
 
 cdef extern from "envphys_c.h":
     void topotherm(int ngrid, double *ta, double *tw, double *z, double *skvfac, int nthreads, double *thermal)
-    void dewpt(int ngrid, double *ea, int nthreads, double tol, double *dpt)
+    void dew_point_t_for_grid(int ngrid, double *ea, double *dpt, int nthreads, double tol)
     void iwbt(int ngrid, double *ta, double *td,	double *z, int nthreads, double tol, double *tw)
     double saturation_vapor_pressure(double *ta)
 
@@ -86,32 +86,24 @@ def ctopotherm(np.ndarray[double, mode="c", ndim=2] ta,
     return None
 
 
-# https://github.com/cython/cython/wiki/tutorials-NumpyPointerToC
-def cdewpt(np.ndarray[double, mode="c", ndim=2] vp,
-               np.ndarray[double, mode="c", ndim=2] dwpt not None,
-               float tolerance=0,
-               int nthreads=1):
-    '''
-
+def cdewpt(
+    double[:, ::1] vp,
+    double[:, ::1] dew_point_temperatures not None,
+    double tolerance=0.0,
+    int n_threads=1
+):
+    """
     Args:
-        vp
-    Out:
-        dwpt changed in place
+        vp - Vapor pressure
+        dew_point_temperatures - Output array to write results to
+        tolerance - Tolerance for convergence of dew point temperatures
+        n_threads - Number of threads to use for parallel processing
+    Returns:
+        None - dew_point_temperatures changed in place
+    """
+    cdef int ngrid = vp.shape[0] * vp.shape[1]
 
-    20160505 Scott Havens
-    '''
-
-    cdef int ngrid
-    ngrid = vp.shape[0] * vp.shape[1]
-
-    # convert the ta array to C
-    cdef np.ndarray[double, mode="c", ndim=2] vp_arr
-    vp_arr = np.ascontiguousarray(vp, dtype=np.float64)
-
-    # call the C function
-    dewpt(ngrid, &vp_arr[0,0], nthreads, tolerance, &dwpt[0,0])
-
-    return None
+    dew_point_t_for_grid(ngrid, &vp[0, 0], &dew_point_temperatures[0, 0], n_threads, tolerance)
 
 
 # https://github.com/cython/cython/wiki/tutorials-NumpyPointerToC

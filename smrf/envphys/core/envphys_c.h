@@ -8,8 +8,8 @@ double sati(double tk);
 double brutsaert(double ta, double lmba, double ea, double z, double pa);
 
 /* from dewpt.c */
-void dewpt(int ngrid, double *ea, int nthreads, double tolerance, double *dpt);
-double dew_pointp(double vp_current, double tolerance);
+void dew_point_t_for_grid(int ngrid, double *ea, double *dpt, int nthreads, double tolerance);
+double dew_point_temperature(double vp_current, double tolerance);
 double
 zero_break(double lower_temperature, double upper_temperature, double vp_current, double tolerance);
 

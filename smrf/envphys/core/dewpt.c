@@ -5,36 +5,24 @@
 #include <omp.h>
 #include <stdio.h>
 
-void dewpt(
-    int ngrid,        /* number of grid points */
-    double *ea,       /* vapor pressure */
-    int nthreads,     /* number of threads for parrallel processing */
-    double tolerance, /* dew_point tolerance threshold */
-    double *dpt       /* dew point temp (return) */
+/*
+ * Calculates the dew point temperature for a grid of vapor pressures.
+ */
+void dew_point_t_for_grid(
+    int ngrid,       /* Number of grid points in the passed arrays */
+    double *ea,      /* Pointer to vapor pressure array */
+    double *dpt,     /* Pointer to dew point temp (return) */
+    int nthreads,    /* Number of threads for parallel processing */
+    double tolerance /* Dew_point tolerance threshold */
 ) {
-    int samp;
-    double ea_p; // pixel values
-    float dpt_p; // pixel value
-
     omp_set_dynamic(0);            // Explicitly disable dynamic teams
     omp_set_num_threads(nthreads); // Use N threads for all consecutive parallel regions
 
-#pragma omp parallel shared(ngrid, ea) private(samp, ea_p, dpt_p)
+#pragma omp parallel shared(ngrid, ea, dpt)
     {
 #pragma omp for
-
-        for (samp = 0; samp < ngrid; samp++) {
-
-            ea_p = ea[samp];
-
-            dpt_p = (float)dew_pointp((double)ea_p, tolerance);
-
-            /*	convert from K to C	*/
-            dpt_p -= FREEZE;
-
-            /* set output band */
-
-            dpt[samp] = dpt_p;
+        for (int i = 0; i < ngrid; i++) {
+            dpt[i] = dew_point_temperature(ea[i], tolerance) - FREEZE;
         }
     }
 }
