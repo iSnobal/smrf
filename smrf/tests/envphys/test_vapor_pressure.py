@@ -12,4 +12,4 @@ class TestVaporPressure(unittest.TestCase):
         temperatures = np.array([[298.15, -1], [273.15, 263.15]])
         expected_pressures = np.array([[3166.703565, np.nan], [610.207270, 259.471371]])
 
-        npt.assert_allclose(saturation_vapor_pressure(temperatures), expected_pressures)
+        npt.assert_allclose(saturation_vapor_pressure(temperatures), expected_pressures, equal_nan=True)

@@ -14,7 +14,7 @@ def saturation_vapor_pressure(air_temperature: npt.NDArray) -> npt.NDArray:
         air_temperature: temperature in Kelvin
 
     Returns:
-        Saturated vapor pressure over water
+        Saturated vapor pressure
     """
     temperature_k = np.ascontiguousarray(air_temperature, dtype=np.float64)
     output = np.zeros_like(temperature_k)

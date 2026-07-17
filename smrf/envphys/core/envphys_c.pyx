@@ -36,7 +36,7 @@ def svp_for_temperatures(double[:, ::1] temperature_k, double[:, ::1] output_arr
         for j in range(cols):
             value = temperature_k[i, j]
 
-            if value <= 0.0 or np.isnan(value):
+            if value <= 0.0 or value != value:  # The latter checks for NaN
                 output_array[i, j] = np.nan
             else:
                 output_array[i, j] = saturation_vapor_pressure(&value)
