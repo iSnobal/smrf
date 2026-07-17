@@ -1,9 +1,11 @@
-#include <stdio.h>
-#include <math.h>
-#include <errno.h>
-#include <omp.h>
 #include "envphys.h"
 #include "envphys_c.h"
+#include <errno.h>
+#include <float.h>
+#include <math.h>
+#include <omp.h>
+#include <stdio.h>
+#include <tgmath.h>
 
 extern int errno;
 
@@ -121,10 +123,10 @@ zerobr(
 		return(a);
 	}
 
-	fb = (ABS(b) >= ABS(a)) ? ABS(b) : ABS(a);
-	tol = 5.e-1 * t + 2 * meps * fb;
-	s = log(ABS(b - a) / tol) / log(2.);
-	maxfun = s * s + 1;
+    fb     = (fabs(b) >= fabs(a)) ? fabs(b) : fabs(a);
+    tol    = 5.e-1 * t + 2 * meps * fb;
+    s      = log(fabs(b - a) / tol) / log(2.);
+    maxfun = s * s + 1;
 
 	fa = satm(a);
 	fc = fb = satm(b);
@@ -132,10 +134,10 @@ zerobr(
 		return(0.);
 	}
 
-	if (ABS(fb) <= tol)
-		return(b);
-	if (ABS(fa) <= tol)
-		return(a);
+    if (fabs(fb) <= tol)
+        return (b);
+    if (fabs(fa) <= tol)
+        return (a);
 
 	if (fb*fa > 0) {
 		perror("zerobr: root not spanned");
@@ -153,24 +155,24 @@ zerobr(
 			d = e = b - a;
 		}
 
-		if (ABS(fc) < ABS(fb)) {
-			a = b;
-			b = c;
-			c = a;
-			fa = fb;
-			fb = fc;
-			fc = fa;
-		}
+        if (fabs(fc) < fabs(fb)) {
+            a  = b;
+            b  = c;
+            c  = a;
+            fa = fb;
+            fb = fc;
+            fc = fa;
+        }
 
-		tol = meps * ABS(b) + t;
-		m = (c - b) / 2;
+        tol = meps * fabs(b) + t;
+        m   = (c - b) / 2;
 
-		if (ABS(m) < tol  ||  fb == 0)
-			return(b);
+        if (fabs(m) < tol || fb == 0)
+            return (b);
 
-		/* see if bisection is forced */
-		if (ABS(e) < tol  ||  ABS(fa) <= ABS(fb))
-			d = e = m;
+        /* see if bisection is forced */
+        if (fabs(e) < tol || fabs(fa) <= fabs(fb))
+            d = e = m;
 
 		else {
 			s = fb/fa;
@@ -196,21 +198,21 @@ zerobr(
 			s = e;
 			e = d;
 
-			if (2*p < 3*m*q - ABS(tol*q) && p < ABS(s*q/2))
-				d = p/q;
-			else
-				d = e = m;
-		}
+            if (2 * p < 3 * m * q - fabs(tol * q) && p < fabs(s * q / 2))
+                d = p / q;
+            else
+                d = e = m;
+        }
 
 		a = b;
 		fa = fb;
 
-		if (ABS(d) > tol)
-			b += d;
-		else if (m > 0)
-			b += tol;
-		else
-			b -= tol;
+        if (fabs(d) > tol)
+            b += d;
+        else if (m > 0)
+            b += tol;
+        else
+            b -= tol;
 
 		fb = satm(b);
 		if (errno) {
