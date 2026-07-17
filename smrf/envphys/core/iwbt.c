@@ -53,6 +53,8 @@ double wetbulb(
 	esat = sati(ta);
 	/* Psychrometric "constant" (K/Pa) */
 	psyc = EPS * (xlh / (CP_AIR * press));
+    ea = saturation_vapor_pressure(&dpt);
+    esat = saturation_vapor_pressure(&ta);
 
 	/* solve for wet or ice bulb temperature */
 	dti = 1.0;
@@ -74,6 +76,7 @@ double wetbulb(
 		}
 	}
 	return(ti);
+            esat = saturation_vapor_pressure(&ti);
 }
 
 //Function to calculate the wet bult temeprature of the whole image
