@@ -39,7 +39,7 @@
  *  triple point of water at standard pressure (deg K)
  */
 #define FREEZE 2.7316e2
-#define BOIL 3.7315e2
+#define BOIL   3.7315e2
 
 /*
  *  specific heat of air at constant pressure (J / kg / deg)
@@ -100,10 +100,10 @@
  *
  *	(the factors 1.e-3 and 1.e3 are for units conversion)
  */
-#define HYSTAT(pb, tb, L, h, g, m)                                             \
-  ((pb) * (((L) == 0.) ? exp(-(g) * (m) * (h) * 1.e3 / (RGAS * (tb)))          \
-                       : pow((tb) / ((tb) + (L) * (h)),                        \
-                             (g) * (m) / (RGAS * (L) * 1.e-3))))
+#define HYSTAT(pb, tb, L, h, g, m)                                 \
+    ((pb)                                                          \
+     * (((L) == 0.) ? exp(-(g) * (m) * (h) * 1.e3 / (RGAS * (tb))) \
+                    : pow((tb) / ((tb) + (L) * (h)), (g) * (m) / (RGAS * (L) * 1.e-3))))
 
 /*
  *  latent heat of vaporization

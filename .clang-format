@@ -8,20 +8,43 @@ IndentWidth: 4
 UseTab: Never
 MaxEmptyLinesToKeep: 1
 
-ReflowComments: True
+# Line Wrapping & Breaking
+ReflowComments: true # Wraps long comment lines to fit ColumnLimit
+BreakBeforeBraces: Attach # Keeps opening braces on the same line as statements
+BreakBeforeBinaryOperators: All # Wraps lines BEFORE operators (e.g., +, &&)
+AlignAfterOpenBracket: BlockIndent # Aligns wrapped arguments to a new indented block
 
-BreakBeforeBraces: Attach
-BreakBeforeBinaryOperators: All
-AlignAfterOpenBracket: BlockIndent
-BinPackArguments: false
-BinPackParameters: false
-AlignEscapedNewlines: Left
-IndentCaseLabels: true
-
+# Parameter & Argument Layout
+BinPackArguments: false # Forces one argument per line if they wrap
+BinPackParameters: false # Forces one parameter per line if they wrap
 AllowAllParametersOfDeclarationOnNextLine: true
 AllowAllArgumentsOnNextLine: true
 
-AlignConsecutiveMacros:
+# Alignment Rules
+IndentCaseLabels: true # Indents 'case' statements inside a 'switch'
+AlignEscapedNewlines: Left # Aligns backslashes in multi-line macros to the left
+
+AlignConsecutiveMacros: # Aligns macro definitions horizontally
     Enabled: true
     AcrossEmptyLines: true
     AcrossComments: false
+
+AlignConsecutiveAssignments: # Aligns '=' operators on consecutive lines
+    Enabled: true
+    AcrossEmptyLines: false
+    AcrossComments: true
+
+# Code Style & Readability
+PointerAlignment: Right # Places asterisk next to name: 'int *ptr'
+SortIncludes: CaseSensitive # Automatically sorts #include headers alphabetically
+
+# Whitespace Padding
+SpaceBeforeParens: Custom # Required to unlock fine-grained spacing rules
+SpaceBeforeParensOptions: # Replaces the deprecated SpaceBeforeFunctionDeclarationParens flag
+    AfterFunctionDeclarationName: false # Enforces 'void func()' instead of 'void func ()'
+    AfterFunctionDefinitionName: false # Enforces 'void func() {}' instead of 'void func () {}'
+    AfterControlStatements: true # Enforces 'if (x)' instead of 'if(x)'
+SpacesInParens: Custom # Replaces deprecated 'SpaceInEmptyParentheses'
+SpacesInParensOptions:
+    InEmptyParentheses: false # Disallows spaces like 'void func( )
+SpacesInContainerLiterals: true # Adds spacing inside initializers: '{ 1, 2 }'

@@ -32,34 +32,34 @@ double wetbulb(
     if (ta <= FREEZE) {
         xlhv = LH_VAP((ta + dpt) / 2.0);
         xlhf = LH_FUS((ta + dpt) / 2.0);
-        xlh = xlhv + xlhf;
+        xlh  = xlhv + xlhf;
     } else if (dpt <= FREEZE) {
-        xlhv = LH_VAP((ta + dpt) / 2.0);
-        xlhf = LH_FUS((FREEZE + dpt) / 2.0);
+        xlhv   = LH_VAP((ta + dpt) / 2.0);
+        xlhf   = LH_FUS((FREEZE + dpt) / 2.0);
         fu_fac = ((FREEZE - dpt) / (ta - dpt));
-        xlh = xlhv + (fu_fac * xlhf);
+        xlh    = xlhv + (fu_fac * xlhf);
     } else
         xlh = LH_VAP((ta + dpt) / 2);
 
     /* vapor pressure and saturation vapor pressure at ta */
-    ea = saturation_vapor_pressure(&dpt);
+    ea   = saturation_vapor_pressure(&dpt);
     esat = saturation_vapor_pressure(&ta);
     /* Psychrometric "constant" (K/Pa) */
     psyc = EPS * (xlh / (CP_AIR * press));
 
     /* solve for wet or ice bulb temperature */
     dti = 1.0;
-    i = 0;
-    ti = ta;
+    i   = 0;
+    ti  = ta;
     while (dti > tol) {
         ti0 = ti;
         if (ti != ta)
             esat = saturation_vapor_pressure(&ti);
         dedt = xlh * (esat / (RH2O * (ti * ti)));
-        pf = (ti - ta) + (psyc * (esat - ea));
+        pf   = (ti - ta) + (psyc * (esat - ea));
         dpdt = 1.0 + (psyc * dedt);
-        ti = ti - (pf / dpdt);
-        dti = ti0 - ti;
+        ti   = ti - (pf / dpdt);
+        dti  = ti0 - ti;
         i++;
         if (i > 10) {
             printf("failure to converge in 10 iterations");
@@ -99,7 +99,7 @@ void iwbt(
             // get pixel values
             ta_p = ta[samp];
             td_p = td[samp];
-            z_p = z[samp];
+            z_p  = z[samp];
 
             /*	set pa	*/
             if (z_p == 0.0) {

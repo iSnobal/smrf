@@ -8,80 +8,81 @@
 
 extern int errno;
 
-void topotherm(int ngrid,      /* number of grid points */
-               double *ta,     /* air temperature */
-               double *tw,     /* dew point temperature */
-               double *z,      /* elevation */
-               double *skvfac, /* sky view factor */
-               int nthreads,   /* number of threads for parrallel processing */
-               double *thermal /* thermal radiation (return) */
+void topotherm(
+    int ngrid,      /* number of grid points */
+    double *ta,     /* air temperature */
+    double *tw,     /* dew point temperature */
+    double *z,      /* elevation */
+    double *skvfac, /* sky view factor */
+    int nthreads,   /* number of threads for parrallel processing */
+    double *thermal /* thermal radiation (return) */
 ) {
-  int samp;
-  double ta_p, tw_p, z_p, skvfac_p; // pixel values
-  double ea;                        /*	vapor pressure */
-  double emiss;                     /*	atmos. emiss.  */
-  double T0;                        /*	Sea Level ta   */
-  double lw_in;                     /*	lw irradiance  */
-  double press;                     /*	air pressure   */
+    int samp;
+    double ta_p, tw_p, z_p, skvfac_p; // pixel values
+    double ea;                        /* vapor pressure */
+    double emiss;                     /* atmos. emiss.  */
+    double T0;                        /* Sea Level ta   */
+    double lw_in;                     /* lw irradiance  */
+    double press;                     /* air pressure   */
 
-  omp_set_dynamic(0); // Disable dynamic teams
-  omp_set_num_threads(nthreads);
+    omp_set_dynamic(0); // Disable dynamic teams
+    omp_set_num_threads(nthreads);
 
-#pragma omp parallel shared(ngrid, ta, tw, z, skvfac) private(                 \
-        samp, ta_p, tw_p, z_p, skvfac_p, ea, emiss, T0, press, lw_in)
-  {
+#pragma omp parallel shared(ngrid, ta, tw, z, skvfac) \
+    private(samp, ta_p, tw_p, z_p, skvfac_p, ea, emiss, T0, press, lw_in)
+    {
 #pragma omp for
-    for (samp = 0; samp < ngrid; samp++) {
+        for (samp = 0; samp < ngrid; samp++) {
 
-      ta_p = ta[samp];
-      tw_p = tw[samp];
-      z_p = z[samp];
-      skvfac_p = skvfac[samp];
+            ta_p     = ta[samp];
+            tw_p     = tw[samp];
+            z_p      = z[samp];
+            skvfac_p = skvfac[samp];
 
-      /* convert ta and tw from C to K */
-      ta_p += FREEZE;
-      tw_p += FREEZE;
+            /* convert ta and tw from C to K */
+            ta_p += FREEZE;
+            tw_p += FREEZE;
 
-      if (ta_p < 0 || tw_p < 0) {
-        printf("ta or tw < 0 at pixel %i", samp);
-        exit(-1);
-      }
+            if (ta_p < 0 || tw_p < 0) {
+                printf("ta or tw < 0 at pixel %i", samp);
+                exit(-1);
+            }
 
-      /* calculate theoretical sea level	*/
-      /* atmospheric emissivity  */
-      /* from reference level ta, tw, and z */
+            /* calculate theoretical sea level	*/
+            /* atmospheric emissivity  */
+            /* from reference level ta, tw, and z */
 
-      if (tw_p > ta_p) {
-        tw_p = ta_p;
-      }
+            if (tw_p > ta_p) {
+                tw_p = ta_p;
+            }
 
-      ea = saturation_vapor_pressure(&tw_p);
-      emiss = brutsaert(ta_p, STD_LAPSE_M, ea, z_p, SEA_LEVEL);
+            ea    = saturation_vapor_pressure(&tw_p);
+            emiss = brutsaert(ta_p, STD_LAPSE_M, ea, z_p, SEA_LEVEL);
 
-      /* calculate sea level air temp */
+            /* calculate sea level air temp */
 
-      T0 = ta_p - (z_p * STD_LAPSE_M);
+            T0 = ta_p - (z_p * STD_LAPSE_M);
 
-      /* adjust emiss for elev, terrain, veg, and cloud shading	*/
-      press = HYSTAT(SEA_LEVEL, T0, STD_LAPSE, (z_p / 1000.), GRAVITY, MOL_AIR);
+            /* adjust emiss for elev, terrain, veg, and cloud shading	*/
+            press = HYSTAT(SEA_LEVEL, T0, STD_LAPSE, (z_p / 1000.), GRAVITY, MOL_AIR);
 
-      /* elevation correction */
-      emiss *= press / SEA_LEVEL;
+            /* elevation correction */
+            emiss *= press / SEA_LEVEL;
 
-      /* terrain factor correction */
-      emiss = (emiss * skvfac_p) + (1.0 - skvfac_p);
+            /* terrain factor correction */
+            emiss = (emiss * skvfac_p) + (1.0 - skvfac_p);
 
-      /* check for emissivity > 1.0 */
-      if (emiss > 1.0)
-        emiss = 1.0;
+            /* check for emissivity > 1.0 */
+            if (emiss > 1.0)
+                emiss = 1.0;
 
-      /*	calculate incoming lw rad	*/
-      lw_in = emiss * STEF_BOLTZ * ta_p * ta_p * ta_p * ta_p;
+            /*	calculate incoming lw rad	*/
+            lw_in = emiss * STEF_BOLTZ * ta_p * ta_p * ta_p * ta_p;
 
-      /* set output band */
-      thermal[samp] = lw_in;
+            /* set output band */
+            thermal[samp] = lw_in;
+        }
     }
-  }
 }
 
 /*
@@ -97,21 +98,20 @@ void topotherm(int ngrid,      /* number of grid points */
  *      tk - air temperature (Kelvin)
  */
 double satw(double tk) {
-  double x;
-  errno = 0;
+    double x;
+    errno = 0;
 
-  x = -7.90298 * (BOIL / tk - 1.) + 5.02808 * log(BOIL / tk) / M_LN10 -
-      1.3816e-7 * (pow(1.e1, 1.1344e1 * (1. - tk / BOIL)) - 1.) +
-      8.1328e-3 * (pow(1.e1, -3.49149 * (BOIL / tk - 1.)) - 1.) +
-      log(SEA_LEVEL) / M_LN10;
+    x = -7.90298 * (BOIL / tk - 1.) + 5.02808 * log(BOIL / tk) / M_LN10
+        - 1.3816e-7 * (pow(1.e1, 1.1344e1 * (1. - tk / BOIL)) - 1.)
+        + 8.1328e-3 * (pow(1.e1, -3.49149 * (BOIL / tk - 1.)) - 1.) + log(SEA_LEVEL) / M_LN10;
 
-  x = pow(1.e1, x);
+    x = pow(1.e1, x);
 
-  if (errno) {
-    perror("satw: bad return from log or pow");
-  }
+    if (errno) {
+        perror("satw: bad return from log or pow");
+    }
 
-  return (x);
+    return (x);
 }
 
 /*
@@ -130,18 +130,20 @@ double satw(double tk) {
  *      tk - air temperature (Kelvin)
  */
 double sati(double tk) {
-  double x;
-  errno = 0;
+    double x;
+    errno = 0;
 
-  x = pow(1.e1, -9.09718 * ((FREEZE / tk) - 1.) -
-                    3.56654 * log(FREEZE / tk) / M_LN10 +
-                    8.76793e-1 * (1. - (tk / FREEZE)) + log(6.1071) / M_LN10);
+    x = pow(
+        1.e1,
+        -9.09718 * ((FREEZE / tk) - 1.) - 3.56654 * log(FREEZE / tk) / M_LN10
+            + 8.76793e-1 * (1. - (tk / FREEZE)) + log(6.1071) / M_LN10
+    );
 
-  if (errno) {
-    perror("sati: bad return from log or pow");
-  }
+    if (errno) {
+        perror("sati: bad return from log or pow");
+    }
 
-  return (x * 1.e2);
+    return (x * 1.e2);
 }
 
 /*
@@ -152,40 +154,41 @@ double sati(double tk) {
  *      temperature - air temperature (Kelvin)
  */
 double saturation_vapor_pressure(double *temperature) {
-  if (*temperature > FREEZE) {
-    return (satw(*temperature));
-  } else {
-    return (sati(*temperature));
-  }
+    if (*temperature > FREEZE) {
+        return (satw(*temperature));
+    } else {
+        return (sati(*temperature));
+    }
 }
 
 /*
  * calculates atmospheric emissivity using a modified form of the equations by
  * W. Brutsaert
  */
-double brutsaert(double ta,   /* air temp (K)				*/
-                 double lmba, /* temperature lapse rate (deg/m)	*/
-                 double ea,   /* vapor pressure (Pa)			*/
-                 double z,    /* elevation (z)			*/
-                 double pa)   /* air pressure (Pa)			*/
-{
-  double t_prime;
-  double rh;
-  double e_prime;
-  double air_emiss;
+double brutsaert(
+    double ta,   /* air temp (K) */
+    double lmba, /* temperature lapse rate (deg/m)	*/
+    double ea,   /* vapor pressure (Pa)	*/
+    double z,    /* elevation (z) */
+    double pa    /* air pressure (Pa) */
+) {
+    double t_prime;
+    double rh;
+    double e_prime;
+    double air_emiss;
 
-  t_prime = ta - (lmba * z);
-  rh = ea / saturation_vapor_pressure(&ta);
-  if (rh > 1.0) {
-    rh = 1.0;
-  }
-  e_prime = (rh * saturation_vapor_pressure(&t_prime)) / 100.0;
+    t_prime = ta - (lmba * z);
+    rh      = ea / saturation_vapor_pressure(&ta);
+    if (rh > 1.0) {
+        rh = 1.0;
+    }
+    e_prime = (rh * saturation_vapor_pressure(&t_prime)) / 100.0;
 
-  air_emiss = (1.24 * pow((e_prime / t_prime), 1. / 7.)) * pa / SEA_LEVEL;
-  /* "if" statement below is new */
-  if (air_emiss > 1.0) {
-    air_emiss = 1.0;
-  }
+    air_emiss = (1.24 * pow((e_prime / t_prime), 1. / 7.)) * pa / SEA_LEVEL;
+    /* "if" statement below is new */
+    if (air_emiss > 1.0) {
+        air_emiss = 1.0;
+    }
 
-  return (air_emiss);
+    return (air_emiss);
 }
