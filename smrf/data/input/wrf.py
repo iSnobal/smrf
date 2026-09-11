@@ -5,7 +5,7 @@ import pytz
 
 from smrf.data.input.gridded_input import GriddedInput
 from smrf.data.input.netcdf import metadata_name_from_index
-from smrf.envphys.vapor_pressure import satvp
+from smrf.envphys.vapor_pressure import svp_for_celsius
 from smrf.utils.utils import apply_utm
 
 
@@ -143,9 +143,8 @@ class InputWRF(GriddedInput):
         self.air_temp = self.air_temp - 273.15
 
         self._logger.debug('Calculating vapor_pressure')
-        vp = satvp(self.dew_point.values)
-        self.vapor_pressure = pd.DataFrame(
-            vp, index=time, columns=self.primary_id)
+        vp = svp_for_celsius(self.dew_point.values)
+        self.vapor_pressure = pd.DataFrame(vp, index=time, columns=self.primary_id)
 
         self._logger.debug('Loading cloud_factor')
         self.cloud_factor = pd.DataFrame(index=time, columns=self.primary_id)

@@ -7,8 +7,8 @@ import pandas as pd
 import pytz
 
 from smrf.distribute.albedo import Albedo
+from smrf.tests.distribute import topo_mock
 from smrf.tests.smrf_config import SMRFConfig
-from smrf.tests.distribute import TOPO_MOCK
 
 CONFIG = {
     "time": {
@@ -45,11 +45,11 @@ ALBEDO_IR = np.array([[0.8, 1.0], [1.0, 0.9]])
 
 class TestAlbedo(SMRFConfig, unittest.TestCase):
     def setUp(self):
-        self.subject = Albedo(CONFIG, TOPO_MOCK)
+        self.subject = Albedo(CONFIG, topo_mock())
         self.subject.initialize(DATA)
 
     def test_init_default(self):
-        subject = Albedo(CONFIG, TOPO_MOCK)
+        subject = Albedo(CONFIG, topo_mock())
 
         self.assertIsNone(subject.albedo)
         self.assertIsNone(subject.albedo_vis)
@@ -90,7 +90,7 @@ class TestAlbedo(SMRFConfig, unittest.TestCase):
 
         config = self._copy_config(CONFIG)
         config["albedo"]["source_files"] = "path/to/files"
-        subject = Albedo(config, TOPO_MOCK)
+        subject = Albedo(config, topo_mock())
         subject.initialize(pd.DataFrame())
 
         subject.distribute(TIMESTEP, COS_Z, STORM_DAYS)
@@ -109,7 +109,7 @@ class TestAlbedo(SMRFConfig, unittest.TestCase):
 
         config = self._copy_config(CONFIG)
         config["albedo"]["source_files"] = "path/to/files"
-        subject = Albedo(config, TOPO_MOCK)
+        subject = Albedo(config, topo_mock())
         subject.initialize(pd.DataFrame())
 
         subject.distribute(TIMESTEP, COS_Z, STORM_DAYS)
@@ -133,7 +133,7 @@ class TestAlbedo(SMRFConfig, unittest.TestCase):
 
         config = self._copy_config(CONFIG)
         config["albedo"]["source_files"] = "path/to/files"
-        subject = Albedo(config, TOPO_MOCK)
+        subject = Albedo(config, topo_mock())
         subject.initialize(pd.DataFrame())
 
         subject.distribute(TIMESTEP, COS_Z, STORM_DAYS)
@@ -206,7 +206,7 @@ class TestAlbedo(SMRFConfig, unittest.TestCase):
         args, _ = mock_decay_power.call_args
 
         npt.assert_array_equal(args[0], self.subject.veg)
-        npt.assert_array_equal(args[1], TOPO_MOCK.veg_type)
+        npt.assert_array_equal(args[1], topo_mock().veg_type)
         self.assertEqual(args[2], current_hours)
         self.assertEqual(args[3], decay_hours)
         npt.assert_array_equal(args[4], self.subject.config["date_method_decay_power"])
@@ -225,9 +225,7 @@ class TestAlbedo(SMRFConfig, unittest.TestCase):
 
         mock_decay_power.return_value = MagicMock(), MagicMock()
 
-        self.subject.date_method(
-            ALBEDO_VIS, ALBEDO_IR, 1, 2, STORM_DAYS
-        )
+        self.subject.date_method(ALBEDO_VIS, ALBEDO_IR, 1, 2, STORM_DAYS)
         mock_decay_power.assert_called_once()
 
     @patch("smrf.envphys.albedo.decay_burned")
@@ -271,8 +269,6 @@ class TestAlbedo(SMRFConfig, unittest.TestCase):
         self.subject.config["post_fire_k_burned"] = None
 
         with self.assertRaises(ValueError) as context:
-            self.subject.date_method(
-                ALBEDO_VIS, ALBEDO_IR, 1, 1, STORM_DAYS
-            )
+            self.subject.date_method(ALBEDO_VIS, ALBEDO_IR, 1, 1, STORM_DAYS)
 
         self.assertIn("post_fire_k_burned is not set", str(context.exception))

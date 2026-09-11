@@ -1,68 +1,27 @@
 import numpy as np
+import numpy.typing as npt
 
-from smrf.envphys.constants import BOIL, FREEZE, SEA_LEVEL
+from smrf.envphys.core import envphys_c
 
 
-def satw(tk):
+def saturation_vapor_pressure(air_temperature: npt.NDArray) -> npt.NDArray:
     """
-    Saturation vapor pressure of water. from IPW satw
+    Saturation vapor pressure using Goff-Gratch formulations for given temperatures.
+
+    See the C functions `sati` and `satw` in topotherm.c for more references.
 
     Args:
-        tk: temperature in Kelvin
+        air_temperature: temperature in Kelvin
 
     Returns:
-        saturated vapor pressure over water
-
-    20151027 Scott Havens
+        Saturated vapor pressure
     """
+    temperature_k = np.ascontiguousarray(air_temperature, dtype=np.float64)
+    output = np.zeros_like(temperature_k)
 
-    # remove bad values
-    tk[tk < 0] = np.nan
+    envphys_c.svp_for_temperatures(temperature_k, output)
 
-    l10 = np.log(10.0)
-
-    btk = BOIL/tk
-    x = -7.90298*(btk - 1.0) + 5.02808*np.log(btk)/l10 - \
-        1.3816e-7*(np.power(10.0, 1.1344e1*(1.0 - tk/BOIL))-1.) + \
-        8.1328e-3*(np.power(10.0, -3.49149*(btk - 1.0)) - 1.0) + \
-        np.log(SEA_LEVEL)/l10
-
-    x = np.power(10.0, x)
-
-    return x
-
-
-def sati(tk):
-    """
-    saturation vapor pressure over ice. From IPW sati
-
-    Args:
-        tk: temperature in Kelvin
-
-    Returns:
-        saturated vapor pressure over ice
-
-    20151027 Scott Havens
-    """
-
-    # remove bad values
-    tk[tk < 0] = np.nan
-
-    # preallocate
-    x = np.empty(tk.shape)
-
-    # vapor above freezing
-    ind = tk > FREEZE
-    x[ind] = satw(tk[ind])
-
-    # vapor below freezing
-    l10 = np.log(10.0)
-    x[~ind] = 100.0 * np.power(10.0, -9.09718*((FREEZE/tk[~ind]) - 1.0) -
-                               3.56654*np.log(FREEZE/tk[~ind])/l10 +
-                               8.76793e-1*(1.0 - (tk[~ind]/FREEZE)) +
-                               np.log(6.1071)/l10)
-
-    return x
+    return output
 
 
 def idewpt(vp):
@@ -82,18 +41,17 @@ def idewpt(vp):
     vp = np.array(vp)
 
     # take the log and convert to kPa
-    vp = np.log(vp/float(1000))
+    vp = np.log(vp / float(1000))
 
     # calculate the vapor pressure
-    Td = (vp + 0.4926) / (0.0708 - 0.00421*vp)
+    Td = (vp + 0.4926) / (0.0708 - 0.00421 * vp)
 
     return Td
 
 
-def rh2vp(ta, rh):
+def rh2vp(ta: npt.NDArray, rh: npt.NDArray) -> npt.NDArray:
     """
-    Calculate the vapor pressure given the air temperature
-    and relative humidity
+    Calculate the vapor pressure given the air temperature and relative humidity
 
     Args:
         ta: array of air temperature in [C]
@@ -104,23 +62,22 @@ def rh2vp(ta, rh):
     """
 
     if rh.flat[0] >= 1.0:
-        rh = rh/100.0
+        rh = rh / 100.0
 
-    satvp = sati(ta + 273.15)
+    satvp = saturation_vapor_pressure(ta + 273.15)
 
     return satvp * rh
 
 
-def satvp(dpt):
+def svp_for_celsius(t_in_c: npt.NDArray) -> npt.NDArray:
     """
-    Calculate the saturation vapor pressure at the dew point
-    temperature.
+    Calculate the saturation vapor pressure for temperatures in Celsius
 
     Args:
-        dwpt: array of dew point temperature in [C]
+        t_in_c: array of temperatures in [C]
 
-    Returns
-       vapor_pressure
+    Returns:
+        vapor_pressure
     """
 
-    return sati(dpt + 273.15)
+    return saturation_vapor_pressure(t_in_c + 273.15)
