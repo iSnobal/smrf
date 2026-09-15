@@ -44,7 +44,7 @@ void topotherm(
             tw_p += FREEZE;
 
             if (ta_p < 0 || tw_p < 0) {
-                printf("ta or tw < 0 at pixel %i", samp);
+                printf("Air or Dew-Point Temperature < 0 K at pixel %i", samp);
                 exit(-1);
             }
 
