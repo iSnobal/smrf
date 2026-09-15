@@ -62,8 +62,8 @@ class SMRF:
         # read the config file and store
         if isinstance(config, str):
             if not os.path.isfile(config):
-                raise Exception(
-                    "Configuration file does not exist --> {}".format(config)
+                raise FileNotFoundError(
+                    f"Configuration file does not exist --> {config}"
                 )
             self.configFile = config
 
@@ -75,8 +75,8 @@ class SMRF:
             self.configFile = config.filename
 
         else:
-            raise Exception(
-                "Config passed to SMRF is neither file name nor  UserConfig instance"
+            raise TypeError(
+                "Config passed to SMRF is neither file name nor UserConfig instance"
             )
         # start logging
         if external_logger is None:
@@ -140,7 +140,7 @@ class SMRF:
 
         # Gridded dataset
         self.forecast_flag = False
-        self.gridded = True if GriddedInput.TYPE in self.config else False
+        self.gridded = bool(GriddedInput.TYPE in self.config)
         self.load_hrrr = False
         if self.gridded:
             self.load_hrrr = self.config[GriddedInput.TYPE]["data_type"] in [
@@ -167,9 +167,9 @@ class SMRF:
             self._logger.info(getqotw())
 
         self._logger.info(
-            "Started SMRF --> %s" % datetime.now().astimezone(self.time_zone)
+            f"Started SMRF --> {datetime.now(tz=self.time_zone)}"
         )
-        self._logger.info("Number of time steps: %i" % self.time_steps)
+        self._logger.info(f"Number of time steps: {self.time_steps}")
 
     def _setup_date_and_time(self):
         self.time_zone = pytz.timezone(self.config["time"]["time_zone"])
@@ -200,7 +200,9 @@ class SMRF:
         Provide some logging info about when SMRF was closed
         """
 
-        self._logger.info("SMRF closed --> %s" % datetime.now())
+        self._logger.info(
+            f"SMRF closed --> {datetime.now(tz=self.time_zone)}"
+        )
         logging.shutdown()
 
     def load_topo(self):
@@ -216,7 +218,7 @@ class SMRF:
         Helper method to streamline enqueuing precip. This variables has a lot of
         dependencies and is required for by others such as albedo.
         """
-        init_args = dict(config=self.config, topo=self.topo)
+        init_args = {"config": self.config, "topo": self.topo}
 
         # Need air temp and vapor pressure for precip phase
         self.distribute[AirTemperature.DISTRIBUTION_KEY] = AirTemperature(**init_args)
@@ -256,7 +258,7 @@ class SMRF:
         # Air temperature and vapor pressure
         # Always process air temperature and vapor pressure together since
         # they depend on each other
-        init_args=dict(config=self.config, topo=self.topo)
+        init_args = {"config": self.config, "topo": self.topo}
 
         if (
             AirTemperature.is_requested(self.output_variables) or
@@ -385,14 +387,14 @@ class SMRF:
 
         # Distribute the data
         for output_count, t in enumerate(self.date_time):
-            startTime = datetime.now()
+            startTime = datetime.now(tz=self.time_zone)
 
             self.distribute_single_timestep(t)
             self.output(t)
 
-            telapsed = datetime.now() - startTime
+            telapsed = datetime.now(tz=self.time_zone) - startTime
             self._logger.debug(
-                "{0:.2f} seconds for time step".format(telapsed.total_seconds())
+                f"{telapsed.total_seconds():.2f} seconds for time step"
             )
 
         # Close all opened source files
@@ -408,7 +410,7 @@ class SMRF:
 
         :param timestep: Time step to process
         """
-        self._logger.info("Distributing time step {}".format(timestep))
+        self._logger.info(f"Distributing time step {timestep}")
 
         if self.data.DATA_TYPE == InputGribHRRR.DATA_TYPE:
             self.data.load_timestep(timestep)
@@ -437,14 +439,14 @@ class SMRF:
             # Get arguments for wind when 'winstral' rescaling is requested
             if self.config["precip"]["precip_rescaling_model"] == "winstral":
                 try:
-                    wind_args = dict(
-                        wind_direction=self.distribute[Wind.DISTRIBUTION_KEY].wind_direction,
-                        dir_round_cell=self.distribute[
+                    wind_args = {
+                        "wind_direction": self.distribute[Wind.DISTRIBUTION_KEY].wind_direction,
+                        "dir_round_cell": self.distribute[
                             Wind.DISTRIBUTION_KEY
                         ].wind_model.dir_round_cell,
-                        wind_speed=self.distribute[Wind.DISTRIBUTION_KEY].wind_speed,
-                        cell_maxus=self.distribute[Wind.DISTRIBUTION_KEY].wind_model.cellmaxus,
-                    )
+                        "wind_speed": self.distribute[Wind.DISTRIBUTION_KEY].wind_speed,
+                        "cell_maxus": self.distribute[Wind.DISTRIBUTION_KEY].wind_model.cellmaxus,
+                    }
                 except AttributeError:
                     self._logger.error(
                         "Required wind argument for precipitation interpolation"
@@ -452,7 +454,7 @@ class SMRF:
                         " .ini file"
                     )
             else:
-                wind_args = dict()
+                wind_args = {}
 
             self.distribute[Precipitation.DISTRIBUTION_KEY].distribute(
                 self.data.precip.loc[timestep],
@@ -580,7 +582,7 @@ class SMRF:
                 variable_dict, self.topo, self.config["time"], self.config["output"]
             )
         else:
-            raise Exception("Could not determine type of file for output")
+            raise ValueError("Could not determine configured output file type.")
 
     def output(self, current_time_step: datetime) -> None:
         """
