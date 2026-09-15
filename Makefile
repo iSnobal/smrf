@@ -98,4 +98,7 @@ dist: clean
 	ls -l dist
 
 install: clean
-	python3 -m pip install -e .[dev]
+	python3 -m pip install .[dev]
+
+install-dev: clean
+	python3 -m pip install --no-deps -e .[dev]
