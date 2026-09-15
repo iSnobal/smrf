@@ -101,9 +101,9 @@ double satw(double tk) {
     double x;
     errno = 0;
 
-    x = -7.90298 * (BOIL / tk - 1.) + 5.02808 * log(BOIL / tk) / M_LN10
+    x = -7.90298 * (BOIL / tk - 1.) + 5.02808 * log10(BOIL / tk)
         - 1.3816e-7 * (pow(1.e1, 1.1344e1 * (1. - tk / BOIL)) - 1.)
-        + 8.1328e-3 * (pow(1.e1, -3.49149 * (BOIL / tk - 1.)) - 1.) + log(SEA_LEVEL) / M_LN10;
+        + 8.1328e-3 * (pow(1.e1, -3.49149 * (BOIL / tk - 1.)) - 1.) + log10(SEA_LEVEL);
 
     x = pow(1.e1, x);
 
@@ -135,8 +135,8 @@ double sati(double tk) {
 
     x = pow(
         1.e1,
-        -9.09718 * ((FREEZE / tk) - 1.) - 3.56654 * log(FREEZE / tk) / M_LN10
-            + 8.76793e-1 * (1. - (tk / FREEZE)) + log(6.1071) / M_LN10
+        -9.09718 * ((FREEZE / tk) - 1.) - 3.56654 * log10(FREEZE / tk)
+            + 8.76793e-1 * (1. - (tk / FREEZE)) + log10(6.1071)
     );
 
     if (errno) {
