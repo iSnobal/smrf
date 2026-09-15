@@ -30,6 +30,8 @@ import pytz
 from inicheck.config import UserConfig
 from inicheck.output import generate_config, print_config_report
 from inicheck.tools import check_config, get_user_config
+from topocalc.illumination_angle import illumination_angle
+
 from smrf.data import InputData, Topo
 from smrf.data.input import GriddedInput, InputGribHRRR
 from smrf.distribute import (
@@ -48,8 +50,7 @@ from smrf.distribute import (
 from smrf.envphys import sunang
 from smrf.framework import ascii_art, logger
 from smrf.output import output_netcdf
-from smrf.utils.utils import backup_input, date_range, getqotw
-from topocalc.illumination_angle import illumination_angle
+from smrf.utils.utils import backup_input, date_range, getqotw, water_day
 
 
 class SMRF:
@@ -116,14 +117,26 @@ class SMRF:
 
         self._setup_date_and_time()
 
-        # need to align date time
-        if self.config[Albedo.DISTRIBUTION_KEY].get("decay_start", None):
-            self.config[Albedo.DISTRIBUTION_KEY]["decay_start"] = self.config[
-                Albedo.DISTRIBUTION_KEY
-            ]["decay_start"].replace(tzinfo=self.time_zone)
-            self.config[Albedo.DISTRIBUTION_KEY]["decay_end"] = self.config[
-                Albedo.DISTRIBUTION_KEY
-            ]["decay_end"].replace(tzinfo=self.time_zone)
+        # Set timezone for albedo decay date; check for possible wrong configuration
+        albedo_config = self.config[Albedo.DISTRIBUTION_KEY]
+        if albedo_config.get("decay_start", None):
+            albedo_config["decay_start"] = albedo_config["decay_start"].replace(
+                tzinfo=self.time_zone
+            )
+            albedo_config["decay_end"] = albedo_config["decay_end"].replace(
+                tzinfo=self.time_zone
+            )
+
+            # Decay dates must fall within the water year of the model run
+            run_water_year = water_day(self.start_date)[1]
+            for key in ("decay_start", "decay_end"):
+                if (
+                    water_day(albedo_config[key])[1]
+                    != run_water_year
+                ):
+                    raise ValueError(
+                        f"Albedo '{key}' is not in the water year of the model run"
+                    )
 
         # Gridded dataset
         self.forecast_flag = False
