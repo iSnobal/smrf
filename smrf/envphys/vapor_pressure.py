@@ -29,7 +29,7 @@ def idewpt(vp):
     Calculate the dew point given the vapor pressure
 
     Args:
-        vp - array of vapor pressure values in [Pa]
+        vp - array of vapor pressure values in Pascal
 
     Returns:
         dewpt - array same size as vp of the calculated
@@ -54,7 +54,7 @@ def rh2vp(ta: npt.NDArray, rh: npt.NDArray) -> npt.NDArray:
     Calculate the vapor pressure given the air temperature and relative humidity
 
     Args:
-        ta: array of air temperature in [C]
+        ta: array of air temperature in Celcius
         rh: array of relative humidity from 0-100 [%]
 
     Returns:
@@ -74,7 +74,7 @@ def svp_for_celsius(t_in_c: npt.NDArray) -> npt.NDArray:
     Calculate the saturation vapor pressure for temperatures in Celsius
 
     Args:
-        t_in_c: array of temperatures in [C]
+        t_in_c: array of temperatures in Celcius
 
     Returns:
         vapor_pressure
