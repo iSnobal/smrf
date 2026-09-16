@@ -21,14 +21,14 @@ class GribFileGdal:
     """
     Load data from the High Resolution Rapid Refresh (HRRR) model using the GDAL library.
     """
-    DEFAULT_ALGORITHM = "cubic"
+    DEFAULT_ALGORITHM = "bilinear"
     WARP_FORMAT = "VRT"
 
     # Mapping from string input to GDAL resampling algorithms
     RESAMPLING_METHODS = {
         "nearest": gdal.GRA_NearestNeighbour,
-        "bilinear": gdal.GRA_Bilinear,
-        DEFAULT_ALGORITHM: gdal.GRA_Cubic,
+        DEFAULT_ALGORITHM: gdal.GRA_Bilinear,
+        "cubic": gdal.GRA_Cubic,
         "cubic_spline": gdal.GRA_CubicSpline,
     }
 
