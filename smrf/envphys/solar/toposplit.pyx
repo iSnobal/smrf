@@ -54,15 +54,16 @@ cdef class TopoSplit:
             for i in range(NUM_ARRAYS):
                 results_row[i] = 0.0
 
-            # Only calculate for values above the minimum value (set in the initialize)
-            # Interpolation in early morning or late evening can cause negative values
-            # Keeping all values below the minimum as 0 (the initialized array value)
-            if (dswrf[row_idx, col] > self.min_value and
-                direct_normal[row_idx, col] > self.min_value and
-                diffuse_horizontal[row_idx, col] > self.min_value
-            ):
-                # GHI
-                ghi_vis = direct_normal[row_idx, col] * cos_z + diffuse_horizontal[row_idx, col]
+            # GHI - visible-band global horizontal irradiance on a flat surface
+            ghi_vis = direct_normal[row_idx, col] * cos_z + diffuse_horizontal[row_idx, col]
+
+            # Only calculate when there is a physically meaningful signal.
+            # dswrf prevents potential negative interpolation overshoot
+            # ghi_vis ensures nonzero k division. Even when direct_normal is
+            # (VBDSF) is zero (e.g., during fully overcast/diffuse
+            # conditions according to HRRR), conditions are physically valid
+            # and must not zero out the diffuse component.
+            if dswrf[row_idx, col] > self.min_value and ghi_vis > self.min_value:
                 results_row[0] = ghi_vis
 
                 # K (diffuse fraction)
