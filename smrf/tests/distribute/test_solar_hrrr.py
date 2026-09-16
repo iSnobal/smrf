@@ -132,16 +132,22 @@ class TestSolarHRRR(unittest.TestCase):
         npt.assert_equal(empty, self.subject.net_solar)
 
     @patch("smrf.distribute.solar_hrrr.mask_for_shade")
-    def test_below_threshold(self, shade_mock):
+    def test_dswrf_below_threshold(self, shade_mock):
+        """
+        DSWRF below the minimum radiation threshold zeroes the pixel,
+        regardless of VBDSF/VDDSF.
+        """
         shade_mock.return_value = ILLUMINATION_MOCK, np.array([1, 1])
+
+        data = {
+            SolarHRRR.DSWRF: np.full_like(SKY_VIEW_FACTOR_MOCK, 0.0),
+            SolarHRRR.VBDSF: np.full_like(SKY_VIEW_FACTOR_MOCK, 6.0),
+            SolarHRRR.VDDSF: np.full_like(SKY_VIEW_FACTOR_MOCK, 5.0),
+        }
 
         self.subject.distribute(
             DATETIME,
-            {
-                SolarHRRR.DSWRF: np.array([[0.0, 19.0]]),
-                SolarHRRR.VBDSF: np.array([[6.0, -1.0]]),
-                SolarHRRR.VDDSF: np.array([[5.0, 10.0]]),
-            },
+            data,
             COS_Z,
             AZIMUTH,
             ILLUMINATION_MOCK,
@@ -158,6 +164,58 @@ class TestSolarHRRR(unittest.TestCase):
         npt.assert_equal(empty, self.subject.diffuse)
         npt.assert_equal(empty, self.subject.hrrr_solar)
         npt.assert_equal(empty, self.subject.net_solar)
+
+    @patch("smrf.distribute.solar_hrrr.mask_for_shade")
+    def test_negative_component_still_computes(self, shade_mock):
+        """
+        A negative VBDSF (e.g. a small interpolation overshoot artifact
+        near sunrise/sunset) no longer zeroes the whole pixel, as long as
+        DSWRF and ghi_vis (VBDSF*cos_z + VDDSF) are both above threshold.
+        """
+        shade_mock.return_value = ILLUMINATION_MOCK, np.array([1, 1])
+
+        data = {
+            SolarHRRR.DSWRF: np.full_like(SKY_VIEW_FACTOR_MOCK, 19.0),
+            SolarHRRR.VBDSF: np.full_like(SKY_VIEW_FACTOR_MOCK, -1.0),
+            SolarHRRR.VDDSF: np.full_like(SKY_VIEW_FACTOR_MOCK, 10.0),
+        }
+
+        self.subject.distribute(
+            DATETIME,
+            data,
+            COS_Z,
+            AZIMUTH,
+            ILLUMINATION_MOCK,
+            self.albedo,
+        )
+
+        ghi_vis = data[SolarHRRR.VBDSF] * COS_Z + data[SolarHRRR.VDDSF]
+        npt.assert_equal(ghi_vis, self.subject.solar_ghi_vis)
+
+        k = data[SolarHRRR.VDDSF] / ghi_vis
+        npt.assert_equal(k, self.subject.solar_k)
+
+        dhi = data[SolarHRRR.DSWRF] * k
+        npt.assert_equal(dhi, self.subject.solar_dhi)
+
+        dni = (data[SolarHRRR.DSWRF] * (1 - k)) / COS_Z
+        npt.assert_equal(dni, self.subject.solar_dni)
+
+        direct = dni * ILLUMINATION_MOCK
+        npt.assert_equal(direct, self.subject.direct)
+
+        diffuse = dhi * SKY_VIEW_FACTOR_MOCK
+        npt.assert_equal(diffuse, self.subject.diffuse)
+
+        solar = direct.astype(np.float32, order="C", copy=False) + diffuse.astype(
+            np.float32, order="C", copy=False
+        )
+        npt.assert_equal(solar, self.subject.hrrr_solar)
+
+        net_solar = solar * (
+            1 - (0.54 * self.albedo.albedo_vis + 0.46 * self.albedo.albedo_ir)
+        )
+        npt.assert_equal(net_solar, self.subject.net_solar)
 
     def test_output_variables(self):
         for variable in self.subject.OUTPUT_VARIABLES.keys():
