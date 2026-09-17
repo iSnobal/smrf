@@ -13,14 +13,15 @@ if "CC" not in os.environ:
 
 print("Compiler set to: " + os.environ["CC"])
 
-extension_params = dict(
-    extra_compile_args=[
-        '-fopenmp',
-        '-O3',
+extension_params = {
+    "extra_compile_args": [
+        "-fopenmp",
+        "-O3",
     ],
-    extra_link_args=['-fopenmp'],
-    include_dirs=[numpy.get_include()]
-)
+    "extra_link_args": ["-fopenmp"],
+    "include_dirs": [numpy.get_include()],
+    "define_macros": [("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
+}
 
 directives = {
     'language_level': "3str",
