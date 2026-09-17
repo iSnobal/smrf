@@ -168,9 +168,12 @@ class TestSolarHRRR(unittest.TestCase):
     @patch("smrf.distribute.solar_hrrr.mask_for_shade")
     def test_negative_component_still_computes(self, shade_mock):
         """
-        A negative VBDSF (e.g. a small interpolation overshoot artifact
+        A negative VBDSF (e.g., a small interpolation overshoot artifact
         near sunrise/sunset) no longer zeroes the whole pixel, as long as
-        DSWRF and ghi_vis (VBDSF*cos_z + VDDSF) are both above threshold.
+        DSWRF and ghi_vis are both above threshold. VBDSF/VDDSF are clamped
+        to non-negative before use, so a negative VBDSF here is equivalent
+        to a legitimately fully overcast and fully diffuse conditions. So,
+        k is fully diffuse (1.0) and dni/direct are 0.
         """
         shade_mock.return_value = ILLUMINATION_MOCK, np.array([1, 1])
 
@@ -189,10 +192,13 @@ class TestSolarHRRR(unittest.TestCase):
             self.albedo,
         )
 
-        ghi_vis = data[SolarHRRR.VBDSF] * COS_Z + data[SolarHRRR.VDDSF]
+        direct_normal = np.clip(data[SolarHRRR.VBDSF], 0, None)
+        diffuse_horizontal = np.clip(data[SolarHRRR.VDDSF], 0, None)
+
+        ghi_vis = direct_normal * COS_Z + diffuse_horizontal
         npt.assert_equal(ghi_vis, self.subject.solar_ghi_vis)
 
-        k = data[SolarHRRR.VDDSF] / ghi_vis
+        k = diffuse_horizontal / ghi_vis
         npt.assert_equal(k, self.subject.solar_k)
 
         dhi = data[SolarHRRR.DSWRF] * k
