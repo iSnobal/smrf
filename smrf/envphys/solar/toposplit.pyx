@@ -45,7 +45,7 @@ cdef class TopoSplit:
     ) noexcept nogil:
         cdef:
             Py_ssize_t col, i
-            double ghi_vis, k_val
+            double direct_normal_val, diffuse_horizontal_val, ghi_vis, k_val
             double results_row[6]  # 6 values per column
 
         # Process each column in this row
@@ -54,12 +54,21 @@ cdef class TopoSplit:
             for i in range(NUM_ARRAYS):
                 results_row[i] = 0.0
 
+            # Clamp to physically valid (non-negative) radiation components.
+            # This guarantees k is within [0, 1]
+            direct_normal_val = direct_normal[row_idx, col]
+            if direct_normal_val < 0.0:
+                direct_normal_val = 0.0
+            diffuse_horizontal_val = diffuse_horizontal[row_idx, col]
+            if diffuse_horizontal_val < 0.0:
+                diffuse_horizontal_val = 0.0
+
             # GHI - visible-band global horizontal irradiance on a flat surface
-            ghi_vis = direct_normal[row_idx, col] * cos_z + diffuse_horizontal[row_idx, col]
+            ghi_vis = direct_normal_val * cos_z + diffuse_horizontal_val
 
             # Only calculate when there is a physically meaningful signal.
             # dswrf prevents potential negative interpolation overshoot
-            # ghi_vis ensures nonzero k division. Even when direct_normal is
+            # ghi_vis ensures nonzero k division. Even when direct_normal
             # (VBDSF) is zero (e.g., during fully overcast/diffuse
             # conditions according to HRRR), conditions are physically valid
             # and must not zero out the diffuse component.
@@ -67,7 +76,7 @@ cdef class TopoSplit:
                 results_row[0] = ghi_vis
 
                 # K (diffuse fraction)
-                k_val = diffuse_horizontal[row_idx, col] / ghi_vis
+                k_val = diffuse_horizontal_val / ghi_vis
                 results_row[1] = k_val
 
                 # DHI and DNI
