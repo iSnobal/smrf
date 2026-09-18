@@ -1,9 +1,9 @@
-
 import numpy as np
 
-from .variable_base import VariableBase
 from smrf.envphys.core import envphys_c
 from smrf.utils import utils
+
+from .variable_base import VariableBase
 
 
 class VaporPressure(VariableBase):
@@ -13,8 +13,8 @@ class VaporPressure(VariableBase):
     :mod:`smrf.envphys.vapor_pressure.rh2vp`. The vapor pressure is distributed
     instead of the relative humidity as it is an absolute measurement of the
     vapor within the atmosphere and will follow elevational trends (typically
-    negative).  Were as relative humidity is a relative measurement which
-    varies in complex ways over the topography.  From the distributed vapor
+    negative). Wereas relative humidity is a relative measurement which
+    varies in complex ways over the topography. From the distributed vapor
     pressure, the dew point is calculated for use by other distribution
     methods. The dew point temperature is further corrected to ensure that it
     does not exceed the distributed air temperature.
@@ -49,7 +49,7 @@ class VaporPressure(VariableBase):
     def distribute(self, data, ta):
         """
         Distribute air temperature given a Panda's dataframe for a single time
-        step. Calls :mod:`smrf.distribute.ImageData._distribute`.
+        step. Calls :mod:`smrf.distribute.VariableBase._distribute`.
 
         The following steps are performed when distributing vapor pressure:
 
@@ -65,18 +65,16 @@ class VaporPressure(VariableBase):
 
         """
 
-        self._logger.debug('%s -- Distributing vapor_pressure' % data.name)
+        self._logger.debug("%s -- Distributing vapor_pressure" % data.name)
 
         # calculate the vapor pressure
         self._distribute(data)
 
         # set the limits
-        self.vapor_pressure = utils.set_min_max(self.vapor_pressure,
-                                                self.min,
-                                                self.max)
+        self.vapor_pressure = utils.set_min_max(self.vapor_pressure, self.min, self.max)
 
         # calculate the dew point
-        self._logger.debug('%s -- Calculating dew point' % data.name)
+        self._logger.debug("%s -- Calculating dew point" % data.name)
 
         # use the core_c to calculate the dew point
         dew_point_temperature = np.zeros_like(self.vapor_pressure, dtype=np.float64)
@@ -89,13 +87,13 @@ class VaporPressure(VariableBase):
 
         ind = dew_point_temperature >= ta
 
-        if (np.sum(ind) > 0):
+        if np.sum(ind) > 0:
             dew_point_temperature[ind] = ta[ind] - 0.2
 
         self.dew_point = dew_point_temperature
 
         # calculate wet bulb temperature
-        if self.precip_temp_method == 'wet_bulb':
+        if self.precip_temp_method == "wet_bulb":
             # initialize timestep wet_bulb
             wet_bulb = np.zeros_like(self.vapor_pressure, dtype=np.float64)
             # calculate wet_bulb

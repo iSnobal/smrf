@@ -6,7 +6,7 @@ import numpy.testing as npt
 import pandas as pd
 
 from smrf.distribute import Albedo, SolarHRRR
-from smrf.tests.distribute import SKY_VIEW_FACTOR_MOCK, TOPO_MOCK
+from smrf.tests.distribute import SKY_VIEW_FACTOR_MOCK, topo_mock
 
 DATETIME = pd.to_datetime("2025-11-01 00:00:00")
 DATA_MOCK = {
@@ -37,9 +37,9 @@ class TestSolarHRRR(unittest.TestCase):
         }
         self.subject = SolarHRRR(
             config=config,
-            topo=TOPO_MOCK,
+            topo=topo_mock(),
         )
-        self.albedo = Albedo(config=config, topo=TOPO_MOCK)
+        self.albedo = Albedo(config=config, topo=topo_mock())
         self.albedo.albedo_vis = ALBEDO_1
         self.albedo.albedo_ir = ALBEDO_2
 
@@ -57,7 +57,9 @@ class TestSolarHRRR(unittest.TestCase):
             self.albedo,
         )
 
-        shade_mock.assert_called_once_with(COS_Z, AZIMUTH, ILLUMINATION_MOCK, TOPO_MOCK)
+        shade_mock.assert_called_once_with(
+            COS_Z, AZIMUTH, ILLUMINATION_MOCK, self.subject.topo
+        )
 
         ghi_vis = DATA_MOCK[SolarHRRR.VBDSF] * COS_Z + DATA_MOCK[SolarHRRR.VDDSF]
         npt.assert_equal(ghi_vis, self.subject.solar_ghi_vis)

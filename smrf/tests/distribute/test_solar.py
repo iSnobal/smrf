@@ -4,11 +4,8 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pandas as pd
 
-from smrf.data import Topo
 from smrf.distribute import Solar
-
-SKY_VIEW_FACTOR_MOCK = np.ones((1, 2, 4))
-TOPO_MOCK = MagicMock(spec=Topo, sky_view_factor=SKY_VIEW_FACTOR_MOCK, instance=True)
+from smrf.tests.distribute import topo_mock
 
 DATETIME = pd.to_datetime("2025-11-01 00:00:00")
 COS_Z = np.cos(np.radians(10))
@@ -39,7 +36,7 @@ class TestSolar(unittest.TestCase):
                     "time_zone": "utc",
                 },
             },
-            topo=TOPO_MOCK,
+            topo=topo_mock(),
         )
 
     def test_initialize(self):

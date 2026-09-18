@@ -1,8 +1,16 @@
 import numpy as np
 
-from smrf.envphys.constants import (FREEZE, GRAVITY, MOL_AIR, RGAS, SEA_LEVEL,
-                                    STD_LAPSE, STD_LAPSE_M, STEF_BOLTZ)
-from smrf.envphys.vapor_pressure import sati
+from smrf.envphys.constants import (
+    FREEZE,
+    GRAVITY,
+    MOL_AIR,
+    RGAS,
+    SEA_LEVEL,
+    STD_LAPSE,
+    STD_LAPSE_M,
+    STEF_BOLTZ,
+)
+from smrf.envphys.vapor_pressure import saturation_vapor_pressure
 
 
 def brutsaert(air_temp, lapse_rate, vapor_pressure, elevation, pressure):
@@ -23,13 +31,12 @@ def brutsaert(air_temp, lapse_rate, vapor_pressure, elevation, pressure):
     """
 
     t_prime = air_temp - (lapse_rate * elevation)
-    rh = vapor_pressure / sati(air_temp)
+    rh = vapor_pressure / saturation_vapor_pressure(air_temp)
     rh[rh > 1] = 1
 
-    e_prime = (rh * sati(t_prime)) / 100.0
+    e_prime = (rh * saturation_vapor_pressure(t_prime)) / 100.0
 
-    air_emiss = (1.24 * np.power(e_prime / t_prime, 1. / 7.0)) * \
-        pressure / SEA_LEVEL
+    air_emiss = (1.24 * np.power(e_prime / t_prime, 1.0 / 7.0)) * pressure / SEA_LEVEL
 
     air_emiss[air_emiss > 1.0] = 1.0
 
@@ -53,13 +60,13 @@ def hysat(pb, tb, L, h, g, m):
         hydrostatic results
 
     20151027 Scott Havens
-     """
+    """
 
     # the factors 1.e-3 and 1.e3 are for units conversion
     if L == 0:
-        return pb * np.exp(-g * m * h * 1.e3/(RGAS * tb))
+        return pb * np.exp(-g * m * h * 1.0e3 / (RGAS * tb))
     else:
-        return pb * np.power(tb/(tb + L * h), g * m/(RGAS * L * 1.e-3))
+        return pb * np.power(tb / (tb + L * h), g * m / (RGAS * L * 1.0e-3))
 
 
 def topotherm(ta, tw, z, skvfac):
@@ -95,7 +102,7 @@ def topotherm(ta, tw, z, skvfac):
     ind = tw > ta
     tw[ind] = ta[ind]
 
-    ea = sati(tw)
+    ea = saturation_vapor_pressure(tw)
     emiss = brutsaert(ta, STD_LAPSE_M, ea, z, SEA_LEVEL)
 
     # calculate sea level air temp
@@ -103,10 +110,10 @@ def topotherm(ta, tw, z, skvfac):
 
     # adjust emiss for elev, terrain
     # veg, and cloud shading
-    press = hysat(SEA_LEVEL, T0, STD_LAPSE, z/1000.0, GRAVITY, MOL_AIR)
+    press = hysat(SEA_LEVEL, T0, STD_LAPSE, z / 1000.0, GRAVITY, MOL_AIR)
 
     # elevation correction
-    emiss *= press/SEA_LEVEL
+    emiss *= press / SEA_LEVEL
 
     # terrain factor correction
     emiss = (emiss * skvfac) + (1.0 - skvfac)

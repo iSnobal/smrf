@@ -60,10 +60,10 @@ isort: ## using isort to sort imports
 lint:
 	flake8 smrf
 
-tests:
+tests: build_extensions
 	python3 -m unittest discover -s smrf/tests/
 
-tests_fast_fail:
+tests_fast_fail: build_extensions
 	python3 -m unittest discover -s smrf/tests/ -f
 
 coverage: ## run coverage and submit
@@ -97,5 +97,8 @@ dist: clean
 	python setup.py bdist_wheel
 	ls -l dist
 
-install: clean
-	python3 -m pip install -e .[dev]
+install: clean build_extensions
+	python3 -m pip install .[dev]
+
+install-dev: clean
+	python3 -m pip install --no-deps -e .[dev]
