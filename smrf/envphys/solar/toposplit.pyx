@@ -7,6 +7,9 @@ from cython.parallel cimport prange
 np.import_array()
 
 cdef Py_ssize_t NUM_ARRAYS = 6
+# Noise floor (W/m2) for the direct and diffuse input components. Values below
+# this, including negative interpolation artifacts, are treated as 0.
+cdef double COMPONENT_FLOOR = 0.1
 
 cdef class TopoSplit:
     cdef:
@@ -54,40 +57,43 @@ cdef class TopoSplit:
             for i in range(NUM_ARRAYS):
                 results_row[i] = 0.0
 
-            # Clamp to physically valid (non-negative) radiation components.
-            # This guarantees k is within [0, 1]
-            direct_normal_val = direct_normal[row_idx, col]
-            if direct_normal_val < 0.0:
-                direct_normal_val = 0.0
-            diffuse_horizontal_val = diffuse_horizontal[row_idx, col]
-            if diffuse_horizontal_val < 0.0:
-                diffuse_horizontal_val = 0.0
-
-            # GHI - visible-band global horizontal irradiance on a flat surface
-            ghi_vis = direct_normal_val * cos_z + diffuse_horizontal_val
-
             # Only calculate when there is a physically meaningful signal.
-            # dswrf prevents potential negative interpolation overshoot
-            # ghi_vis ensures nonzero k division. Even when direct_normal
-            # (VBDSF) is zero (e.g., during fully overcast/diffuse
-            # conditions according to HRRR), conditions are physically valid
-            # and must not zero out the diffuse component.
-            if dswrf[row_idx, col] > self.min_value and ghi_vis > self.min_value:
-                results_row[0] = ghi_vis
+            # If DSWRF exceeds minimum value, compute.
+            if dswrf[row_idx, col] > self.min_value:
+                # Set radiation components below COMPONENT_FLOOR to 0.
+                # k should fall within [0, 1]. This prevents k explosion in the case
+                # where direct_normal values are erroneously negative, and ghi_vis
+                # is conceivably smaller than diffuse_horizontal, making k > 1.
+                # It also limits the effect of noise in very small components on k.
+                direct_normal_val = direct_normal[row_idx, col]
+                diffuse_horizontal_val = diffuse_horizontal[row_idx, col]
+                if direct_normal_val < COMPONENT_FLOOR:
+                    direct_normal_val = 0.0
+                if diffuse_horizontal_val < COMPONENT_FLOOR:
+                    diffuse_horizontal_val = 0.0
 
-                # K (diffuse fraction)
-                k_val = diffuse_horizontal_val / ghi_vis
-                results_row[1] = k_val
+                # GHI - visible-band global horizontal irradiance on a flat surface
+                ghi_vis = direct_normal_val * cos_z + diffuse_horizontal_val
 
-                # DHI and DNI
-                results_row[2] = dswrf[row_idx, col] * k_val
-                results_row[3] = (dswrf[row_idx, col] * (1.0 - k_val)) / cos_z
+                # Guard against divide-by-zero errors in k, this is still possible
+                # with the preceding clamping approach, with both subcomponents == 0
+                if ghi_vis > self.min_value:
 
-                # Direct component
-                results_row[4] = results_row[3] * illumination_angles[row_idx, col]
+                    results_row[0] = ghi_vis
 
-                # Diffuse component
-                results_row[5] = results_row[2] * self._sky_view_factor[row_idx, col]
+                    # K (diffuse fraction)
+                    k_val = diffuse_horizontal_val / ghi_vis
+                    results_row[1] = k_val
+
+                    # DHI and DNI
+                    results_row[2] = dswrf[row_idx, col] * k_val
+                    results_row[3] = (dswrf[row_idx, col] * (1.0 - k_val)) / cos_z
+
+                    # Direct component
+                    results_row[4] = results_row[3] * illumination_angles[row_idx, col]
+
+                    # Diffuse component
+                    results_row[5] = results_row[2] * self._sky_view_factor[row_idx, col]
 
             # Copy results to the shared results array
             # Pattern [row_n_col_m_GHI, row_n_col_m_K, row_n_col_m_DHI,
@@ -105,7 +111,7 @@ cdef class TopoSplit:
         const double cos_z,
         const double[:,:] illumination_angles,
     ):
-        """"
+        """
         Parameters
         ----------
         dswrf : ndarray
