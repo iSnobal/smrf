@@ -7,9 +7,6 @@ from cython.parallel cimport prange
 np.import_array()
 
 cdef Py_ssize_t NUM_ARRAYS = 6
-# Noise floor (W/m2) for the direct and diffuse input components. Values below
-# this, including negative interpolation artifacts, are treated as 0.
-cdef double COMPONENT_FLOOR = 0.1
 
 cdef class TopoSplit:
     cdef:
@@ -25,7 +22,10 @@ cdef class TopoSplit:
         sky_view_factor : ndarray
             2D array of sky view factors, determines grid dimensions
         min_value : float, optional
-            Minimum input value to process each pixel (default: 1.0)
+            Minimum radiation value to process each pixel (default: 1.0 W/m²).
+            Pixels with DSWRF or ghi_vis at or below it are zeroed and no further
+            calculations are made. Direct and diffuse components below minimum
+            value are set to 0.
             See explanation in `_process_row()`
         num_threads : int, optional
             Number of threads for parallel processing
@@ -60,25 +60,23 @@ cdef class TopoSplit:
             # Only calculate when there is a physically meaningful signal.
             # If DSWRF exceeds minimum value, compute.
             if dswrf[row_idx, col] > self.min_value:
-                # Set radiation components below COMPONENT_FLOOR to 0.
+                # Set radiation components below minimum value to 0.
                 # k should fall within [0, 1]. This prevents k explosion in the case
                 # where direct_normal values are erroneously negative, and ghi_vis
                 # is conceivably smaller than diffuse_horizontal, making k > 1.
-                # It also limits the effect of noise in very small components on k.
                 direct_normal_val = direct_normal[row_idx, col]
                 diffuse_horizontal_val = diffuse_horizontal[row_idx, col]
-                if direct_normal_val < COMPONENT_FLOOR:
+                if direct_normal_val < self.min_value:
                     direct_normal_val = 0.0
-                if diffuse_horizontal_val < COMPONENT_FLOOR:
+                if diffuse_horizontal_val < self.min_value:
                     diffuse_horizontal_val = 0.0
 
                 # GHI - visible-band global horizontal irradiance on a flat surface
                 ghi_vis = direct_normal_val * cos_z + diffuse_horizontal_val
 
-                # Guard against divide-by-zero errors in k, this is still possible
-                # with the preceding clamping approach, with both subcomponents == 0
+                # Guard against divide-by-zero errors in k. This is still possible
+                # with the preceding clamping approach with both subcomponents == 0.
                 if ghi_vis > self.min_value:
-
                     results_row[0] = ghi_vis
 
                     # K (diffuse fraction)
