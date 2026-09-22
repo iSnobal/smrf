@@ -10,7 +10,7 @@ from smrf.tests.distribute import SKY_VIEW_FACTOR_MOCK, topo_mock
 
 DATETIME = pd.to_datetime("2025-11-01 00:00:00")
 DATA_MOCK = {
-    SolarHRRR.DSWRF: np.array([[30.0, 40.0]]),
+    SolarHRRR.DSWRF: np.array([[20.0, 19.0]]),
     SolarHRRR.VBDSF: np.array([[16.0, 18.0]]),
     SolarHRRR.VDDSF: np.array([[5.0, 10.0]]),
 }
@@ -212,8 +212,8 @@ class TestSolarHRRR(unittest.TestCase):
         VDDSF below min_value (a negative value in pixel 0, e.g., from cubic
         interpolation or erroneous raw data, and a small positive value in
         pixel 1) is set to 0. The pixel is still computed, as DSWRF and
-        ghi_vis are above min_value, and is fully direct: k is 0.0 and
-        dhi/diffuse are 0.
+        ghi_vis are above min_value, and conditions are fully direct: k is
+        0.0 and dhi/diffuse are 0.
         NB: data are dummy test values, not necessarily physically meaningful.
         """
         shade_mock.return_value = ILLUMINATION_MOCK, np.array([1, 1])
