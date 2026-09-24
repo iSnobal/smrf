@@ -15,14 +15,14 @@ cdef class TopoSplit:
         readonly float min_value
         readonly int num_threads
 
-    def __init__(self, double[:,:] sky_view_factor, float min_value=1.0, int num_threads=1):
+    def __init__(self, double[:,:] sky_view_factor, float min_value=0.1, int num_threads=1):
         """
         Parameters
         ----------
         sky_view_factor : ndarray
             2D array of sky view factors, determines grid dimensions
         min_value : float, optional
-            Minimum radiation value to process each pixel (default: 1.0 W/m²).
+            Minimum radiation value to process each pixel (default: 0.1 W/m²).
             Pixels with DSWRF or ghi_vis at or below it are zeroed and no further
             calculations are made. Direct and diffuse components below minimum
             value are set to 0.
