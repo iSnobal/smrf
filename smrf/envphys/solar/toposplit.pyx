@@ -15,14 +15,17 @@ cdef class TopoSplit:
         readonly float min_value
         readonly int num_threads
 
-    def __init__(self, double[:,:] sky_view_factor, float min_value=1.0, int num_threads=1):
+    def __init__(self, double[:,:] sky_view_factor, float min_value=0.1, int num_threads=1):
         """
         Parameters
         ----------
         sky_view_factor : ndarray
             2D array of sky view factors, determines grid dimensions
         min_value : float, optional
-            Minimum input value to process each pixel (default: 1.0)
+            Minimum radiation value to process each pixel (default: 0.1 W/m²).
+            Pixels with DSWRF or ghi_vis at or below it are zeroed and no further
+            calculations are made. Direct and diffuse components below minimum
+            value are set to 0.
             See explanation in `_process_row()`
         num_threads : int, optional
             Number of threads for parallel processing
@@ -45,7 +48,7 @@ cdef class TopoSplit:
     ) noexcept nogil:
         cdef:
             Py_ssize_t col, i
-            double ghi_vis, k_val
+            double direct_normal_val, diffuse_horizontal_val, ghi_vis, k_val
             double results_row[6]  # 6 values per column
 
         # Process each column in this row
@@ -54,30 +57,41 @@ cdef class TopoSplit:
             for i in range(NUM_ARRAYS):
                 results_row[i] = 0.0
 
-            # Only calculate for values above the minimum value (set in the initialize)
-            # Interpolation in early morning or late evening can cause negative values
-            # Keeping all values below the minimum as 0 (the initialized array value)
-            if (dswrf[row_idx, col] > self.min_value and
-                direct_normal[row_idx, col] > self.min_value and
-                diffuse_horizontal[row_idx, col] > self.min_value
-            ):
-                # GHI
-                ghi_vis = direct_normal[row_idx, col] * cos_z + diffuse_horizontal[row_idx, col]
-                results_row[0] = ghi_vis
+            # Only calculate when there is a physically meaningful signal.
+            # If DSWRF exceeds minimum value, compute.
+            if dswrf[row_idx, col] > self.min_value:
+                # Set radiation components below minimum value to 0.
+                # k should fall within [0, 1]. This prevents k explosion in the case
+                # where direct_normal values are erroneously negative, and ghi_vis
+                # is conceivably smaller than diffuse_horizontal, making k > 1.
+                direct_normal_val = direct_normal[row_idx, col]
+                diffuse_horizontal_val = diffuse_horizontal[row_idx, col]
+                if direct_normal_val < self.min_value:
+                    direct_normal_val = 0.0
+                if diffuse_horizontal_val < self.min_value:
+                    diffuse_horizontal_val = 0.0
 
-                # K (diffuse fraction)
-                k_val = diffuse_horizontal[row_idx, col] / ghi_vis
-                results_row[1] = k_val
+                # GHI - visible-band global horizontal irradiance on a flat surface
+                ghi_vis = direct_normal_val * cos_z + diffuse_horizontal_val
 
-                # DHI and DNI
-                results_row[2] = dswrf[row_idx, col] * k_val
-                results_row[3] = (dswrf[row_idx, col] * (1.0 - k_val)) / cos_z
+                # Guard against divide-by-zero errors in k. This is still possible
+                # with the preceding clamping approach with both subcomponents == 0.
+                if ghi_vis > self.min_value:
+                    results_row[0] = ghi_vis
 
-                # Direct component
-                results_row[4] = results_row[3] * illumination_angles[row_idx, col]
+                    # K (diffuse fraction)
+                    k_val = diffuse_horizontal_val / ghi_vis
+                    results_row[1] = k_val
 
-                # Diffuse component
-                results_row[5] = results_row[2] * self._sky_view_factor[row_idx, col]
+                    # DHI and DNI
+                    results_row[2] = dswrf[row_idx, col] * k_val
+                    results_row[3] = (dswrf[row_idx, col] * (1.0 - k_val)) / cos_z
+
+                    # Direct component
+                    results_row[4] = results_row[3] * illumination_angles[row_idx, col]
+
+                    # Diffuse component
+                    results_row[5] = results_row[2] * self._sky_view_factor[row_idx, col]
 
             # Copy results to the shared results array
             # Pattern [row_n_col_m_GHI, row_n_col_m_K, row_n_col_m_DHI,
@@ -95,7 +109,7 @@ cdef class TopoSplit:
         const double cos_z,
         const double[:,:] illumination_angles,
     ):
-        """"
+        """
         Parameters
         ----------
         dswrf : ndarray

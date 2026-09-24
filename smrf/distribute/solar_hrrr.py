@@ -44,7 +44,7 @@ class SolarHRRR(VariableBase):
     GRIB_VARIABLES = [DSWRF, VBDSF, VDDSF]
 
     # Minimum value to calculate radiation for
-    MIN_RADIATION = 1
+    MIN_RADIATION = 0.1
 
     OUTPUT_PREFIX = "solar_"
     OUTPUT_VARIABLES = {

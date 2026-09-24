@@ -19,6 +19,8 @@ AZIMUTH = 100
 ILLUMINATION_MOCK = np.array([[40.0, 50.0]])
 ALBEDO_1 = np.array([[0.85, 0.9]]).astype(np.float32, order="C", copy=False)
 ALBEDO_2 = np.array([[0.85, 0.75]]).astype(np.float32, order="C", copy=False)
+# Just below the minimum radiation value that TopoSplit uses to zero components
+BELOW_MIN = 0.9 * SolarHRRR.MIN_RADIATION
 
 
 class TestSolarHRRR(unittest.TestCase):
@@ -132,16 +134,171 @@ class TestSolarHRRR(unittest.TestCase):
         npt.assert_equal(empty, self.subject.net_solar)
 
     @patch("smrf.distribute.solar_hrrr.mask_for_shade")
-    def test_below_threshold(self, shade_mock):
+    def test_dswrf_below_threshold(self, shade_mock):
+        """
+        When DSWRF is below the minimum radiation threshold, the pixel is
+        zeroed regardless of VBDSF/VDDSF.
+        """
         shade_mock.return_value = ILLUMINATION_MOCK, np.array([1, 1])
+
+        data = {
+            SolarHRRR.DSWRF: np.full_like(SKY_VIEW_FACTOR_MOCK, 0.0),
+            SolarHRRR.VBDSF: np.full_like(SKY_VIEW_FACTOR_MOCK, 6.0),
+            SolarHRRR.VDDSF: np.full_like(SKY_VIEW_FACTOR_MOCK, 5.0),
+        }
 
         self.subject.distribute(
             DATETIME,
-            {
-                SolarHRRR.DSWRF: np.array([[0.0, 19.0]]),
-                SolarHRRR.VBDSF: np.array([[6.0, -1.0]]),
-                SolarHRRR.VDDSF: np.array([[5.0, 10.0]]),
-            },
+            data,
+            COS_Z,
+            AZIMUTH,
+            ILLUMINATION_MOCK,
+            self.albedo,
+        )
+
+        empty = np.zeros_like(SKY_VIEW_FACTOR_MOCK)
+
+        npt.assert_equal(empty, self.subject.solar_ghi_vis)
+        npt.assert_equal(empty, self.subject.solar_k)
+        npt.assert_equal(empty, self.subject.solar_dhi)
+        npt.assert_equal(empty, self.subject.solar_dni)
+        npt.assert_equal(empty, self.subject.direct)
+        npt.assert_equal(empty, self.subject.diffuse)
+        npt.assert_equal(empty, self.subject.hrrr_solar)
+        npt.assert_equal(empty, self.subject.net_solar)
+
+    @patch("smrf.distribute.solar_hrrr.mask_for_shade")
+    def test_direct_below_min_value_is_zeroed(self, shade_mock):
+        """
+        VBDSF below min_value (a negative value in pixel 0, e.g., from cubic
+        interpolation or erroneous raw data, and a small positive value in
+        pixel 1) is set to 0. The pixel is still computed, as DSWRF and
+        ghi_vis are above min_value and conditions are fully diffuse: k is
+        1.0 and dni/direct are 0.
+        NB: data are dummy test values, not necessarily physically meaningful.
+        """
+        shade_mock.return_value = ILLUMINATION_MOCK, np.array([1, 1])
+
+        data = {
+            SolarHRRR.DSWRF: np.full_like(SKY_VIEW_FACTOR_MOCK, 19.0),
+            SolarHRRR.VBDSF: np.array([[-0.5, BELOW_MIN]]),
+            SolarHRRR.VDDSF: np.full_like(SKY_VIEW_FACTOR_MOCK, 10.0),
+        }
+
+        self.subject.distribute(
+            DATETIME,
+            data,
+            COS_Z,
+            AZIMUTH,
+            ILLUMINATION_MOCK,
+            self.albedo,
+        )
+
+        empty = np.zeros_like(SKY_VIEW_FACTOR_MOCK)
+        ghi_vis = np.full_like(SKY_VIEW_FACTOR_MOCK, 10.0)
+        k = np.full_like(SKY_VIEW_FACTOR_MOCK, 1.0)
+        dhi = np.full_like(SKY_VIEW_FACTOR_MOCK, 19.0)
+
+        npt.assert_equal(ghi_vis, self.subject.solar_ghi_vis)
+        npt.assert_equal(k, self.subject.solar_k)
+        npt.assert_equal(dhi, self.subject.solar_dhi)
+        npt.assert_equal(empty, self.subject.solar_dni)
+        npt.assert_equal(empty, self.subject.direct)
+        npt.assert_equal(dhi * SKY_VIEW_FACTOR_MOCK, self.subject.diffuse)
+
+    @patch("smrf.distribute.solar_hrrr.mask_for_shade")
+    def test_diffuse_below_min_value_is_zeroed(self, shade_mock):
+        """
+        VDDSF below min_value (a negative value in pixel 0, e.g., from cubic
+        interpolation or erroneous raw data, and a small positive value in
+        pixel 1) is set to 0. The pixel is still computed, as DSWRF and
+        ghi_vis are above min_value, and conditions are fully direct: k is
+        0.0 and dhi/diffuse are 0.
+        NB: data are dummy test values, not necessarily physically meaningful.
+        """
+        shade_mock.return_value = ILLUMINATION_MOCK, np.array([1, 1])
+
+        data = {
+            SolarHRRR.DSWRF: np.full_like(SKY_VIEW_FACTOR_MOCK, 19.0),
+            SolarHRRR.VBDSF: np.full_like(SKY_VIEW_FACTOR_MOCK, 12.0),
+            SolarHRRR.VDDSF: np.array([[-0.5, BELOW_MIN]]),
+        }
+
+        self.subject.distribute(
+            DATETIME,
+            data,
+            COS_Z,
+            AZIMUTH,
+            ILLUMINATION_MOCK,
+            self.albedo,
+        )
+
+        empty = np.zeros_like(SKY_VIEW_FACTOR_MOCK)
+        ghi_vis = np.full_like(SKY_VIEW_FACTOR_MOCK, 12.0 * COS_Z)
+        dni = np.full_like(SKY_VIEW_FACTOR_MOCK, 19.0 / COS_Z)
+
+        npt.assert_equal(ghi_vis, self.subject.solar_ghi_vis)
+        npt.assert_equal(empty, self.subject.solar_k)
+        npt.assert_equal(empty, self.subject.solar_dhi)
+        npt.assert_equal(dni, self.subject.solar_dni)
+        npt.assert_equal(dni * ILLUMINATION_MOCK, self.subject.direct)
+        npt.assert_equal(empty, self.subject.diffuse)
+
+    @patch("smrf.distribute.solar_hrrr.mask_for_shade")
+    def test_mostly_direct_and_mostly_diffuse_pixels(self, shade_mock):
+        """
+        All components are above min_value. Pixel 0 is mostly direct
+        (small VDDSF), so k is small. Pixel 1 is mostly diffuse (small VBDSF),
+        so k is large. Both ghi_vis and DSWRF meet compute conditions.
+        NB: data are dummy test values, not necessarily physically meaningful.
+        """
+        shade_mock.return_value = ILLUMINATION_MOCK, np.array([1, 1])
+
+        data = {
+            SolarHRRR.DSWRF: np.full_like(SKY_VIEW_FACTOR_MOCK, 19.0),
+            SolarHRRR.VBDSF: np.array([[16.0, 2.0]]),
+            SolarHRRR.VDDSF: np.array([[1.5, 10.0]]),
+        }
+
+        self.subject.distribute(
+            DATETIME,
+            data,
+            COS_Z,
+            AZIMUTH,
+            ILLUMINATION_MOCK,
+            self.albedo,
+        )
+
+        ghi_vis = data[SolarHRRR.VBDSF] * COS_Z + data[SolarHRRR.VDDSF]
+        k = data[SolarHRRR.VDDSF] / ghi_vis
+        dhi = data[SolarHRRR.DSWRF] * k
+        dni = (data[SolarHRRR.DSWRF] * (1 - k)) / COS_Z
+
+        npt.assert_allclose(ghi_vis, self.subject.solar_ghi_vis)
+        npt.assert_allclose(k, self.subject.solar_k)
+        npt.assert_allclose(dhi, self.subject.solar_dhi)
+        npt.assert_allclose(dni, self.subject.solar_dni)
+
+    @patch("smrf.distribute.solar_hrrr.mask_for_shade")
+    def test_components_below_min_value(self, shade_mock):
+        """
+        When both VBDSF/VDDSF are small (e.g., 1e-4) and below min_value,
+        they are set to 0, giving ghi_vis of 0 and zeroing the pixel even
+        though DSWRF is above min_value. The ghi_vis guard prevents a 0/0
+        in the k calculation, so no NaN/inf values are produced.
+        NB: data are dummy test values, not necessarily physically meaningful.
+        """
+        shade_mock.return_value = ILLUMINATION_MOCK, np.array([1, 1])
+
+        data = {
+            SolarHRRR.DSWRF: np.full_like(SKY_VIEW_FACTOR_MOCK, 19.0),
+            SolarHRRR.VBDSF: np.full_like(SKY_VIEW_FACTOR_MOCK, 1e-4),
+            SolarHRRR.VDDSF: np.full_like(SKY_VIEW_FACTOR_MOCK, 1e-4),
+        }
+
+        self.subject.distribute(
+            DATETIME,
+            data,
             COS_Z,
             AZIMUTH,
             ILLUMINATION_MOCK,
