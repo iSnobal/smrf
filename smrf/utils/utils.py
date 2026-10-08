@@ -420,7 +420,9 @@ def grid_interpolate(values, vtx, wts, shp, fill_value=np.nan):
         ret:    interpolated values
     """
     ret = np.einsum('nj,nj->n', np.take(values, vtx), wts)
-    ret[np.any(wts < 0, axis=1)] = fill_value
+    # Tolerance so points on the edge of the triangulation are not flagged
+    # as outside because of floating point error in the weights
+    ret[np.any(wts < -1e-10, axis=1)] = fill_value
 
     ret = ret.reshape(shp[0], shp[1])
 

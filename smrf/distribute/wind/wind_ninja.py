@@ -194,7 +194,7 @@ class WindNinjaModel:
             self.wts, self.X.shape)
 
         # There will be NaN's around the edge, handle those first
-        if self.model_dxdy != self.wind_ninja_dxy:
+        if np.any(np.isnan(g_vel)):
             self.wind_distribution._logger.debug(
                 "Wind speed from WindNinja has NaN, filling"
             )
@@ -262,7 +262,9 @@ class WindNinjaModel:
     def fill_nan(data, x):
         """
         Function to use with np.apply_along_axis to fill NaN values in a
-        1-d array. Uses scipy interp1d to fill the missing values.
+        1-d array. Uses scipy interp1d to fill the missing values at the
+        start and end of the array. NaN values between valid values are
+        left unchanged.
 
         Parameters
         ----------
@@ -282,7 +284,19 @@ class WindNinjaModel:
         if np.sum(nan_mask) == data.shape[0]:
             return data
 
-        values = data[~nan_mask]
-        x_values = x[~nan_mask]
-        func = interp1d(x_values, values, fill_value='extrapolate')
-        return func(x)
+        valid = np.flatnonzero(~nan_mask)
+        # Only the leading and trailing NaN's are edge values, NaN's
+        # between valid values are not filled
+        edge_mask = np.zeros_like(nan_mask)
+        edge_mask[:valid[0]] = True
+        edge_mask[valid[-1] + 1:] = True
+
+        if valid.size < 2 or not np.any(edge_mask):
+            return data
+
+        func = interp1d(
+            x[valid], data[valid], fill_value='extrapolate'
+        )
+        filled = data.copy()
+        filled[edge_mask] = func(x[edge_mask])
+        return filled
