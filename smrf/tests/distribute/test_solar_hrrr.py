@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import numpy.testing as npt
@@ -113,6 +113,42 @@ class TestSolarHRRR(unittest.TestCase):
         vegetation_mock.solar_veg_diffuse.assert_called_once_with(
             diffuse, self.subject.veg_tau
         )
+
+    @patch("smrf.distribute.variable_base.ReadNetCDF")
+    @patch("smrf.distribute.solar_hrrr.mask_for_shade")
+    def test_net_solar_broadband_albedo_after_sun_down(
+        self, shade_mock, mock_read_netcdf
+    ):
+        shade_mock.return_value = ILLUMINATION_MOCK, np.array([1, 1])
+
+        broadband = np.array([[0.8, 0.5]], dtype=np.float32)
+        mock_source = MagicMock()
+        mock_source.variables = ["albedo"]
+        mock_source.load.return_value = broadband
+        mock_read_netcdf.return_value = mock_source
+
+        config = {
+            "time": {"start_date": "2025-10-01 00:00", "time_zone": "utc"},
+            "albedo": {"decay_method": None, "source_files": "path/to/files"},
+            "solar": {"correct_veg": False},
+        }
+        albedo = Albedo(config=config, topo=topo_mock())
+        albedo.initialize(pd.DataFrame())
+
+        # A night step precedes the first daylight step, like at the start of a run
+        storm_days = np.zeros_like(ILLUMINATION_MOCK)
+        albedo.distribute(DATETIME, None, storm_days)
+        albedo.distribute(DATETIME, COS_Z, storm_days)
+
+        self.subject.distribute(
+            DATETIME, DATA_MOCK, COS_Z, AZIMUTH, ILLUMINATION_MOCK, albedo
+        )
+
+        # Net solar is reduced by the broadband albedo and not passed through
+        npt.assert_allclose(
+            self.subject.net_solar, self.subject.hrrr_solar * (1 - broadband)
+        )
+        self.assertTrue(np.all(self.subject.net_solar < self.subject.hrrr_solar))
 
     def test_distribute_sun_is_down(self):
         self.subject.distribute(
