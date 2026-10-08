@@ -194,7 +194,7 @@ class WindNinjaModel:
             self.wts, self.X.shape)
 
         # There will be NaN's around the edge, handle those first
-        if self.model_dxdy != self.wind_ninja_dxy:
+        if np.any(np.isnan(g_vel)):
             self.wind_distribution._logger.debug(
                 "Wind speed from WindNinja has NaN, filling"
             )
