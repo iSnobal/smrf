@@ -47,6 +47,25 @@ class TestModelFramework(SMRFTestCase):
     def test_assert_time_steps(self):
         self.assertEqual(self.smrf.time_steps, 5)
 
+    def test_albedo_decay_dates_same_water_year(self):
+        config = self.base_config_copy()
+        config.cfg["albedo"]["decay_method"] = "date_method"
+        config.cfg["albedo"]["decay_start"] = "1998-05-01"
+        config.cfg["albedo"]["decay_end"] = "1998-08-01"
+        config = cast_all_variables(config, config.mcfg)
+
+        SMRF(config)
+
+    def test_albedo_decay_dates_different_water_year(self):
+        config = self.base_config_copy()
+        config.cfg["albedo"]["decay_method"] = "date_method"
+        config.cfg["albedo"]["decay_start"] = "1997-05-01"
+        config.cfg["albedo"]["decay_end"] = "1998-08-01"
+        config = cast_all_variables(config, config.mcfg)
+
+        with self.assertRaises(ValueError):
+            SMRF(config)
+
     @patch("smrf.framework.model_framework.SMRF.output")
     @patch("smrf.framework.model_framework.SMRF.distribute_single_timestep")
     def test_distribute_data(self, mock_single_timestep, mock_output):
