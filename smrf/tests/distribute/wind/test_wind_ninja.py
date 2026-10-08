@@ -49,10 +49,13 @@ class TestWindNinja(SMRFTestCaseLakes):
 
         config = self.base_config_copy().cfg
         config["wind"]["wind_ninja_dxdy"] = 50
-        _, wn, g_vel, _ = self.setup_wind_ninja(config)
+        topo, wn, g_vel, g_ang = self.setup_wind_ninja(config)
 
         # The implied assumption is that this does not throw an
         # exception when running
         self.assertTrue(np.all(np.diff(wn.windninja_x) > 0))
         self.assertTrue(np.all(np.diff(wn.windninja_y) < 0))
         self.assertTrue(np.sum(np.isnan(g_vel)) == 0)
+        self.assertTrue(np.sum(np.isnan(g_ang)) == 0)
+        self.assertEqual(g_vel.shape, topo.dem.shape)
+        self.assertEqual(g_ang.shape, topo.dem.shape)
