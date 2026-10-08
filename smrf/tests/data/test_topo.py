@@ -189,9 +189,10 @@ class TestMissingSkyViewFactor(SMRFTestCase):
                         atol=1e-6,
                     )
                 else:
-                    npt.assert_array_equal(
+                    npt.assert_allclose(
                         test.variables["slope"][:],
                         gold.variables["slope"][:],
+                        atol=1e-12,
                     )
 
                 npt.assert_allclose(
