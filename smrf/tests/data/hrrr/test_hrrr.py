@@ -86,8 +86,8 @@ class TestHrrrSolar(SMRFTestCaseLakes):
             with nc.Dataset(self.output_dir.joinpath("net_solar.nc")) as test:
                 self.compare_file_variables(gold, test)
 
-        self.compare_netcdf_files(self.gold_dir.joinpath("hrrr_solar.nc"))
-        self.compare_netcdf_files(self.gold_dir.joinpath("solar_k.nc"))
+        self.compare_netcdf_files("hrrr_solar.nc")
+        self.compare_netcdf_files("solar_k.nc")
 
     def test_load_with_vegetation(self):
         config = self.base_config_copy()
