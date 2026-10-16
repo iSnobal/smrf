@@ -99,6 +99,32 @@ class TestAlbedo(SMRFConfig, unittest.TestCase):
         mock_source.load.assert_called_with("albedo", TIMESTEP)
 
     @patch("smrf.distribute.variable_base.ReadNetCDF")
+    def test_distribute_file_broadband_after_sun_down(self, mock_read_netcdf):
+        # A night step must not set vis/ir values, as these take priority over the
+        # broadband albedo in the net solar calculation
+        values = np.array([0.9, 0.5])
+        mock_source = MagicMock()
+        mock_source.variables = ["albedo"]
+        mock_source.load.return_value = values
+        mock_read_netcdf.return_value = mock_source
+
+        config = self._copy_config(CONFIG)
+        config["albedo"]["source_files"] = "path/to/files"
+        subject = Albedo(config, topo_mock())
+        subject.initialize(pd.DataFrame())
+
+        # Sun is down
+        subject.distribute(TIMESTEP, None, STORM_DAYS)
+        self.assertIsNone(subject.albedo_vis)
+        self.assertIsNone(subject.albedo_ir)
+
+        # Sun is up
+        subject.distribute(TIMESTEP, COS_Z, STORM_DAYS)
+        npt.assert_equal(subject.albedo, values)
+        self.assertIsNone(subject.albedo_vis)
+        self.assertIsNone(subject.albedo_ir)
+
+    @patch("smrf.distribute.variable_base.ReadNetCDF")
     def test_distribute_file_vis_ir(self, mock_read_netcdf):
         values_vis = np.array([0.8, 0.7])
         values_ir = np.array([0.9, 0.5])

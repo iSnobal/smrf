@@ -194,8 +194,8 @@ class Albedo(VariableBase):
                 self.albedo_ir = utils.set_min_max(alb_ir, self.min, self.max)
 
         else:
-            self.albedo_vis = np.zeros(storm_day.shape)
-            self.albedo_ir = np.zeros(storm_day.shape)
+            self.albedo_vis = None
+            self.albedo_ir = None
 
     def date_method(
         self,
