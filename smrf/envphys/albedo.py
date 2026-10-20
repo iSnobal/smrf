@@ -33,14 +33,18 @@ def growth(t):
 
 
 def albedo(
-    telapsed: npt.NDArray, cosz: npt.NDArray, gsize: float, maxgsz: float, dirt=2
+    telapsed: npt.NDArray,
+    illumination_angles: npt.NDArray,
+    gsize: float,
+    maxgsz: float,
+    dirt=2,
 ) -> Tuple[npt.NDArray, npt.NDArray]:
     """
     Calculate the albedo, adapted from IPW function albedo
 
     Args:
         telapsed: Time since last snow storm (decimal days)
-        cosz:     Cosine local solar illumination angle matrix
+        illumination_angles: Cosine local solar illumination angle matrix
         gsize:    Grain size is effective grain radius of snow after last storm (mu m)
         maxgsz:   Max grain size is maximum grain radius expected from grain growth (mu m)
         dirt:     Dirt is effective contamination for adjustment to visible albedo
@@ -94,9 +98,9 @@ def albedo(
     alb_ir = alb_ir_1
 
     # correct if the sun is up
-    ind = cosz > 0.0
-    alb_v[ind] += dzv[ind] * (1.0 - cosz[ind])
-    alb_ir[ind] += dzir[ind] * (1.0 - cosz[ind])
+    ind = illumination_angles > 0.0
+    alb_v[ind] += dzv[ind] * (1.0 - illumination_angles[ind])
+    alb_ir[ind] += dzir[ind] * (1.0 - illumination_angles[ind])
 
     return alb_v, alb_ir
 
