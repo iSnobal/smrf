@@ -137,8 +137,8 @@ class TestSolarHRRR(unittest.TestCase):
 
         # A night step precedes the first daylight step, like at the start of a run
         storm_days = np.zeros_like(ILLUMINATION_MOCK)
-        albedo.distribute(DATETIME, None, storm_days)
-        albedo.distribute(DATETIME, COS_Z, storm_days)
+        albedo.distribute(DATETIME, 0.0, None, storm_days)
+        albedo.distribute(DATETIME, COS_Z, ILLUMINATION_MOCK, storm_days)
 
         self.subject.distribute(
             DATETIME, DATA_MOCK, COS_Z, AZIMUTH, ILLUMINATION_MOCK, albedo

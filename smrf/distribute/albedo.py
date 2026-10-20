@@ -56,10 +56,7 @@ class Albedo(VariableBase):
 
         # Variables for calculations of external files
         # Note that the 'albedo' attribute is set by the VariableBase class
-        self.albedo_vis = None
-        self.albedo_ir = None
-        self.albedo_direct = None
-        self.albedo_diffuse = None
+        self.reset_albedo_values()
         self.burn_mask = None
 
         # Get the veg values for the decay methods. Date method uses self.veg
@@ -93,6 +90,19 @@ class Albedo(VariableBase):
         ):
             self._logger.warning("No decay method is set!")
 
+    def reset_albedo_values(self):
+        """
+        Reset the spectral albedo values to None. Called on init and when
+        the sun is down, so values of previous time step aren't carried over.
+
+        Sets: :py:attr:`albedo_vis`, :py:attr:`albedo_ir`,
+        :py:attr:`albedo_direct`, :py:attr:`albedo_diffuse`
+        """
+        self.albedo_vis = None
+        self.albedo_ir = None
+        self.albedo_direct = None
+        self.albedo_diffuse = None
+
     def load_burn_mask(self):
         """
         Load a post fire burn mask from the topo file. If none is set all values
@@ -107,7 +117,11 @@ class Albedo(VariableBase):
             self.burn_mask = self.topo.burn_mask
 
     def distribute(
-        self, current_time_step: datetime, cos_z: npt.NDArray, storm_day: npt.NDArray
+        self,
+        current_time_step: datetime,
+        cos_z: float,
+        illumination_angles: npt.NDArray,
+        storm_day: npt.NDArray,
     ):
         """
         Calculate or load snow albedo for given time step. When calculated, the configured
@@ -127,13 +141,15 @@ class Albedo(VariableBase):
 
         Args:
             current_time_step: Current time step in datetime object
-            cos_z: Illumination angle for the current time step
+            cos_z: Cosine of the solar zenith angle for the basin
+            illumination_angles: Illumination angles for the current time step,
+                from :py:mod:`topocalc.illumination_angle`
             storm_day: Decimal days since it last snowed at a grid cell
         """
         self._logger.debug("%s Distributing albedo" % current_time_step)
 
         # Only calculated when the sun is up
-        if cos_z is not None:
+        if cos_z > 0:
             if self.source_files is not None:
                 # For files with VIS and IR values (typically a previous run)
                 if (
@@ -170,7 +186,7 @@ class Albedo(VariableBase):
             else:
                 alb_v, alb_ir = albedo.albedo(
                     storm_day,
-                    cos_z,
+                    illumination_angles,
                     self.config["grain_size"],
                     self.config["max_grain"],
                     self.config["dirt"],
@@ -194,8 +210,7 @@ class Albedo(VariableBase):
                 self.albedo_ir = utils.set_min_max(alb_ir, self.min, self.max)
 
         else:
-            self.albedo_vis = None
-            self.albedo_ir = None
+            self.reset_albedo_values()
 
     def date_method(
         self,
