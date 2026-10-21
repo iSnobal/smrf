@@ -67,7 +67,7 @@ class TestAlbedo(SMRFConfig, unittest.TestCase):
         self.subject.albedo_vis = self.subject.albedo_ir = ALBEDO_VIS
         self.subject.albedo_direct = self.subject.albedo_diffuse = ALBEDO_IR
 
-        self.subject.reset_albedo_values()
+        self.subject.init_or_reset_attributes()
 
         self.assertIsNone(self.subject.albedo_vis)
         self.assertIsNone(self.subject.albedo_ir)

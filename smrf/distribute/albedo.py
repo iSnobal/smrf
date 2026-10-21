@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Tuple
 
 import numpy as np
 import numpy.typing as npt
@@ -19,6 +18,13 @@ class Albedo(VariableBase):
     basis and is based on where there is significant accumulated distributed
     precipitation. This allows for storms to only affect a small part of the
     basin and have the albedo decay at different rates for each pixel.
+
+    List of available instance variables:
+     * :py:attr:`albedo`
+     * :py:attr:`albedo_ir`
+     * :py:attr:`albedo_vis`
+     * :py:attr:`albedo_direct`
+     * :py:attr:`albedo_diffuse`
     """
 
     DISTRIBUTION_KEY = "albedo"
@@ -54,9 +60,7 @@ class Albedo(VariableBase):
     def __init__(self, config: dict, topo):
         super().__init__(config, topo)
 
-        # Variables for calculations of external files
-        # Note that the 'albedo' attribute is set by the VariableBase class
-        self.reset_albedo_values()
+        self.init_or_reset_attributes()
         self.burn_mask = None
 
         # Get the veg values for the decay methods. Date method uses self.veg
@@ -64,7 +68,7 @@ class Albedo(VariableBase):
         for d in ["veg", "litter"]:
             v = {}
 
-            matching = [s for s in self.config.keys() if "{0}_".format(d) in s]
+            matching = [s for s in self.config.keys() if f"{d}_" in s]
             for m in matching:
                 ms = m.split("_")
                 v[ms[-1]] = self.config[m]
@@ -72,13 +76,12 @@ class Albedo(VariableBase):
             # Create self.litter,self.veg
             setattr(self, d, v)
 
-    def initialize(self, metadata):
+    def initialize(self, metadata) -> None:
         """
-        Initialize the distribution, calls ImageData._initialize()
+        Initialize the distribution and load auxiliary data.
 
         Args:
             metadata: data dataframe containing the station data
-
         """
         super().initialize(metadata)
 
@@ -90,14 +93,17 @@ class Albedo(VariableBase):
         ):
             self._logger.warning("No decay method is set!")
 
-    def reset_albedo_values(self):
+    def init_or_reset_attributes(self) -> None:
         """
-        Reset the spectral albedo values to None. Called on init and when
-        the sun is down, so values of previous time step aren't carried over.
+        Iniialize or reset the class instance attributes to None.
 
-        Sets: :py:attr:`albedo_vis`, :py:attr:`albedo_ir`,
-        :py:attr:`albedo_direct`, :py:attr:`albedo_diffuse`
+        Sets the following instance attributes:
+            * :py:attr:`albedo_vis`
+            * :py:attr:`albedo_ir`
+            * :py:attr:`albedo_direct`
+            * :py:attr:`albedo_diffuse`
         """
+        # Note:  The 'albedo' attribute is set by the VariableBase class
         self.albedo_vis = None
         self.albedo_ir = None
         self.albedo_direct = None
@@ -132,16 +138,10 @@ class Albedo(VariableBase):
         Instance variables are set as part of this step depending on the chosen method
         to generate albedo values. These will be later accessible to steps like the
         net solar calculation.
-        List of possible instance variables:
-         * :py:attr:`albedo`
-         * :py:attr:`albedo_ir`
-         * :py:attr:`albedo_vis`
-         * :py:attr:`albedo_direct`
-         * :py:attr:`albedo_diffuse`
 
         Args:
             current_time_step: Current time step in datetime object
-            cos_z: Cosine of the solar zenith angle for the basin
+            cos_z: Cosine of the solar zenith angle for the basin at current time step
             illumination_angles: Illumination angles for the current time step,
                 from :py:mod:`topocalc.illumination_angle`
             storm_day: Decimal days since it last snowed at a grid cell
@@ -210,7 +210,8 @@ class Albedo(VariableBase):
                 self.albedo_ir = utils.set_min_max(alb_ir, self.min, self.max)
 
         else:
-            self.reset_albedo_values()
+            # Ensure that no previous values are carried over to the next hour.
+            self.init_or_reset_attributes()
 
     def date_method(
         self,
@@ -219,7 +220,7 @@ class Albedo(VariableBase):
         current_hours: float,
         decay_hours: float,
         storm_day: npt.NDArray,
-    ) -> Tuple[npt.NDArray, npt.NDArray]:
+    ) -> tuple[npt.NDArray, npt.NDArray]:
         """
         Apply a power law decay to the albedo and an optional post fire decay if configured.
         The post fire decay uses the initial albedo value of the time decay method after
@@ -276,8 +277,7 @@ class Albedo(VariableBase):
 
         return alb_v, alb_ir
 
-
-    def decay_window(self, current_timestep: datetime) -> Tuple[float, float]:
+    def decay_window(self, current_timestep: datetime) -> tuple[float, float]:
         """
         Determine if the current time is within the decay window.
         When the window has not been reached, a return value of -1 is returned.
