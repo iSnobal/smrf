@@ -517,6 +517,7 @@ class SMRF:
             # Albedo
             self.distribute[Albedo.DISTRIBUTION_KEY].distribute(
                 timestep,
+                cos_z,
                 illumination_angles,
                 self.distribute[Precipitation.DISTRIBUTION_KEY].storm_days,
             )

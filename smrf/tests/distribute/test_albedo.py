@@ -35,7 +35,8 @@ DECAY_TIME = pd.to_datetime("2025-04-30")
 NO_DECAY_TIME = pd.to_datetime("2025-03-01")
 
 STORM_DAYS = np.array([[0.0, 1.042], [1.0, 0.0]])
-COS_Z = np.array([[10.0, 10.0], [10.0, 10.0]])
+COS_Z = 0.5
+ILLUMINATION_ANGLES = np.array([[0.9, 0.8], [0.7, 0.6]])
 
 DATA = MagicMock()
 
@@ -61,6 +62,24 @@ class TestAlbedo(SMRFConfig, unittest.TestCase):
         # Check inheritance to variable base
         self.assertEqual(TIMESTEP.strftime("%Y%m%d"), subject.start_date)
         self.assertEqual(TIMEZONE, subject.time_zone)
+
+    def test_reset_albedo_values(self):
+        self.subject.albedo_vis = self.subject.albedo_ir = ALBEDO_VIS
+        self.subject.albedo_direct = self.subject.albedo_diffuse = ALBEDO_IR
+
+        self.subject.init_or_reset_attributes()
+
+        self.assertIsNone(self.subject.albedo_vis)
+        self.assertIsNone(self.subject.albedo_ir)
+        self.assertIsNone(self.subject.albedo_direct)
+        self.assertIsNone(self.subject.albedo_diffuse)
+
+    def test_distribute_sun_is_down_resets_values(self):
+        self.subject.albedo_direct = ALBEDO_VIS
+
+        self.subject.distribute(TIMESTEP, 0.0, None, STORM_DAYS)
+
+        self.assertIsNone(self.subject.albedo_direct)
 
     def test_load_burn_mask_with_defined_mask(self):
         self.subject.topo.burn_mask = np.array([[1, 0], [0, 1]])
@@ -93,10 +112,36 @@ class TestAlbedo(SMRFConfig, unittest.TestCase):
         subject = Albedo(config, topo_mock())
         subject.initialize(pd.DataFrame())
 
-        subject.distribute(TIMESTEP, COS_Z, STORM_DAYS)
+        subject.distribute(TIMESTEP, COS_Z, ILLUMINATION_ANGLES, STORM_DAYS)
 
         npt.assert_equal(subject.albedo, values)
         mock_source.load.assert_called_with("albedo", TIMESTEP)
+
+    @patch("smrf.distribute.variable_base.ReadNetCDF")
+    def test_distribute_file_broadband_after_sun_down(self, mock_read_netcdf):
+        # A night step must not set vis/ir values, as these take priority over the
+        # broadband albedo in the net solar calculation
+        values = np.array([0.9, 0.5])
+        mock_source = MagicMock()
+        mock_source.variables = ["albedo"]
+        mock_source.load.return_value = values
+        mock_read_netcdf.return_value = mock_source
+
+        config = self._copy_config(CONFIG)
+        config["albedo"]["source_files"] = "path/to/files"
+        subject = Albedo(config, topo_mock())
+        subject.initialize(pd.DataFrame())
+
+        # Sun is down
+        subject.distribute(TIMESTEP, 0.0, None, STORM_DAYS)
+        self.assertIsNone(subject.albedo_vis)
+        self.assertIsNone(subject.albedo_ir)
+
+        # Sun is up
+        subject.distribute(TIMESTEP, COS_Z, ILLUMINATION_ANGLES, STORM_DAYS)
+        npt.assert_equal(subject.albedo, values)
+        self.assertIsNone(subject.albedo_vis)
+        self.assertIsNone(subject.albedo_ir)
 
     @patch("smrf.distribute.variable_base.ReadNetCDF")
     def test_distribute_file_vis_ir(self, mock_read_netcdf):
@@ -112,7 +157,7 @@ class TestAlbedo(SMRFConfig, unittest.TestCase):
         subject = Albedo(config, topo_mock())
         subject.initialize(pd.DataFrame())
 
-        subject.distribute(TIMESTEP, COS_Z, STORM_DAYS)
+        subject.distribute(TIMESTEP, COS_Z, ILLUMINATION_ANGLES, STORM_DAYS)
 
         np.testing.assert_array_equal(subject.albedo_vis, values_vis)
         np.testing.assert_array_equal(subject.albedo_ir, values_ir)
@@ -136,7 +181,7 @@ class TestAlbedo(SMRFConfig, unittest.TestCase):
         subject = Albedo(config, topo_mock())
         subject.initialize(pd.DataFrame())
 
-        subject.distribute(TIMESTEP, COS_Z, STORM_DAYS)
+        subject.distribute(TIMESTEP, COS_Z, ILLUMINATION_ANGLES, STORM_DAYS)
 
         np.testing.assert_array_equal(subject.albedo_direct, values_direct)
         np.testing.assert_array_equal(subject.albedo_diffuse, values_diffuse)
@@ -154,7 +199,7 @@ class TestAlbedo(SMRFConfig, unittest.TestCase):
         date_albedo_ir = ALBEDO_IR - 0.2
         mock_date_method.return_value = (date_albedo_vis, date_albedo_ir)
 
-        self.subject.distribute(TIMESTEP, COS_Z, STORM_DAYS)
+        self.subject.distribute(TIMESTEP, COS_Z, ILLUMINATION_ANGLES, STORM_DAYS)
 
         mock_albedo_calc.assert_called_once()
         mock_date_method.assert_called_once()
@@ -176,12 +221,12 @@ class TestAlbedo(SMRFConfig, unittest.TestCase):
     def test_distribute_date_method_not_in_window(
         self, date_decay_method, envphys_albedo
     ):
-        self.subject.distribute(NO_DECAY_TIME, COS_Z, STORM_DAYS)
+        self.subject.distribute(NO_DECAY_TIME, COS_Z, ILLUMINATION_ANGLES, STORM_DAYS)
 
         envphys_albedo.assert_called()
         envphys_albedo.assert_called_with(
             STORM_DAYS,
-            COS_Z,
+            ILLUMINATION_ANGLES,
             CONFIG["albedo"]["grain_size"],
             CONFIG["albedo"]["max_grain"],
             CONFIG["albedo"]["dirt"],
