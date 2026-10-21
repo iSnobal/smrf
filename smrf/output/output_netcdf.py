@@ -19,7 +19,7 @@ class OutputNetcdf:
     type = "netcdf"
     FILE_EXTENSION = ".nc"
     fmt = "%Y-%m-%d %H:%M:%S"
-    COMPRESSION = dict(compression="zlib", complevel=4)
+    COMPRESSION = {"compression": "zlib", "complevel": 4}
     DIMENSIONS = ("time", "y", "x")
     LEAST_SIGNIFICANT_DIGITS = 4
 
@@ -64,7 +64,7 @@ class OutputNetcdf:
         return self._out_location
 
     @out_location.setter
-    def out_location(self, path: str) -> Path:
+    def out_location(self, path: str):
         self._out_location = Path(path)
 
     @property
@@ -87,17 +87,13 @@ class OutputNetcdf:
         return self.out_location.joinpath(file_name + self.FILE_EXTENSION).as_posix()
 
     def append_to_existing_file(self, file_name):
-        self._logger.warning("Opening {}, data may be overwritten!".format(file_name))
+        self._logger.warning(f"Opening {file_name}, data may be overwritten!")
 
         # open in append mode
         with nc.Dataset(file_name, "a") as file:
-            setattr(
-                file,
-                "last_modified",
-                "[{}] Data added or updated".format(self.create_time),
-            )
+            file.last_modified = f"[{self.create_time}] Data added or updated"
 
-            if "projection" not in file.variables.keys():
+            if "projection" not in file.variables:
                 file = add_proj(file, map_meta=self.map_meta)
 
             file.setncattr_string("SMRF_version", __version__)
@@ -111,7 +107,7 @@ class OutputNetcdf:
         :param module:      ::module:smrf.distribute: Instance that produced the output data
         :param time:        Current time when file was created
         """
-        self._logger.debug("Creating %s" % file_name)
+        self._logger.debug(f"Creating {file_name}")
 
         with nc.Dataset(file_name, "w", format="NETCDF4", clobber=True) as new_file:
             # Dimensions
@@ -160,12 +156,12 @@ class OutputNetcdf:
             new_file.setncattr_string("dateCreated", self.create_time)
             new_file.setncattr_string(
                 "title",
-                "Distributed {0} data from SMRF".format(
+                "Distributed {} data from SMRF".format(
                     module.OUTPUT_VARIABLES[nc_variable]["long_name"]
                 ),
             )
             new_file.setncattr_string(
-                "history", "[{}] Create netCDF4 file".format(self.create_time)
+                "history", f"[{self.create_time}] Create netCDF4 file"
             )
             new_file = add_proj(new_file, map_meta=self.map_meta)
 
@@ -185,9 +181,7 @@ class OutputNetcdf:
             # Get the data from the distribution class
             data = getattr(module, nc_variable)
             self._logger.debug(
-                "{0} Writing variable {1} to from module {2} netCDF".format(
-                    date_time, nc_variable, str(module)
-                )
+                f"{date_time} Writing variable {nc_variable} to from module {module!s} netCDF"
             )
 
             if data is None:
