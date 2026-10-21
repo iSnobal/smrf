@@ -5,10 +5,10 @@ from pathlib import Path
 
 import netCDF4 as nc
 import numpy as np
-from spatialnc.proj import add_proj, add_proj_from_file
 
 from smrf import __version__
 from smrf.data.load_topo import Topo
+from smrf.utils.spatialnc import add_proj, add_proj_from_file
 
 
 class OutputNetcdf:
