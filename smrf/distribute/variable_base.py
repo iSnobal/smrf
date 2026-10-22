@@ -100,8 +100,8 @@ class VariableBase:
             if self.config.get("stations", None) is not None:
                 self.stations = sorted(self.config["stations"])
 
-            self.min = self.config.get("min", -np.Inf)
-            self.max = self.config.get("max", np.Inf)
+            self.min = self.config.get("min", -np.inf)
+            self.max = self.config.get("max", np.inf)
 
         self._logger = logging.getLogger(self.__class__.__module__)
         self._logger.debug(
