@@ -187,16 +187,14 @@ class FileLoader:
         dataframe = {}
 
         for variable in list(data.data_vars):
-            # convert from a row multi-index to a column multi-index
-            df = data[variable].to_dataframe().unstack(level=[1, 2])
+            values, rows, cols = self._grid_values(data[variable])
+            has_data = ~np.isnan(values).all(axis=0)
 
-            df = df.loc[:, variable]
-
-            df.columns = self.format_column_names(df)
-            df.index.rename("date_time", inplace=True)
-
-            df.dropna(axis=1, how="all", inplace=True)
-            df.sort_index(axis=0, inplace=True)
+            df = pd.DataFrame(
+                values[:, has_data],
+                index=pd.DatetimeIndex(data[variable].time.values, name="date_time"),
+                columns=self._grid_names(rows[has_data], cols[has_data]),
+            )
             dataframe[variable] = df
 
             # TODO - Move to the corresponding variable distribution class
@@ -248,36 +246,51 @@ class FileLoader:
             )
         data = file_loader.crop_to_bbox(data)
 
-        df = data[self.HRRR_METADATA_NAME].to_dataframe().unstack(level=[1, 2])
-
-        metadata = []
+        metadata_values = {}
         for mm in self.METADATA_VARIABLES:
-            df_tmp = df[mm]
-            df_tmp.columns = self.format_column_names(df_tmp)
-            df_tmp = df_tmp.iloc[0]
-            df_tmp.name = mm
-            metadata.append(df_tmp)
+            values, rows, cols = self._grid_values(data[mm])
+            metadata_values[mm] = values[0]
 
-        metadata = pd.concat(metadata, axis=1).dropna(subset=[self.HRRR_METADATA_NAME])
-        metadata = metadata.apply(
-            FileLoader.apply_utm, args=(utm_zone_number,), axis=1
-        )
+        metadata = pd.DataFrame(
+            metadata_values,
+            index=self._grid_names(rows, cols),
+        ).dropna(subset=[self.HRRR_METADATA_NAME])
+        metadata = metadata.apply(FileLoader.apply_utm, args=(utm_zone_number,), axis=1)
 
         return metadata
 
     @staticmethod
-    def format_column_names(dataframe):
+    def _grid_values(array: xr.DataArray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
-        Make new names for the columns as grid_y_x
+        Flatten the y and x dimensions of a DataArray into one grid dimension.
+        Any leading dimension (time) is kept as the row dimension.
 
-        :param dataframe:
-        :return: Array - New column names including the y and x GRIB pixel
-                         index. Example: grid_0_1 for y at 0 and x at 1
+        Args:
+            array: DataArray with y and x as its last two dimensions
+
+        Returns:
+            (values, rows, cols) where values is a 2D array of shape
+            (time, y * x), and rows and cols give the y and x index of
+            each grid cell
         """
-        return [
-            "grid_{c[0]}_{c[1]}".format(c=col)
-            for col in dataframe.columns.to_flat_index()
-        ]
+        array = array.transpose(..., "y", "x")
+        rows, cols = np.indices(array.shape[-2:])
+        values = array.values.reshape(-1, rows.size)
+        return values, rows.ravel(), cols.ravel()
+
+    @staticmethod
+    def _grid_names(rows: np.ndarray, cols: np.ndarray) -> list[str]:
+        """
+        Build a column name for each grid cell from its y and x index
+
+        Args:
+            rows: y index of each grid cell
+            cols: x index of each grid cell
+
+        Returns:
+            List of names as grid_{y}_{x}, e.g. grid_0_1 for y=0 and x=1
+        """
+        return [f"grid_{row}_{col}" for row, col in zip(rows, cols)]
 
     @staticmethod
     def apply_utm(dataframe, utm_zone_number):
