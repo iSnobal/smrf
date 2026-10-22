@@ -1,6 +1,8 @@
 import unittest
 from datetime import datetime
 
+import numpy as np
+
 from smrf.envphys import sunang
 from smrf.envphys.solar.irradiance import direct_solar_irradiance
 from smrf.envphys.solar.model import model_solar
@@ -20,7 +22,7 @@ class TestModelSolar(unittest.TestCase):
         self.assertGreater(cosz, 0.0)
 
         expected = twostream(
-            cosz, direct_solar_irradiance(date_time, [0.28, 2.8]), tau=0.3
+            cosz, direct_solar_irradiance(date_time, [0.28, 2.8]), tau=np.array([0.3])
         )["irradiance_at_bottom"][0]
 
         result = model_solar(date_time, BASIN_LAT, BASIN_LON, tau=0.3)

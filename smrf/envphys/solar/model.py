@@ -1,5 +1,7 @@
 from datetime import datetime
 
+import numpy as np
+
 from smrf.envphys import sunang
 from smrf.envphys.solar.irradiance import direct_solar_irradiance
 from smrf.envphys.solar.twostream import twostream
@@ -27,7 +29,7 @@ def model_solar(date_time: datetime, lat: float, lon: float, tau=0.2) -> float:
     solar_irradiance = direct_solar_irradiance(date_time, [0.28, 2.8])
 
     # calculate the two stream model value
-    two_stream = twostream(cos_z, solar_irradiance, tau=tau)
+    two_stream = twostream(cos_z, solar_irradiance, tau=np.array([tau]))
 
     # Each key is an array with length 1
     return two_stream["irradiance_at_bottom"][0]

@@ -5,7 +5,7 @@ import numpy.typing as npt
 def twostream(
     cos_z: float,
     S0: float,
-    tau: float | npt.NDArray[np.float64] = 0.2,
+    tau: npt.NDArray[np.float64],
     omega: float = 0.85,
     g: float = 0.3,
     R0: float = 0.5,
@@ -25,7 +25,7 @@ def twostream(
         S0: The direct beam irradiance is S0 This is usually the solar
             constant for the specified wavelength band, on the specified date,
             at the top of the atmosphere, from radiation.solar.
-        tau: The optical depth is tau.  0 implies an infinite optical depth.
+        tau: The optical depth.  0 implies an infinite optical depth.
         omega: The single-scattering albedo
         g: The asymmetry factor is g.
         R0: The reflectance of the substrate is R0.  If R0 is negative, it
@@ -40,9 +40,6 @@ def twostream(
         R[4] - total irradiance at bottom
         R[5] - direct irradiance normal to beam
     """
-
-    if isinstance(tau, float):
-        tau = np.array([tau])
 
     if cos_z <= 0:
         zeros = np.zeros_like(tau, dtype=float)
