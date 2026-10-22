@@ -5,7 +5,10 @@ from smrf.envphys.solar.model import model_solar
 
 MIN_SOLAR = 50
 
-def cf_cloud(beam, diffuse, cf):
+
+def cf_cloud(
+    beam: np.ndarray, diffuse: np.ndarray, cf: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Correct beam and diffuse irradiance for cloud attenuation at a single
     time, using input clear-sky global and diffuse radiation calculations
@@ -17,10 +20,8 @@ def cf_cloud(beam, diffuse, cf):
         cf: cloud attenuation factor - actual irradiance / clear-sky irradiance
 
     Returns:
-        c_grad: cloud corrected gobal irradiance
+        c_grad: cloud corrected global irradiance
         c_drad: cloud corrected diffuse irradiance
-
-    20150610 Scott Havens - adapted from cloudcalc.c
     """
 
     # define some constants
@@ -34,12 +35,12 @@ def cf_cloud(beam, diffuse, cf):
     c_brad = c_grad * bf_c
     c_drad = c_grad - c_brad
 
-    # extensive cloud attenuation, no beam
+    # heavy cloud attenuation, no beam
     ind = cf <= CRAT1
     c_brad[ind] = 0
     c_drad[ind] = c_grad[ind]
 
-    # minimal cloud attenution, no beam ratio reduction
+    # minimal cloud attenuation, no beam ratio reduction
     ind = cf > CRAT2
     c_drad[ind] = diffuse[ind] * cf[ind]
     c_brad[ind] = c_grad[ind] - c_drad[ind]
