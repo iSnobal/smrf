@@ -19,16 +19,16 @@ class Grid:
 
     def __init__(
         self,
-        config,
-        mx,
-        my,
-        grid_x,
-        grid_y,
-        mz=None,
-        grid_z=None,
-        mask=None,
-        metadata=None,
-    ):
+        config: dict,
+        mx: np.ndarray,
+        my: np.ndarray,
+        grid_x: np.ndarray,
+        grid_y: np.ndarray,
+        mz: np.ndarray,
+        grid_z: np.ndarray,
+        mask: np.ndarray | None = None,
+        metadata: pd.DataFrame | None = None,
+    ) -> None:
         """
         Args:
             config: configuration for grid interpolation
