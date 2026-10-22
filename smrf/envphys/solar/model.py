@@ -1,31 +1,35 @@
+from datetime import datetime
+
+import numpy as np
+
 from smrf.envphys import sunang
 from smrf.envphys.solar.irradiance import direct_solar_irradiance
 from smrf.envphys.solar.twostream import twostream
 
 
-def model_solar(dt, lat, lon, tau=0.2, tzone=0):
+def model_solar(date_time: datetime, lat: float, lon: float, tau=0.2) -> float:
     """
     Model solar radiation at a point
     Combines sun angle, solar and two stream
 
     Args:
-        dt - datetime object
+        date_time - datetime object
         lat - latitude
         lon - longitude
         tau - optical depth
-        tzone - time zone
 
     Returns:
         corrected solar radiation
     """
 
     # determine the sun angle
-    cosz, az, rad_vec = sunang.sunang(dt, lat, lon)
+    cos_z, az, rad_vec = sunang.sunang(date_time, lat, lon)
 
     # calculate the solar irradiance
-    sol = direct_solar_irradiance(dt, [0.28, 2.8])
+    solar_irradiance = direct_solar_irradiance(date_time, [0.28, 2.8])
 
     # calculate the two stream model value
-    R = twostream(cosz, sol, tau=tau)
+    two_stream = twostream(cos_z, solar_irradiance, tau=np.array([tau]))
 
-    return R['irradiance_at_bottom']
+    # Each key is an array with length 1
+    return two_stream["irradiance_at_bottom"][0]

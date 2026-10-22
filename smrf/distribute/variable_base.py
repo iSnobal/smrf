@@ -100,8 +100,8 @@ class VariableBase:
             if self.config.get("stations", None) is not None:
                 self.stations = sorted(self.config["stations"])
 
-            self.min = self.config.get("min", -np.Inf)
-            self.max = self.config.get("max", np.Inf)
+            self.min = self.config.get("min", -np.inf)
+            self.max = self.config.get("max", np.inf)
 
         self._logger = logging.getLogger(self.__class__.__module__)
         self._logger.debug(
@@ -159,9 +159,9 @@ class VariableBase:
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
 
-        setattr(cls, "OUTPUT_OPTIONS", set(cls.OUTPUT_VARIABLES.keys()))
+        cls.OUTPUT_OPTIONS = set(cls.OUTPUT_VARIABLES.keys())
         if not hasattr(cls, "LOADED_DATA"):
-            setattr(cls, "LOADED_DATA", [cls.DISTRIBUTION_KEY])
+            cls.LOADED_DATA = [cls.DISTRIBUTION_KEY]
 
     @classmethod
     def is_requested(cls, config_variables: set) -> bool:
@@ -266,9 +266,7 @@ class VariableBase:
 
             else:
                 raise Exception(
-                    "Could not determine the distribution method for {}".format(
-                        self.DISTRIBUTION_KEY
-                    )
+                    f"Could not determine the distribution method for {self.DISTRIBUTION_KEY}"
                 )
 
     def _distribute(self, data, other_attribute=None, zeros=None):
@@ -290,7 +288,7 @@ class VariableBase:
             data = data[self.stations]
 
         if np.sum(data.isnull()) == data.shape[0]:
-            raise Exception("{}: All data values are NaN".format(self.DISTRIBUTION_KEY))
+            raise Exception(f"{self.DISTRIBUTION_KEY}: All data values are NaN")
 
         if self.distribution_method == InverseDistanceWeighted.CONFIG_KEY:
             if self.config["detrend"]:
@@ -315,7 +313,7 @@ class VariableBase:
 
         elif self.distribution_method == Kriging.CONFIG_KEY:
             v, ss = self.kriging.calculate(data.values)
-            setattr(self, "{}_variance".format(self.DISTRIBUTION_KEY), ss)
+            setattr(self, f"{self.DISTRIBUTION_KEY}_variance", ss)
 
         if other_attribute is not None:
             setattr(self, other_attribute, v)

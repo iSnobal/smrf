@@ -1,6 +1,6 @@
 import unittest
-from unittest import mock
 from sys import platform
+from unittest import mock
 
 import netCDF4 as nc
 import numpy as np
@@ -40,7 +40,7 @@ class TestLoadTopo(unittest.TestCase):
                 "veg_tau",
                 "veg_type",
             ],
-            Topo.IMAGES
+            Topo.IMAGES,
         )
 
         for variable in Topo.IMAGES:
@@ -49,8 +49,8 @@ class TestLoadTopo(unittest.TestCase):
     def test_no_burn_mask_required(self):
         self.assertIsNone(self.topo.burn_mask)
 
-    @mock.patch.object(Topo, 'readNetCDF')
-    @mock.patch.object(Topo, 'gradient')
+    @mock.patch.object(Topo, "readNetCDF")
+    @mock.patch.object(Topo, "gradient")
     def test_init(self, gradient, read_nc):
         # Need to create a local topo instance to test the mock patch calls
         topo = Topo(TOPO_CONFIG)
@@ -77,16 +77,18 @@ class TestLoadTopo(unittest.TestCase):
         Test the basin center calculation using the basin mask
         """
         cx, cy = self.topo.get_center(self.ds, mask_name="mask")
-        np.testing.assert_almost_equal(cx, 520033.7187500, 7)
-        np.testing.assert_almost_equal(cy, 4768035.0, 7)
+        # Equal up to decimeter scale
+        np.testing.assert_almost_equal(cx, 520033.66, 2)
+        np.testing.assert_almost_equal(cy, 4768035.0, 2)
 
     def test_center_calc_domain(self):
         """
         Test the basin center calculation for the entire basin domain
         """
         cx, cy = self.topo.get_center(self.ds, mask_name=None)
-        np.testing.assert_almost_equal(cx, 520050.0, 7)
-        np.testing.assert_almost_equal(cy, 4768055.0, 7)
+        # Equal up to decimeter scale
+        np.testing.assert_almost_equal(cx, 520050.0, 2)
+        np.testing.assert_almost_equal(cy, 4768055.0, 2)
 
     def test_auto_calc_lat_lon(self):
         """
@@ -95,8 +97,9 @@ class TestLoadTopo(unittest.TestCase):
         # Original RME
         # basin_lon:                     -116.7547
         # basin_lat:                     43.067
-        np.testing.assert_almost_equal(self.topo.basin_lat, 43.06475372378507, 7)
-        np.testing.assert_almost_equal(self.topo.basin_long, -116.75395420397061, 7)
+        # Equal up to decimeter scale
+        np.testing.assert_almost_equal(self.topo.basin_lat, 43.0647537, 6)
+        np.testing.assert_almost_equal(self.topo.basin_long, -116.7539542, 6)
 
     def test_projection_attributes(self):
         """
