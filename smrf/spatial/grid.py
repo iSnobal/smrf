@@ -66,23 +66,14 @@ class Grid:
             # Query k nearest neighbors.
             _distances, indices = tree.query(coords, k=k, workers=-1)
 
-            dist_df = pd.DataFrame(
-                metadata.index.to_numpy()[indices],
-                index=metadata.index,
-                columns=range(k),
+            neighbors = indices.ravel()
+            self.full_df = pd.DataFrame(
+                {
+                    "cell_id": np.repeat(metadata.index.to_numpy(), k),
+                    "cell_local": metadata.index.to_numpy()[neighbors],
+                    "elevation": metadata["elevation"].to_numpy()[neighbors],
+                }
             )
-            dist_df.index.name = "cell_id"
-
-            # stack and reset index
-            df = dist_df.stack().reset_index()
-            df = df.rename(columns={0: "cell_local"})
-            df.drop("level_1", axis=1, inplace=True)
-
-            # get the elevations
-            df["elevation"] = metadata.loc[df.cell_local, "elevation"].values
-
-            # now we have cell_id, cell_local and elevation for the whole grid
-            self.full_df = df
 
             self.tri = None
 
