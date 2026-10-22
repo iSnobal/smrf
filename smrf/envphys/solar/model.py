@@ -3,7 +3,7 @@ from smrf.envphys.solar.irradiance import direct_solar_irradiance
 from smrf.envphys.solar.twostream import twostream
 
 
-def model_solar(dt, lat, lon, tau=0.2, tzone=0):
+def model_solar(dt, lat, lon, tau=0.2, tzone=0) -> float:
     """
     Model solar radiation at a point
     Combines sun angle, solar and two stream
@@ -26,6 +26,7 @@ def model_solar(dt, lat, lon, tau=0.2, tzone=0):
     sol = direct_solar_irradiance(dt, [0.28, 2.8])
 
     # calculate the two stream model value
-    R = twostream(cosz, sol, tau=tau)
+    solar_dict = twostream(cosz, sol, tau=tau)
 
-    return R['irradiance_at_bottom']
+    # Each key is an array with length 1
+    return solar_dict["irradiance_at_bottom"][0]
