@@ -1,7 +1,12 @@
 import xarray as xr
 
-from .grib_file_variables import (FIRST_HOUR, HRRR_HAG_10, HRRR_HAG_2,
-                                  HRRR_SURFACE, SIXTH_HOUR)
+from .grib_file_variables import (
+    FIRST_HOUR,
+    HRRR_HAG_2,
+    HRRR_HAG_10,
+    HRRR_SURFACE,
+    SIXTH_HOUR,
+)
 
 
 class GribFileXarray:
@@ -54,21 +59,19 @@ class GribFileXarray:
             return None
 
         del dataset[level]
-        del dataset['step']
+        del dataset["step"]
 
         # rename the grib variable name to a SMRF recognized variable name
         dataset = dataset.rename(new_names)
 
         # Make the time an index coordinate
-        dataset = dataset.assign_coords(time=dataset['valid_time'])
-        dataset = dataset.expand_dims('time')
-        del dataset['valid_time']
+        dataset = dataset.assign_coords(time=dataset["valid_time"])
+        dataset = dataset.expand_dims("time")
+        del dataset["valid_time"]
 
         return dataset
 
-    def load_variable_level(
-        self, file, filter_by_keys, smrf_mapping, level_name=None
-    ):
+    def load_variable_level(self, file, filter_by_keys, smrf_mapping, level_name=None):
         """
         Load HRRR variables with given arguments.
         Uses variable_key value if a level value is not passed.
@@ -87,11 +90,11 @@ class GribFileXarray:
                 # Read the file
                 xr.open_dataset(
                     file,
-                    engine='cfgrib',
+                    engine="cfgrib",
                     backend_kwargs={
-                        'filter_by_keys': filter_by_keys,
-                        'indexpath': '',  # Don't create an .idx file when reading
-                    }
+                        "filter_by_keys": filter_by_keys,
+                        "indexpath": "",  # Don't create an .idx file when reading
+                    },
                 ),
                 smrf_mapping,
                 level_name,
@@ -111,20 +114,20 @@ class GribFileXarray:
         """
         if sixth_hour_variables is not None:
             first_hour_variables = [
-                hrrr_key for hrrr_key, smrf_key in smrf_map.items()
+                hrrr_key
+                for hrrr_key, smrf_key in smrf_map.items()
                 if smrf_key not in sixth_hour_variables
             ]
             sixth_hour_variables = [
-                hrrr_key for hrrr_key, smrf_key in smrf_map.items()
+                hrrr_key
+                for hrrr_key, smrf_key in smrf_map.items()
                 if smrf_key in sixth_hour_variables
             ]
             return first_hour_variables, sixth_hour_variables
         else:
             return list(smrf_map.keys()), None
 
-    def load(
-        self, file, sixth_hour_file, sixth_hour_variables=None, load_wind=False
-    ):
+    def load(self, file, sixth_hour_file, sixth_hour_variables=None, load_wind=False):
         """
         Get valid HRRR data using Xarray
 
@@ -144,7 +147,7 @@ class GribFileXarray:
         # For checking that we loaded all the variables we requested
         loaded_variables = []
 
-        self.log.debug('Reading {}'.format(file))
+        self.log.debug(f"Reading {file}")
 
         for variable in self.HRRR_VARIABLES:
             if variable == HRRR_HAG_10 and not load_wind:
@@ -161,8 +164,11 @@ class GribFileXarray:
                         **variable.grib_keys,
                         **FIRST_HOUR,
                     },
-                    {key: value for key, value in variable.smrf_map.items()
-                     if key in first_hour},
+                    {
+                        key: value
+                        for key, value in variable.smrf_map.items()
+                        if key in first_hour
+                    },
                     variable.level,
                 )
             )
@@ -177,8 +183,11 @@ class GribFileXarray:
                             **variable.grib_keys,
                             **SIXTH_HOUR,
                         },
-                        {key: value for key, value in variable.smrf_map.items()
-                         if key in sixth_hour},
+                        {
+                            key: value
+                            for key, value in variable.smrf_map.items()
+                            if key in sixth_hour
+                        },
                         variable.level,
                     )
                 )
@@ -189,13 +198,11 @@ class GribFileXarray:
                 variable_data, combine_attrs="drop", compat="no_conflicts", join="outer"
             )
         except TypeError:
-            self.log.error('Not all grib files were successfully read')
+            self.log.error("Not all grib files were successfully read")
             raise Exception()
 
         if len(variable_data.data_vars) is not len(loaded_variables):
-            self.log.error(
-                'Not all requested variables were found in the grib files'
-            )
+            self.log.error("Not all requested variables were found in the grib files")
             raise Exception()
 
         return self.crop_to_bbox(variable_data)
@@ -206,9 +213,9 @@ class GribFileXarray:
         passed in dataset.
         """
         return dataset.where(
-            (dataset.latitude >= self.bbox[1]) &
-            (dataset.latitude <= self.bbox[3]) &
-            (dataset.longitude >= self.longitude_east(self.bbox[0])) &
-            (dataset.longitude <= self.longitude_east(self.bbox[2])),
-            drop=True
+            (dataset.latitude >= self.bbox[1])
+            & (dataset.latitude <= self.bbox[3])
+            & (dataset.longitude >= self.longitude_east(self.bbox[0]))
+            & (dataset.longitude <= self.longitude_east(self.bbox[2])),
+            drop=True,
         )
