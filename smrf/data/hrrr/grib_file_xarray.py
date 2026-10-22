@@ -186,7 +186,7 @@ class GribFileXarray:
 
         try:
             variable_data = xr.combine_by_coords(
-                variable_data, combine_attrs='drop'
+                variable_data, combine_attrs="drop", compat="no_conflicts", join="outer"
             )
         except TypeError:
             self.log.error('Not all grib files were successfully read')
