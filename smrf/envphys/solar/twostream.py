@@ -12,9 +12,8 @@ def twostream(cosz, S0, tau=0.2, omega=0.85, g=0.3, R0=0.5):
 
     Args:
         cosz: The cosine of the incidence angle is cos (from program sunang).
-            An error if cosz is <= 0.0; set all outputs to 0.0 and
-            go on. Program will fail if incidence angle is <= 0.0, unless -0
-            has been set.
+            If cosz is <= 0.0 (sun is down), all outputs are arrays of
+            zeros with the same shape as tau.
         S0: The direct beam irradiance is S0 This is usually the solar
             constant for the specified wavelength band, on the specified date,
             at the top of the atmosphere, from radiation.solar.
@@ -34,21 +33,22 @@ def twostream(cosz, S0, tau=0.2, omega=0.85, g=0.3, R0=0.5):
         R[5] - direct irradiance normal to beam
     """
 
+    if isinstance(tau, float):
+        tau = np.array([tau])
+
     if cosz <= 0:
+        zeros = np.zeros_like(tau, dtype=float)
         return {
-            'reflectance': 0,
-            'transmittance': 0,
-            'direct_transmittance': 0,
-            'upwelling_irradiance': 0,
-            'irradiance_at_bottom': 0,
-            'irradiance_normal_to_beam': 0
+            "reflectance": zeros,
+            "transmittance": zeros.copy(),
+            "direct_transmittance": zeros.copy(),
+            "upwelling_irradiance": zeros.copy(),
+            "irradiance_at_bottom": zeros.copy(),
+            "irradiance_normal_to_beam": zeros.copy(),
         }
 
     if S0 <= 0:
-        raise ValueError('The direct beam irradiance (S0) is less than 0')
-
-    if isinstance(tau, float):
-        tau = np.array([tau])
+        raise ValueError("The direct beam irradiance (S0) is less than 0")
 
     idx = tau == 0
     tau[idx] = 1e15
