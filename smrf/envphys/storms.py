@@ -9,7 +9,7 @@ def time_since_storm(
     storm_precip,
     time_step,
     mass_threshold=1.0,
-    percent_snow_threshold=0.5
+    percent_snow_threshold=0.5,
 ):
     """
     Increase or reset the given storm days and storm precipitation based of
@@ -51,12 +51,12 @@ def time_since_storm(
     """
 
     # Step 1: Pixels above snow percent threshold
-    location_index = (percent_snow_precipitation >= percent_snow_threshold)
+    location_index = percent_snow_precipitation >= percent_snow_threshold
     storm_precip[location_index] += precipitation[location_index]
 
     # Step 2: Reset locations above mass threshold or increase counter when
     # below
-    location_index = (storm_precip >= mass_threshold)
+    location_index = storm_precip >= mass_threshold
     storm_days[location_index] = 0
     storm_days[~location_index] += time_step
 
@@ -66,9 +66,16 @@ def time_since_storm(
     return storm_days, storm_precip
 
 
-def time_since_storm_pixel(precipitation, dpt, perc_snow, storming,
-                           time_step=1/24, stormDays=None, mass=1.0,
-                           ps_thresh=0.5):
+def time_since_storm_pixel(
+    precipitation,
+    dpt,
+    perc_snow,
+    storming,
+    time_step=1 / 24,
+    stormDays=None,
+    mass=1.0,
+    ps_thresh=0.5,
+):
     """
     Calculate the decimal days since the last storm given a precip time series
 
@@ -149,7 +156,7 @@ def tracking_by_station(precip, mass_thresh=0.01, steps_thresh=3):
     @author: Micah Johnson
     """
 
-    storm_columns = ['start', 'end']
+    storm_columns = ["start", "end"]
     stations = list(precip)
     storm_columns += stations
 
@@ -175,14 +182,14 @@ def tracking_by_station(precip, mass_thresh=0.01, steps_thresh=3):
 
             time_steps_since_precip = 0
             # Always add the latest end date to avoid unclosed storms
-            new_storm['end'] = time
+            new_storm["end"] = time
 
             # Accumulate precip for storm total
             for station, mass in row.items():
                 new_storm[station] += mass
 
         elif is_storming and time_steps_since_precip < steps_thresh:
-            new_storm['end'] = time
+            new_storm["end"] = time
 
             time_steps_since_precip += 1
 
@@ -209,8 +216,15 @@ def tracking_by_station(precip, mass_thresh=0.01, steps_thresh=3):
     return storms, storm_count
 
 
-def tracking_by_basin(precipitation, time, storm_lst, time_steps_since_precip,
-                      is_storming, mass_thresh=0.01, steps_thresh=2):
+def tracking_by_basin(
+    precipitation,
+    time,
+    storm_lst,
+    time_steps_since_precip,
+    is_storming,
+    mass_thresh=0.01,
+    steps_thresh=2,
+):
     """
     Args:
         precipitation: precipitation values
@@ -248,11 +262,11 @@ def tracking_by_basin(precipitation, time, storm_lst, time_steps_since_precip,
     if precipitation.max() > mass_thresh:
         # Start a new storm
         if len(storm_lst) == 0 or not is_storming:
-            storm_lst.append({'start': time, 'end': None})
+            storm_lst.append({"start": time, "end": None})
             is_storming = True
 
         # always append the most recent timestep to avoid unended storms
-        storm_lst[-1]['end'] = time
+        storm_lst[-1]["end"] = time
         time_steps_since_precip = 0
 
     elif is_storming and time_steps_since_precip < steps_thresh:
@@ -294,9 +308,8 @@ def clip_and_correct(precip, storms, stations: list = None):
     precip_clipped[:] = 0
 
     for j, storm in storms.iterrows():
-
-        storm_start = storm['start']
-        storm_end = storm['end']
+        storm_start = storm["start"]
+        storm_end = storm["end"]
         my_slice = precip.loc[storm_start:storm_end]
         precip_clipped.loc[storm_start:storm_end] = my_slice
 
@@ -315,7 +328,7 @@ def clip_and_correct(precip, storms, stations: list = None):
         elif clipped == 0:
             c = 0
         else:
-            c = original/clipped
+            c = original / clipped
 
         correction[station] = c
 
