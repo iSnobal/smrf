@@ -109,15 +109,9 @@ class Grid:
 
         return rtrend
 
-    @staticmethod
-    def get_fit_params(group: pd.DataFrame) -> pd.Series:
-        """
-        Perform polyfit on each group and return the slope and intercept
-        """
-        slope, intercept = np.polyfit(group.elevation, group.data, 1)
-        return pd.Series({"slope": slope, "intercept": intercept})
-
-    def detrended_interpolation_local(self, data, constrain_trend=0, grid_method="linear"):
+    def detrended_interpolation_local(
+        self, data, constrain_trend=0, grid_method="linear"
+    ):
         """
         Interpolate using a detrended approach
 
@@ -130,8 +124,18 @@ class Grid:
         df = self.full_df.copy()
         df["data"] = data[df["cell_local"]].values
 
-        # Apply the custom function and aggregate the results
-        df_fit_params = df.groupby("cell_id").apply(self.get_fit_params)
+        # full_df holds k consecutive rows per cell, so each block is one cell's fit
+        k = self.config["grid_local_n"]
+        elevation = df["elevation"].to_numpy().reshape(-1, k)
+        values = df["data"].to_numpy().reshape(-1, k)
+        fit_params = np.empty((elevation.shape[0], 2))
+        for i, (x, y) in enumerate(zip(elevation, values)):
+            fit_params[i] = np.polyfit(x, y, 1)
+        df_fit_params = pd.DataFrame(
+            fit_params,
+            index=self.metadata.index.rename("cell_id"),
+            columns=["slope", "intercept"],
+        )
 
         # Merge the fit parameters with the original data,
         # ensuring only unique cell_id entries remain
