@@ -3,6 +3,7 @@ import pandas as pd
 
 from smrf.envphys.solar.model import model_solar
 
+MIN_SOLAR = 50
 
 def cf_cloud(beam, diffuse, cf):
     """
@@ -46,14 +47,17 @@ def cf_cloud(beam, diffuse, cf):
     return c_grad, c_drad
 
 
-def get_hrrr_cloud(df_solar, df_meta, lat, lon):
+def get_hrrr_cloud(
+    df_solar: pd.DataFrame,
+    lat: float,
+    lon: float,
+) -> pd.DataFrame:
     """
     Take the combined solar from HRRR and use the two stream calculation
     at the specific HRRR pixels to find the cloud_factor.
 
     Args:
         df_solar - solar dataframe from hrrr
-        df_meta - meta_data from hrrr
         lat - basin lat
         lon - basin lon
 
@@ -61,30 +65,29 @@ def get_hrrr_cloud(df_solar, df_meta, lat, lon):
         df_cf - cloud factor dataframe in same format as df_solar input
     """
 
-    # get and loop through the columns
-    dates = df_solar.index.values[:]
+    # Clear-sky solar at the basin lat/lon for each time. The index is converted
+    # to UTC without a timezone because ephemeris reads the hour, minute, and
+    # second fields directly
+    dates = df_solar.index.tz_convert(None).to_numpy()
+    clear_sky_solar = np.float32(
+        [model_solar(pd.Timestamp(dt), lat, lon) for dt in dates]
+    )
+    basin_solar = pd.DataFrame(
+        np.broadcast_to(clear_sky_solar[:, None], df_solar.shape),
+        index=df_solar.index,
+        columns=df_solar.columns,
+    )
 
-    # find each cell solar at top of atmosphere for each date
-    basin_sol = df_solar.copy()
-    for idt, dt in enumerate(dates):
-        # get solar using twostream
-        dtt = pd.to_datetime(dt)
-        basin_sol.iloc[idt, :] = np.float32(model_solar(dtt, lat, lon))
+    # Zero out low solar (night and near sunrise/sunset), where the cloud
+    # factor is difficult to calculate
+    low_sun = basin_solar < MIN_SOLAR
+    basin_solar = basin_solar.mask(low_sun, 0)
+    df_solar = df_solar.mask(low_sun, 0)
 
-    # if it's close to sun down or sun up, then the cloud factor gets
-    # difficult to calculate
-    basin_sol[basin_sol < 50] = 0
-    df_solar[basin_sol < 50] = 0
+    # Masked values are 0 / 0 at night, which gives NaN
+    df_cf = df_solar / basin_solar
 
-    # This will produce NaN values when the sun is down
-    df_cf = df_solar / basin_sol
+    # Fill night gaps by linear interpolation, then the nearest value at the ends
+    df_cf = df_cf.interpolate(method="linear").ffill().bfill()
 
-    # linear interpolate the NaN values at night
-    df_cf = df_cf.interpolate(method="linear").ffill()
-    df_cf = df_cf.interpolate(method="linear").bfill()
-
-    # Clean up the dataframe to be between 0 and 1
-    df_cf[df_cf > 1.0] = 1.0
-    df_cf[df_cf < 0.0] = 0.0
-
-    return df_cf
+    return df_cf.clip(0.0, 1.0)
