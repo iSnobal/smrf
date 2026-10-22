@@ -1,11 +1,11 @@
 import os
 from datetime import datetime, timedelta
-from typing import Dict
 
 import numpy as np
 import pandas as pd
 import utm
 import xarray as xr
+
 from smrf.data.load_topo import Topo
 
 from .file_handler import FileHandler
@@ -69,7 +69,7 @@ class FileLoader:
         start_date: datetime,
         bbox: list[float],
         topo: Topo,
-    ) -> Dict[str, pd.DataFrame]:
+    ) -> dict[str, pd.DataFrame]:
         """
         Load variables from HRRR either using Xarray (default) or GDAL.
 
@@ -80,7 +80,7 @@ class FileLoader:
         :return:
           Dict - Dataframe dictionary with variable names as keys
         """
-        self.log.debug("Reading GRIB file for date: {}".format(datetime))
+        self.log.debug(f"Reading GRIB file for date: {datetime}")
 
         data = self.xarray(start_date, bbox)
         if len(self._load_gdal) > 0:
@@ -124,7 +124,7 @@ class FileLoader:
         self,
         date: datetime,
         bbox: list[float],
-    ) -> Dict[str, pd.DataFrame]:
+    ) -> dict[str, pd.DataFrame]:
         """
         Get the data for given time range and a specified bounding box using Xarray.
         Read data is stored on instance attribute.
@@ -161,20 +161,16 @@ class FileLoader:
                     )
                 )
         except Exception as e:
-            self.log.error(
-                "  Could not load forecast for date {} successfully".format(date)
-            )
+            self.log.error(f"  Could not load forecast for date {date} successfully")
             raise e
 
         try:
             return self.convert_to_dataframes(data)
         except Exception as e:
-            self.log.debug(
-                "  Could not combine forecast data for given date: {} ".format(date)
-            )
+            self.log.debug(f"  Could not combine forecast data for given date: {date} ")
             raise e
 
-    def convert_to_dataframes(self, data: xr.Dataset) -> Dict[str, pd.DataFrame]:
+    def convert_to_dataframes(self, data: xr.Dataset) -> dict[str, pd.DataFrame]:
         """
         Convert the loaded data from a dataframe to a dictionary of Pandas dataframes
 
@@ -225,7 +221,7 @@ class FileLoader:
 
         file = self._get_file_path(date, self._forecast_hour)
 
-        self.log.debug("Loading metadata from file: {}".format(file))
+        self.log.debug(f"Loading metadata from file: {file}")
 
         if os.path.exists(file):
             data = file_loader.load_variable_level(
