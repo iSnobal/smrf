@@ -1,7 +1,15 @@
 import numpy as np
+import numpy.typing as npt
 
 
-def twostream(cosz, S0, tau=0.2, omega=0.85, g=0.3, R0=0.5):
+def twostream(
+    cos_z: float,
+    S0: float,
+    tau: float | npt.NDArray[np.float64] = 0.2,
+    omega: float = 0.85,
+    g: float = 0.3,
+    R0: float = 0.5,
+) -> dict[str, npt.NDArray[np.float64]]:
     """
     Provides twostream solution for single-layer atmosphere over horizontal
     surface, using solution method in: Two-stream approximations to radiative
@@ -11,8 +19,8 @@ def twostream(cosz, S0, tau=0.2, omega=0.85, g=0.3, R0=0.5):
     1977).
 
     Args:
-        cosz: The cosine of the incidence angle is cos (from program sunang).
-            If cosz is <= 0.0 (sun is down), all outputs are arrays of
+        cos_z: The cosine of the incidence angle is cos (from program sunang).
+            If cos_z is <= 0.0 (sun is down), all outputs are arrays of
             zeros with the same shape as tau.
         S0: The direct beam irradiance is S0 This is usually the solar
             constant for the specified wavelength band, on the specified date,
@@ -36,7 +44,7 @@ def twostream(cosz, S0, tau=0.2, omega=0.85, g=0.3, R0=0.5):
     if isinstance(tau, float):
         tau = np.array([tau])
 
-    if cosz <= 0:
+    if cos_z <= 0:
         zeros = np.zeros_like(tau, dtype=float)
         return {
             "reflectance": zeros,
@@ -53,13 +61,12 @@ def twostream(cosz, S0, tau=0.2, omega=0.85, g=0.3, R0=0.5):
     idx = tau == 0
     tau[idx] = 1e15
 
-    if R0 < 0:
-        R0 = 0
+    R0 = max(R0, 0)
 
     # gamma's for phase function for all input
-    gamma = mwgamma(cosz, omega, g)
+    gamma = mwgamma(cos_z, omega, g)
 
-    # Calcuate twostream (from libmodel/radiation/twostream.c)
+    # Calculate twostream (from libmodel/radiation/twostream.c)
     gam1 = gamma[0]
     gam2 = gamma[1]
     gam3 = gamma[2]
@@ -67,7 +74,7 @@ def twostream(cosz, S0, tau=0.2, omega=0.85, g=0.3, R0=0.5):
     alph1 = gam1 * gam4 + gam2 * gam3
     alph2 = gam2 * gam4 + gam1 * gam3
     if gam1 < gam2:
-        raise ValueError("gam1 ({}) < gam2 ({})".format(gam1, gam2))
+        raise ValueError(f"gam1 ({gam1}) < gam2 ({gam2})")
 
     # (Hack - gam1 = gam2 with conservative scattering.  Need to fix this.
     # Ruh-roh...
@@ -76,13 +83,13 @@ def twostream(cosz, S0, tau=0.2, omega=0.85, g=0.3, R0=0.5):
 
     xi = np.sqrt((gam1 - gam2) * (gam2 + gam1))
     em = np.exp(-tau * xi)
-    et = np.exp(-tau / cosz)
+    et = np.exp(-tau / cos_z)
     ep = np.exp(tau * xi)
     gpx = xi + gam1
-    opx = cosz * xi + 1
+    opx = cos_z * xi + 1
 
     # more intermediate variables, needed only for finite case
-    omx = 1 - cosz * xi
+    omx = 1 - cos_z * xi
     gmx = gam1 - xi
     rm = gam2 - gmx * R0
     rp = gam2 - gpx * R0
@@ -90,41 +97,45 @@ def twostream(cosz, S0, tau=0.2, omega=0.85, g=0.3, R0=0.5):
     # denominator for reflectance and transmittance
     denrt = ep * gpx * rm - em * gmx * rp
 
-    # reflectance
-    refl = (omega * (ep * rm * (gam3 * xi + alph2) / opx
-                     - em * rp * (alph2 - gam3 * xi) / omx)
-            + 2 * et * gam2
-            * (R0 - ((alph1 * R0 - alph2) * cosz + gam4
-                     * R0 + gam3) * omega / (omx * opx)) * xi) / denrt
+    reflectance = (
+        omega
+        * (ep * rm * (gam3 * xi + alph2) / opx - em * rp * (alph2 - gam3 * xi) / omx)
+        + 2
+        * et
+        * gam2
+        * (R0 - ((alph1 * R0 - alph2) * cos_z + gam4 * R0 + gam3) * omega / (omx * opx))
+        * xi
+    ) / denrt
 
-    # transmittance
-    trans = (et * (ep * gpx * (gam2 - omega * (alph2
-                                               - gam3 * xi) / omx)
-                   - em * gmx * (gam2 - omega * (gam3 * xi + alph2) / opx))
-             + 2 * gam2 * (alph1 * cosz + gam4) * omega * xi /
-             (omx * opx)) / denrt
+    transmittance = (
+        et
+        * (
+            ep * gpx * (gam2 - omega * (alph2 - gam3 * xi) / omx)
+            - em * gmx * (gam2 - omega * (gam3 * xi + alph2) / opx)
+        )
+        + 2 * gam2 * (alph1 * cos_z + gam4) * omega * xi / (omx * opx)
+    ) / denrt
 
-    # direct transmittance
-    btrans = et
+    beam_transmittance = et
 
     # semi-infinite?
     idx = np.argwhere(((em == 0) & (et == 0)) | (ep >= 1e15))
-    refl[idx] = omega * (gam3 * xi + alph2) / (gpx * opx)
-    btrans[idx] = 0
-    trans[idx] = 0
+    reflectance[idx] = omega * (gam3 * xi + alph2) / (gpx * opx)
+    beam_transmittance[idx] = 0
+    transmittance[idx] = 0
 
-    assert(np.min(refl) >= 0)
-    assert(np.min(trans) >= 0)
-    assert(np.min(btrans) >= 0)
-    assert(np.all(trans >= btrans * cosz))
+    assert np.min(reflectance) >= 0
+    assert np.min(transmittance) >= 0
+    assert np.min(beam_transmittance) >= 0
+    assert np.all(transmittance >= beam_transmittance * cos_z)
 
     return {
-        'reflectance': refl,
-        'transmittance': trans,
-        'direct_transmittance': btrans,
-        'upwelling_irradiance': refl * cosz * S0,
-        'irradiance_at_bottom': trans * cosz * S0,
-        'irradiance_normal_to_beam': btrans * S0
+        "reflectance": reflectance,
+        "transmittance": transmittance,
+        "direct_transmittance": beam_transmittance,
+        "upwelling_irradiance": reflectance * cos_z * S0,
+        "irradiance_at_bottom": transmittance * cos_z * S0,
+        "irradiance_normal_to_beam": beam_transmittance * S0,
     }
 
 
@@ -155,11 +166,11 @@ def mwgamma(cosz, omega, g):
     if g == 1:
         g1 = g2 = (g * ((3 * (g - 1) + 4 * b0) * g - 3) + 3) / hd
     else:
-        g1 = (g * (g * ((3 * g + 4 * b0) * omega - 3) -
-                   3 * omega) - 4 * omega + 7) / hd
+        g1 = (g * (g * ((3 * g + 4 * b0) * omega - 3) - 3 * omega) - 4 * omega + 7) / hd
 
-        g2 = (g * (g * ((3 * g + 4 * (b0 - 1)) * omega + 1) -
-                   3 * omega) + 4 * omega - 1) / hd
+        g2 = (
+            g * (g * ((3 * g + 4 * (b0 - 1)) * omega + 1) - 3 * omega) + 4 * omega - 1
+        ) / hd
 
     g3 = b0
     g4 = 1 - g3
@@ -192,8 +203,8 @@ def beta_0(cosz, g):
     MAXNO = 2048
     TOL = 1e-9
 
-    assert(cosz > 0 and cosz <= 1)
-    assert(g >= 0 and g <= 1)
+    assert cosz > 0 and cosz <= 1
+    assert g >= 0 and g <= 1
 
     # Legendre polynomials of degree 0 and 1
 
@@ -201,15 +212,14 @@ def beta_0(cosz, g):
     pnm1 = cosz
 
     # first coefficients and initial sum
-    fm = -1/8
+    fm = -1 / 8
     gn = 7 * g * g * g
     the_sum = 3 * g * cosz / 2
 
     # sum until convergence; we use the even terms only for the recursive
     # calculation of the Legendre polynomials
-    if (g != 0 and cosz != 0):
+    if g != 0 and cosz != 0:
         for n in range(2, MAXNO):
-
             # order n Legendre polynomial
             pn = ((2 * n - 1) * cosz * pnm1 + (1 - n) * pnm2) / n
 
@@ -217,7 +227,7 @@ def beta_0(cosz, g):
             if (n % 2) == 1:
                 last = the_sum
                 the_sum = last + gn * fm * pn
-                if (np.abs((the_sum - last) / the_sum) < TOL and the_sum <= 1):
+                if np.abs((the_sum - last) / the_sum) < TOL and the_sum <= 1:
                     break
 
                 # recursively find next f(m) and gn coefficients
@@ -232,14 +242,20 @@ def beta_0(cosz, g):
 
         # warn if no convergence
         if n == MAXNO:
-            print("%s: %s - cosz=%g g=%g sum=%g last=%g fm=%g",
-                  "betanaught", "no convergence",
-                  cosz, g, the_sum, last, fm)
-            if the_sum > 1:
-                the_sum = 1
+            print(
+                "%s: %s - cosz=%g g=%g sum=%g last=%g fm=%g",
+                "betanaught",
+                "no convergence",
+                cosz,
+                g,
+                the_sum,
+                last,
+                fm,
+            )
+            the_sum = min(the_sum, 1)
 
         else:
-            assert(the_sum >= 0 and the_sum <= 1)
+            assert the_sum >= 0 and the_sum <= 1
 
     else:
         the_sum = 0
