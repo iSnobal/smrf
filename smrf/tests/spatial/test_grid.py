@@ -36,6 +36,15 @@ def _grid(config):
     )
 
 
+class TestGridInit(SMRFConfig, unittest.TestCase):
+    def test_local_n_below_two_raises(self):
+        """Local detrend rejects a neighbor count of 1, which cannot fit a trend"""
+        config = {"grid_local": True, "grid_local_n": 1, "grid_mask": False}
+
+        with self.assertRaises(ValueError):
+            _grid(config)
+
+
 class TestGridMask(SMRFConfig, unittest.TestCase):
     def test_mask_descending_y(self):
         """Mask lookup picks the right cells when the grid y-axis descends"""
