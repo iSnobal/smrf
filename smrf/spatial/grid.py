@@ -81,10 +81,11 @@ class Grid:
         if config["grid_mask"]:
             assert mask.shape == grid_x.shape
 
+            # Nearest cell by distance, works for south-to-north and north-to-south grids
             x = grid_x[0, :]
             y = grid_y[:, 0]
-            xi = np.searchsorted((x[1:] + x[:-1]) / 2, mx)
-            yi = np.searchsorted((y[1:] + y[:-1]) / 2, my)
+            xi = np.abs(x[None, :] - mx[:, None]).argmin(axis=1)
+            yi = np.abs(y[None, :] - my[:, None]).argmin(axis=1)
             self.mask = mask.astype(bool)[yi, xi]
         else:
             self.mask = np.ones_like(self.mx, dtype=bool)
@@ -98,6 +99,9 @@ class Grid:
             grid_method: scipy.interpolate.griddata interpolation method
             constrain_trend: 1 zeros negative slopes, -1 zeros positive, 0 for none
         """
+        # Columns in the data file need not match the metadata row order
+        data = data.loc[self.metadata.index].to_numpy()
+
         if self.config["grid_local"]:
             rtrend = self.detrended_interpolation_local(
                 data, constrain_trend, grid_method
@@ -121,7 +125,7 @@ class Grid:
             constrain_trend: 1 zeros negative slopes, -1 zeros positive, 0 for none
         """
         # values and elevations of each cell's k neighbors, shape (N, k)
-        values = np.asarray(data)[self.neighbor_indices]
+        values = data[self.neighbor_indices]
         elevation = self.neighbor_elevation
 
         # batched least squares via the precomputed pseudo-inverse, shape (N, 2, 1)
