@@ -39,7 +39,7 @@ class Grid:
             grid_y: y locations in grid to interpolate over
             grid_z: z locations in grid to interpolate over
             mask: mask for those points to include in the detrending
-                will be ignored if config['mask'] is false
+                will be ignored if config['grid_mask'] is false
         """
         self.config = config
 
@@ -56,40 +56,36 @@ class Grid:
 
         self.metadata = metadata
 
-        # local elevation gradient, precalculate the distance dataframe
+        # precalculate the k nearest neighbors for the local detrend
         if config["grid_local"]:
             k = config["grid_local_n"]
-
             coords = metadata[["latitude", "longitude"]].to_numpy()
             tree = KDTree(coords, leafsize=k + 5)
 
-            # Query k nearest neighbors.
+            # Query k nearest neighbors. Returns shape (N, k)
             _distances, indices = tree.query(coords, k=k, workers=-1)
 
-            neighbors = indices.ravel()
-            self.full_df = pd.DataFrame(
-                {
-                    "cell_id": np.repeat(metadata.index.to_numpy(), k),
-                    "cell_local": metadata.index.to_numpy()[neighbors],
-                    "elevation": metadata["elevation"].to_numpy()[neighbors],
-                }
-            )
+            self.neighbor_indices = indices
+            self.neighbor_elevation = metadata["elevation"].to_numpy()[indices]
 
-            self.tri = None
+            # design matrix and pseudo-inverse depend only on elevation
+            A = np.stack(
+                (self.neighbor_elevation, np.ones_like(self.neighbor_elevation)),
+                axis=-1,
+            )
+            self.pinv_A = np.linalg.pinv(A)
+
+        self.tri = None
 
         # mask
-        self.mask = np.zeros_like(self.mx, dtype=bool)
         if config["grid_mask"]:
             assert mask.shape == grid_x.shape
-            mask = mask.astype(bool)
 
             x = grid_x[0, :]
             y = grid_y[:, 0]
-            for i, v in enumerate(mx):
-                xi = np.argmin(np.abs(x - mx[i]))
-                yi = np.argmin(np.abs(y - my[i]))
-
-                self.mask[i] = mask[yi, xi]
+            xi = np.searchsorted((x[1:] + x[:-1]) / 2, mx)
+            yi = np.searchsorted((y[1:] + y[:-1]) / 2, my)
+            self.mask = mask.astype(bool)[yi, xi]
         else:
             self.mask = np.ones_like(self.mx, dtype=bool)
 
@@ -100,12 +96,16 @@ class Grid:
         Args:
             data: data to interpolate
             grid_method: scipy.interpolate.griddata interpolation method
-            constrain_trend: Bool - Constrain the trend within configured bounds
+            constrain_trend: 1 zeros negative slopes, -1 zeros positive, 0 for none
         """
         if self.config["grid_local"]:
-            rtrend = self.detrended_interpolation_local(data, constrain_trend, grid_method)
+            rtrend = self.detrended_interpolation_local(
+                data, constrain_trend, grid_method
+            )
         else:
-            rtrend = self.detrended_interpolation_mask(data, constrain_trend, grid_method)
+            rtrend = self.detrended_interpolation_mask(
+                data, constrain_trend, grid_method
+            )
 
         return rtrend
 
@@ -118,82 +118,62 @@ class Grid:
         Args:
             data: data to interpolate
             grid_method: scipy.interpolate.griddata interpolation method
-            constrain_trend: Bool - Constrain the trend within configured bounds
+            constrain_trend: 1 zeros negative slopes, -1 zeros positive, 0 for none
         """
-        # take the new full_df and fill a data column
-        df = self.full_df.copy()
-        df["data"] = data[df["cell_local"]].values
+        # values and elevations of each cell's k neighbors, shape (N, k)
+        values = np.asarray(data)[self.neighbor_indices]
+        elevation = self.neighbor_elevation
 
-        # full_df holds k consecutive rows per cell, so each block is one cell's fit
-        k = self.config["grid_local_n"]
-        elevation = df["elevation"].to_numpy().reshape(-1, k)
-        values = df["data"].to_numpy().reshape(-1, k)
-        fit_params = np.empty((elevation.shape[0], 2))
-        for i, (x, y) in enumerate(zip(elevation, values)):
-            fit_params[i] = np.polyfit(x, y, 1)
-        df_fit_params = pd.DataFrame(
-            fit_params,
-            index=self.metadata.index.rename("cell_id"),
-            columns=["slope", "intercept"],
-        )
-
-        # Merge the fit parameters with the original data,
-        # ensuring only unique cell_id entries remain
-        df = df.drop_duplicates(subset=["cell_id"], keep="first").set_index("cell_id")
-        df = df.merge(df_fit_params, left_index=True, right_index=True)
+        # batched least squares via the precomputed pseudo-inverse, shape (N, 2, 1)
+        params = self.pinv_A @ values[..., None]
+        slope = np.ascontiguousarray(params[:, 0, 0])
+        intercept = np.ascontiguousarray(params[:, 1, 0])
 
         # apply trend constraints
         if constrain_trend == 1:
-            df.loc[df["slope"] < 0, ["slope", "intercept"]] = 0
+            neg = slope < 0
+            slope[neg] = 0
+            intercept[neg] = 0
         elif constrain_trend == -1:
-            df.loc[df["slope"] > 0, ["slope", "intercept"]] = 0
+            pos = slope > 0
+            slope[pos] = 0
+            intercept[pos] = 0
 
-        # get triangulation
         if self.tri is None:
             xy = np.column_stack((self.metadata.utm_x, self.metadata.utm_y))
             self.tri = Delaunay(xy)
 
-        # interpolate the slope/intercept
-        grid_slope = grid_interpolate_deconstructed(
-            self.tri, df.slope.values[:], (self.GridX, self.GridY), method=grid_method
-        )
+        # remove the elevation trend from each cell's own value
+        dtrend = values[:, 0] - (elevation[:, 0] * slope + intercept)
 
-        grid_intercept = grid_interpolate_deconstructed(
+        # Interpolate slope, intercept, and residuals
+        grid_values = grid_interpolate_deconstructed(
             self.tri,
-            df.intercept.values[:],
+            np.column_stack((slope, intercept, dtrend)),
             (self.GridX, self.GridY),
             method=grid_method,
         )
+        grid_slope, grid_intercept, idtrend = np.moveaxis(grid_values, -1, 0)
 
-        # remove the elevation trend from the HRRR precip
-        el_trend = df.elevation * df.slope + df.intercept
-        dtrend = df.data - el_trend
-
-        # interpolate the residuals over the DEM
-        idtrend = grid_interpolate_deconstructed(
-            self.tri, dtrend, (self.GridX, self.GridY), method=grid_method
-        )
-
-        # reinterpolate
         rtrend = idtrend + grid_slope * self.GridZ + grid_intercept
 
         return rtrend
 
-    def detrended_interpolation_mask(self, data, constrain_trend=0, grid_method="linear"):
+    def detrended_interpolation_mask(
+        self, data, constrain_trend=0, grid_method="linear"
+    ):
         """
         Interpolate using a detrended approach
 
         Args:
             data: data to interpolate
             grid_method: scipy.interpolate.griddata interpolation method
-            constrain_trend: Bool - Constrain the trend within configured bounds
+            constrain_trend: 1 zeros negative slopes, -1 zeros positive, 0 for none
         """
         pv = np.polyfit(self.mz[self.mask].astype(float), data[self.mask], 1)
 
         # apply trend constraints
-        if constrain_trend == 1 and pv[0] < 0:
-            pv = np.array([0, 0])
-        elif constrain_trend == -1 and pv[0] > 0:
+        if constrain_trend == 1 and pv[0] < 0 or constrain_trend == -1 and pv[0] > 0:
             pv = np.array([0, 0])
 
         self.pv = pv
