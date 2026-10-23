@@ -59,6 +59,11 @@ class Grid:
         # precalculate the k nearest neighbors for the local detrend
         if config["grid_local"]:
             k = config["grid_local_n"]
+            if k < 2:
+                raise ValueError(
+                    "grid_local_n must be at least 2 for the local detrend"
+                )
+
             coords = metadata[["latitude", "longitude"]].to_numpy()
             tree = KDTree(coords, leafsize=k + 5)
 
