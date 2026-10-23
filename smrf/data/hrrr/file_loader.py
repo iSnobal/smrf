@@ -242,16 +242,28 @@ class FileLoader:
             )
         data = file_loader.crop_to_bbox(data)
 
+        # The metadata is static, so only the first time step is needed
         metadata_values = {}
-        for mm in self.METADATA_VARIABLES:
-            values, rows, cols = self._grid_values(data[mm])
-            metadata_values[mm] = values[0]
+        for variable in self.METADATA_VARIABLES:
+            values, rows, cols = self._grid_values(data[variable])
+            metadata_values[variable] = values[0]
 
-        metadata = pd.DataFrame(
-            metadata_values,
-            index=self._grid_names(rows, cols),
-        ).dropna(subset=[self.HRRR_METADATA_NAME])
-        metadata = metadata.apply(FileLoader.apply_utm, args=(utm_zone_number,), axis=1)
+        # float64 keeps coordinates and elevation at the precision the grid expects
+        metadata = (
+            pd.DataFrame(metadata_values, index=self._grid_names(rows, cols))
+            .dropna(subset=[self.HRRR_METADATA_NAME])
+            .astype(np.float64)
+        )
+
+        # HRRR longitudes run 0 to 360 degrees east, so shift them to -180 to 180
+        metadata["longitude"] -= 360
+        utm_x, utm_y, *_ = utm.from_latlon(
+            metadata["latitude"].to_numpy(),
+            metadata["longitude"].to_numpy(),
+            force_zone_number=utm_zone_number,
+        )
+        metadata["utm_x"] = utm_x
+        metadata["utm_y"] = utm_y
 
         return metadata
 
@@ -287,29 +299,6 @@ class FileLoader:
             List of names as grid_{y}_{x}, e.g. grid_0_1 for y=0 and x=1
         """
         return [f"grid_{row}_{col}" for row, col in zip(rows, cols)]
-
-    @staticmethod
-    def apply_utm(dataframe, utm_zone_number):
-        """
-        Ufunc to calculate the utm from lat/lon for a series
-
-        Args:
-            dataframe: pandas series with fields latitude and longitude
-            utm_zone_number: Zone number to force to
-
-        Returns:
-            Pandas series entry with fields 'utm_x' and 'utm_y' filled
-        """
-        # HRRR has longitude reporting in degrees from the east
-        dataframe["longitude"] -= 360
-
-        (dataframe["utm_x"], dataframe["utm_y"], *unused) = utm.from_latlon(
-            dataframe["latitude"],
-            dataframe["longitude"],
-            force_zone_number=utm_zone_number,
-        )
-
-        return dataframe
 
     def gdal(self, date: datetime, topo: Topo) -> dict[str, np.ndarray]:
         """
