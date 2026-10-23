@@ -12,8 +12,8 @@ import utm
 from inicheck.checkers import CheckType
 from inicheck.output import generate_config
 from inicheck.utilities import mk_lst
-from scipy.interpolate.interpnd import (CloughTocher2DInterpolator,
-                                        LinearNDInterpolator)
+from scipy.interpolate import (CloughTocher2DInterpolator,
+                               LinearNDInterpolator)
 from scipy.spatial import Delaunay
 
 from smrf import __core_config__

@@ -69,7 +69,7 @@ class Topo:
         f.set_always_mask(False)
 
         if "projection" not in f.variables.keys():
-            raise IOError("Topo input files must have projection information")
+            raise OSError("Topo input files must have projection information")
 
         self.readImages(f)
 
@@ -103,14 +103,10 @@ class Topo:
         )
 
         self._logger.info(
-            "Domain center in UTM Zone {:d} = {:0.1f}m, {:0.1f}m".format(
-                self.zone_number, self.cx, self.cy
-            )
+            f"Domain center in UTM Zone {self.zone_number:d} = {self.cx:0.1f}m, {self.cy:0.1f}m"
         )
         self._logger.info(
-            "Domain center as Latitude/Longitude = {:0.5f}, {:0.5f}".format(
-                self.basin_lat, self.basin_long
-            )
+            f"Domain center as Latitude/Longitude = {self.basin_lat:0.5f}, {self.basin_long:0.5f}"
         )
 
         # Load or calculate the sky view factor
@@ -178,8 +174,8 @@ class Topo:
         Returns:
             tuple: x,y of the data center in the datas native coordinates
         """
-        x = ds.variables["x"][:]
-        y = ds.variables["y"][:]
+        x = ds.variables["x"][:].astype(np.float64)
+        y = ds.variables["y"][:].astype(np.float64)
 
         # Calculate the center of the basin
         if mask_name is not None:

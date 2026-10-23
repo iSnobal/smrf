@@ -1,11 +1,11 @@
 import os
 from datetime import datetime, timedelta
-from typing import Dict
 
 import numpy as np
 import pandas as pd
 import utm
 import xarray as xr
+
 from smrf.data.load_topo import Topo
 
 from .file_handler import FileHandler
@@ -69,7 +69,7 @@ class FileLoader:
         start_date: datetime,
         bbox: list[float],
         topo: Topo,
-    ) -> Dict[str, pd.DataFrame]:
+    ) -> dict[str, pd.DataFrame]:
         """
         Load variables from HRRR either using Xarray (default) or GDAL.
 
@@ -80,7 +80,7 @@ class FileLoader:
         :return:
           Dict - Dataframe dictionary with variable names as keys
         """
-        self.log.debug("Reading GRIB file for date: {}".format(datetime))
+        self.log.debug(f"Reading GRIB file for date: {datetime}")
 
         data = self.xarray(start_date, bbox)
         if len(self._load_gdal) > 0:
@@ -124,7 +124,7 @@ class FileLoader:
         self,
         date: datetime,
         bbox: list[float],
-    ) -> Dict[str, pd.DataFrame]:
+    ) -> dict[str, pd.DataFrame]:
         """
         Get the data for given time range and a specified bounding box using Xarray.
         Read data is stored on instance attribute.
@@ -161,20 +161,16 @@ class FileLoader:
                     )
                 )
         except Exception as e:
-            self.log.error(
-                "  Could not load forecast for date {} successfully".format(date)
-            )
+            self.log.error(f"  Could not load forecast for date {date} successfully")
             raise e
 
         try:
             return self.convert_to_dataframes(data)
         except Exception as e:
-            self.log.debug(
-                "  Could not combine forecast data for given date: {} ".format(date)
-            )
+            self.log.debug(f"  Could not combine forecast data for given date: {date} ")
             raise e
 
-    def convert_to_dataframes(self, data: xr.Dataset) -> Dict[str, pd.DataFrame]:
+    def convert_to_dataframes(self, data: xr.Dataset) -> dict[str, pd.DataFrame]:
         """
         Convert the loaded data from a dataframe to a dictionary of Pandas dataframes
 
@@ -187,16 +183,14 @@ class FileLoader:
         dataframe = {}
 
         for variable in list(data.data_vars):
-            # convert from a row multi-index to a column multi-index
-            df = data[variable].to_dataframe().unstack(level=[1, 2])
+            values, rows, cols = self._grid_values(data[variable])
+            has_data = ~np.isnan(values).all(axis=0)
 
-            df = df.loc[:, variable]
-
-            df.columns = self.format_column_names(df)
-            df.index.rename("date_time", inplace=True)
-
-            df.dropna(axis=1, how="all", inplace=True)
-            df.sort_index(axis=0, inplace=True)
+            df = pd.DataFrame(
+                values[:, has_data],
+                index=pd.DatetimeIndex(data[variable].time.values, name="date_time"),
+                columns=self._grid_names(rows[has_data], cols[has_data]),
+            )
             dataframe[variable] = df
 
             # TODO - Move to the corresponding variable distribution class
@@ -227,7 +221,7 @@ class FileLoader:
 
         file = self._get_file_path(date, self._forecast_hour)
 
-        self.log.debug("Loading metadata from file: {}".format(file))
+        self.log.debug(f"Loading metadata from file: {file}")
 
         if os.path.exists(file):
             data = file_loader.load_variable_level(
@@ -248,59 +242,63 @@ class FileLoader:
             )
         data = file_loader.crop_to_bbox(data)
 
-        df = data[self.HRRR_METADATA_NAME].to_dataframe().unstack(level=[1, 2])
+        # The metadata is static, so only the first time step is needed
+        metadata_values = {}
+        for variable in self.METADATA_VARIABLES:
+            values, rows, cols = self._grid_values(data[variable])
+            metadata_values[variable] = values[0]
 
-        metadata = []
-        for mm in self.METADATA_VARIABLES:
-            df_tmp = df[mm]
-            df_tmp.columns = self.format_column_names(df_tmp)
-            df_tmp = df_tmp.iloc[0]
-            df_tmp.name = mm
-            metadata.append(df_tmp)
-
-        metadata = pd.concat(metadata, axis=1).dropna(subset=[self.HRRR_METADATA_NAME])
-        metadata = metadata.apply(
-            FileLoader.apply_utm, args=(utm_zone_number,), axis=1
+        # float64 keeps coordinates and elevation at the precision the grid expects
+        metadata = (
+            pd.DataFrame(metadata_values, index=self._grid_names(rows, cols))
+            .dropna(subset=[self.HRRR_METADATA_NAME])
+            .astype(np.float64)
         )
+
+        # HRRR longitudes run 0 to 360 degrees east, so shift them to -180 to 180
+        metadata["longitude"] -= 360
+        utm_x, utm_y, *_ = utm.from_latlon(
+            metadata["latitude"].to_numpy(),
+            metadata["longitude"].to_numpy(),
+            force_zone_number=utm_zone_number,
+        )
+        metadata["utm_x"] = utm_x
+        metadata["utm_y"] = utm_y
 
         return metadata
 
     @staticmethod
-    def format_column_names(dataframe):
+    def _grid_values(array: xr.DataArray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
-        Make new names for the columns as grid_y_x
-
-        :param dataframe:
-        :return: Array - New column names including the y and x GRIB pixel
-                         index. Example: grid_0_1 for y at 0 and x at 1
-        """
-        return [
-            "grid_{c[0]}_{c[1]}".format(c=col)
-            for col in dataframe.columns.to_flat_index()
-        ]
-
-    @staticmethod
-    def apply_utm(dataframe, utm_zone_number):
-        """
-        Ufunc to calculate the utm from lat/lon for a series
+        Flatten the y and x dimensions of a DataArray into one grid dimension.
+        Any leading dimension (time) is kept as the row dimension.
 
         Args:
-            dataframe: pandas series with fields latitude and longitude
-            utm_zone_number: Zone number to force to
+            array: DataArray with y and x as its last two dimensions
 
         Returns:
-            Pandas series entry with fields 'utm_x' and 'utm_y' filled
+            (values, rows, cols) where values is a 2D array of shape
+            (time, y * x), and rows and cols give the y and x index of
+            each grid cell
         """
-        # HRRR has longitude reporting in degrees from the east
-        dataframe["longitude"] -= 360
+        array = array.transpose(..., "y", "x")
+        rows, cols = np.indices(array.shape[-2:])
+        values = array.values.reshape(-1, rows.size)
+        return values, rows.ravel(), cols.ravel()
 
-        (dataframe["utm_x"], dataframe["utm_y"], *unused) = utm.from_latlon(
-            dataframe["latitude"],
-            dataframe["longitude"],
-            force_zone_number=utm_zone_number,
-        )
+    @staticmethod
+    def _grid_names(rows: np.ndarray, cols: np.ndarray) -> list[str]:
+        """
+        Build a column name for each grid cell from its y and x index
 
-        return dataframe
+        Args:
+            rows: y index of each grid cell
+            cols: x index of each grid cell
+
+        Returns:
+            List of names as grid_{y}_{x}, e.g. grid_0_1 for y=0 and x=1
+        """
+        return [f"grid_{row}_{col}" for row, col in zip(rows, cols)]
 
     def gdal(self, date: datetime, topo: Topo) -> dict[str, np.ndarray]:
         """

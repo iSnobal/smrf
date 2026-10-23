@@ -127,7 +127,7 @@ class InputGribHRRR(GriddedInput):
             solar = pd.DataFrame(data["short_wave"], index=idx, columns=cols)
             self._logger.debug("Calculating cloud factor")
             self.cloud_factor = get_hrrr_cloud(
-                solar, self.metadata, self.topo.basin_lat, self.topo.basin_long
+                solar, self.topo.basin_lat, self.topo.basin_long
             )
             self.check_cloud_factor()
 
