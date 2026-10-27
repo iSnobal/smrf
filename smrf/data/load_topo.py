@@ -253,6 +253,9 @@ class Topo:
         )
         slope.setncattr("long_name", "Slope angle (degrees)")
 
+        for var in [sky_view_factor, terrain_config_factor, slope]:
+            var.setncattr("grid_mapping", "projection")
+
         sky_view_factor[:, :] = svf
         terrain_config_factor[:, :] = tcf
         slope[:, :] = np.degrees(self.slope_radians)
