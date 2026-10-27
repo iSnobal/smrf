@@ -8,7 +8,7 @@ import netCDF4 as nc
 import numpy as np
 
 from smrf import __version__
-from smrf.data.load_topo import Topo
+from smrf.data import load_topo
 from smrf.utils.spatialnc import add_proj, add_proj_from_file
 
 
@@ -32,7 +32,7 @@ class OutputNetcdf:
     LEAST_SIGNIFICANT_DIGITS = 4
 
     def __init__(
-        self, output_variables: dict, topo: Topo, time: dict, out_config: dict
+        self, output_variables: dict, topo: load_topo.Topo, time: dict, out_config: dict
     ):
         """
         Initialize the OutputNetcdf() class

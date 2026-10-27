@@ -8,6 +8,8 @@ from topocalc import gradient
 from topocalc.viewf import viewf
 from utm import to_latlon
 
+from smrf.output.output_netcdf import OutputNetcdf
+
 
 @dataclass
 class GdalAttributes:
@@ -211,7 +213,6 @@ class Topo:
         year.
         """
         self.gradient()
-        compression = dict(compression="zlib", complevel=4)
 
         svf, tcf = viewf(
             self.dem,
@@ -225,7 +226,7 @@ class Topo:
             "sky_view_factor",
             "f8",
             ("y", "x"),
-            **compression,
+            **OutputNetcdf.COMPRESSION,
         )
         sky_view_factor.setncattr(
             "long_name",
@@ -236,7 +237,7 @@ class Topo:
             "terrain_config_factor",
             "f8",
             ("y", "x"),
-            **compression,
+            **OutputNetcdf.COMPRESSION,
         )
         terrain_config_factor.setncattr(
             "long_name",
@@ -248,7 +249,7 @@ class Topo:
             "slope",
             "f8",
             ("y", "x"),
-            **compression,
+            **OutputNetcdf.COMPRESSION,
         )
         slope.setncattr("long_name", "Slope angle (degrees)")
 
