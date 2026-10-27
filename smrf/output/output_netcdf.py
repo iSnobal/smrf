@@ -2,6 +2,7 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
+from types import MappingProxyType
 
 import netCDF4 as nc
 import numpy as np
@@ -19,7 +20,14 @@ class OutputNetcdf:
     type = "netcdf"
     FILE_EXTENSION = ".nc"
     fmt = "%Y-%m-%d %H:%M:%S"
-    COMPRESSION = {"compression": "zlib", "complevel": 4}
+    COMPRESSION = MappingProxyType(
+        {
+            "compression": "zstd",
+            "shuffle": True,
+            "quantize_mode": "BitRound",
+            "complevel": 6,
+        }
+    )
     DIMENSIONS = ("time", "y", "x")
     LEAST_SIGNIFICANT_DIGITS = 4
 
