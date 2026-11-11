@@ -1,10 +1,6 @@
-"""
-Distributed forcing data over a grid using interpolation
-"""
-
 import numpy as np
 import pandas as pd
-from scipy.interpolate import griddata
+from scipy import interpolate
 from scipy.spatial import Delaunay, KDTree
 
 from smrf.utils.utils import grid_interpolate_deconstructed
@@ -12,7 +8,7 @@ from smrf.utils.utils import grid_interpolate_deconstructed
 
 class Grid:
     """
-    Linear interpolation between grid points.
+    Distributed forcing data over a grid using interpolation.
     """
 
     CONFIG_KEY = "grid"
@@ -43,20 +39,22 @@ class Grid:
         """
         self.config = config
 
-        # measurement point locations
+        # Measurement point locations
         self.mx = mx
         self.my = my
         self.mz = mz
         self.npoints = len(mx)
 
-        # grid information
+        # Grid information
         self.GridX = grid_x
         self.GridY = grid_y
         self.GridZ = grid_z
 
         self.metadata = metadata
+        # Instance variable to cache the triangulation after the first time it is computed.
+        self.triangulation = None
 
-        # precalculate the k nearest neighbors for the local detrend
+        # Precalculate the k nearest neighbors for the local detrend
         if config["grid_local"]:
             k = config["grid_local_n"]
             if k < 2:
@@ -73,16 +71,13 @@ class Grid:
             self.neighbor_indices = indices
             self.neighbor_elevation = metadata["elevation"].to_numpy()[indices]
 
-            # design matrix and pseudo-inverse depend only on elevation
+            # Design matrix and pseudo-inverse depend only on elevation
             A = np.stack(
                 (self.neighbor_elevation, np.ones_like(self.neighbor_elevation)),
                 axis=-1,
             )
             self.pinv_A = np.linalg.pinv(A)
 
-        self.tri = None
-
-        # mask
         if config["grid_mask"]:
             assert mask.shape == grid_x.shape
 
@@ -108,15 +103,15 @@ class Grid:
         data = data.loc[self.metadata.index].to_numpy()
 
         if self.config["grid_local"]:
-            rtrend = self.detrended_interpolation_local(
+            retrended = self.detrended_interpolation_local(
                 data, constrain_trend, grid_method
             )
         else:
-            rtrend = self.detrended_interpolation_mask(
+            retrended = self.detrended_interpolation_mask(
                 data, constrain_trend, grid_method
             )
 
-        return rtrend
+        return retrended
 
     def detrended_interpolation_local(
         self, data, constrain_trend=0, grid_method="linear"
@@ -129,44 +124,45 @@ class Grid:
             grid_method: scipy.interpolate.griddata interpolation method
             constrain_trend: 1 zeros negative slopes, -1 zeros positive, 0 for none
         """
-        # values and elevations of each cell's k neighbors, shape (N, k)
+        # Values and elevations of each cell's k neighbors, shape (N, k)
         values = data[self.neighbor_indices]
         elevation = self.neighbor_elevation
 
-        # batched least squares via the precomputed pseudo-inverse, shape (N, 2, 1)
+        # Batched least squares via the precomputed pseudo-inverse, shape (N, 2, 1)
         params = self.pinv_A @ values[..., None]
         slope = np.ascontiguousarray(params[:, 0, 0])
         intercept = np.ascontiguousarray(params[:, 1, 0])
 
-        # apply trend constraints
+        # Apply trend constraints
         if constrain_trend == 1:
-            neg = slope < 0
-            slope[neg] = 0
-            intercept[neg] = 0
+            slope_mask = slope < 0
         elif constrain_trend == -1:
-            pos = slope > 0
-            slope[pos] = 0
-            intercept[pos] = 0
+            slope_mask = slope > 0
+        else:
+            slope_mask = np.zeros_like(slope, dtype=bool)
 
-        if self.tri is None:
+        slope[slope_mask] = 0
+        intercept[slope_mask] = 0
+
+        if self.triangulation is None:
             xy = np.column_stack((self.metadata.utm_x, self.metadata.utm_y))
-            self.tri = Delaunay(xy)
+            self.triangulation = Delaunay(xy)
 
-        # remove the elevation trend from each cell's own value
-        dtrend = values[:, 0] - (elevation[:, 0] * slope + intercept)
+        # Remove the elevation trend from each cell's own value
+        detrended = values[:, 0] - (elevation[:, 0] * slope + intercept)
 
         # Interpolate slope, intercept, and residuals
         grid_values = grid_interpolate_deconstructed(
-            self.tri,
-            np.column_stack((slope, intercept, dtrend)),
+            self.triangulation,
+            np.column_stack((slope, intercept, detrended)),
             (self.GridX, self.GridY),
             method=grid_method,
         )
         grid_slope, grid_intercept, idtrend = np.moveaxis(grid_values, -1, 0)
 
-        rtrend = idtrend + grid_slope * self.GridZ + grid_intercept
+        retrended = idtrend + grid_slope * self.GridZ + grid_intercept
 
-        return rtrend
+        return retrended
 
     def detrended_interpolation_mask(
         self, data, constrain_trend=0, grid_method="linear"
@@ -181,25 +177,24 @@ class Grid:
         """
         pv = np.polyfit(self.mz[self.mask].astype(float), data[self.mask], 1)
 
-        # apply trend constraints
+        # Apply trend constraints
         if constrain_trend == 1 and pv[0] < 0 or constrain_trend == -1 and pv[0] > 0:
             pv = np.array([0, 0])
 
         self.pv = pv
 
-        # detrend the data
-        el_trend = self.mz * pv[0] + pv[1]
-        dtrend = data - el_trend
+        # Detrend the data
+        elevation_trend = self.mz * pv[0] + pv[1]
+        detrended = data - elevation_trend
 
-        # interpolate over the DEM grid
-        idtrend = griddata(
-            (self.mx, self.my), dtrend, (self.GridX, self.GridY), method=grid_method
+        # Interpolate over the DEM grid
+        interpolated = interpolate.griddata(
+            (self.mx, self.my), detrended, (self.GridX, self.GridY), method=grid_method
         )
 
-        # retrend the data
-        rtrend = idtrend + pv[0] * self.GridZ + pv[1]
+        retrended = interpolated + pv[0] * self.GridZ + pv[1]
 
-        return rtrend
+        return retrended
 
     def calculate_interpolation(self, data, grid_method="linear"):
         """
@@ -209,8 +204,6 @@ class Grid:
             data: data to interpolate
             grid_method: Method for interpolation
         """
-        g = griddata(
+        return interpolate.griddata(
             (self.mx, self.my), data, (self.GridX, self.GridY), method=grid_method
         )
-
-        return g
