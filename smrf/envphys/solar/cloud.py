@@ -3,7 +3,9 @@ import pandas as pd
 
 from smrf.envphys.solar.model import model_solar
 
-MIN_SOLAR = 50
+# Minimum value of incoming radiation where calculations for cloud factor are performed.
+# Units in W/m^2
+LOW_SOLAR_THRESHOLD = 50
 
 
 def cf_cloud(
@@ -81,7 +83,7 @@ def get_hrrr_cloud(
 
     # Zero out low solar (night and near sunrise/sunset), where the cloud
     # factor is difficult to calculate
-    low_sun = basin_solar < MIN_SOLAR
+    low_sun = basin_solar < LOW_SOLAR_THRESHOLD
     basin_solar = basin_solar.mask(low_sun, 0)
     df_solar = df_solar.mask(low_sun, 0)
 
