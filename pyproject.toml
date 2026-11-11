@@ -23,7 +23,7 @@ dependencies = [
     "pykrige",
     "pytz",
     "scipy<2",
-    "topocalc @ git+https://github.com/iSnobal/topocalc.git@20260526",
+    "topocalc @ git+https://github.com/iSnobal/topocalc.git@main",
     "utm",
     "xarray<2027",
 ]
