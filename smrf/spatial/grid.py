@@ -5,7 +5,6 @@ Distributed forcing data over a grid using interpolation
 import numpy as np
 import pandas as pd
 from scipy.interpolate import griddata
-from scipy.interpolate.interpnd import _ndim_coords_from_arrays
 from scipy.spatial import Delaunay, KDTree
 
 from smrf.utils.utils import grid_interpolate_deconstructed
@@ -156,7 +155,7 @@ class Grid:
 
         # get triangulation
         if self.tri is None:
-            xy = _ndim_coords_from_arrays((self.metadata.utm_x, self.metadata.utm_y))
+            xy = np.column_stack((self.metadata.utm_x, self.metadata.utm_y))
             self.tri = Delaunay(xy)
 
         # interpolate the slope/intercept

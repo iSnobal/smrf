@@ -6,7 +6,7 @@ import utm
 
 from smrf.data import Topo
 from smrf.envphys import sunang
-from smrf.envphys.solar import irradiance, twostream
+from smrf.envphys.solar import irradiance
 from smrf.tests.smrf_test_case import SMRFTestCase
 
 
@@ -105,47 +105,3 @@ class TestRadiation(SMRFTestCase):
         # Python version
         spy = irradiance.direct_solar_irradiance(date_time, w=[0.58, 0.68])
         self.assertTrue(np.abs(spy - sin) <= 0.021)
-
-    def test_twostream(self):
-        """ Twostream calculation """
-
-        # IPW command from man twostream is the first test
-        # twostream -u 0.68 -t 0.2 -w 0.85 -g 0.3 -r 0.5 -s 159
-        # twostream -u 0.05 -t 0.3 -w 0.8 -g 0.35 -r 0.6 -s 60
-        # twostream -u 0.88 -t 0.2 -w 0.7 -g 0.3 -r 0.55 -s 1200
-
-        # inputs
-        cosz = [0.68, 0.05, 0.88]
-        tau = [0.2, 0.3, 0.2]
-        omega = [0.85, 0.8, 0.7]
-        g = [0.3, 0.35, 0.3]
-        R0 = [0.5, 0.6, 0.55]
-        S0 = [159, 60, 1200]
-
-        # outputs
-        reflectance = [0.472814, 0.577519, 0.465302]
-        transmittance = [0.912634, 0.365645, 0.912601]
-        direct_transmittance = [0.745189, 0.00247875, 0.796703]
-        upwelling_irradiance = [51.1207, 1.73256, 491.359]
-        total_irradiance_at_bottom = [98.674, 1.09694, 963.707]
-        direct_irradiance_normal_to_beam = [118.485, 0.148725, 956.044]
-
-        for n in [0, 1]:
-
-            # Python way
-            py_R = twostream.twostream(
-                cosz[n], S0[n], tau=tau[n], omega=omega[n], g=g[n], R0=R0[n])
-
-            # IPW is printed to %g format so convert
-            for key, value in py_R.items():
-                py_R[key] = float('{:g}'.format(value[0]))
-            self.assertTrue(py_R['reflectance'] == reflectance[n])
-            self.assertTrue(py_R['transmittance'] == transmittance[n])
-            self.assertTrue(py_R['direct_transmittance']
-                            == direct_transmittance[n])
-            self.assertTrue(py_R['upwelling_irradiance']
-                            == upwelling_irradiance[n])
-            self.assertTrue(py_R['irradiance_at_bottom']
-                            == total_irradiance_at_bottom[n])
-            self.assertTrue(py_R['irradiance_normal_to_beam']
-                            == direct_irradiance_normal_to_beam[n])

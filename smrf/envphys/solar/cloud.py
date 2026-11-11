@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 
 from smrf.envphys.solar.model import model_solar
@@ -27,7 +28,7 @@ def cf_cloud(beam, diffuse, cf):
     CCOEF = 1.38
 
     # cloud attenuation, beam ratio is reduced
-    bf_c = CCOEF * (cf - CRAT1)**2
+    bf_c = CCOEF * (cf - CRAT1) ** 2
     c_grad = beam * cf
     c_brad = c_grad * bf_c
     c_drad = c_grad - c_brad
@@ -68,7 +69,7 @@ def get_hrrr_cloud(df_solar, df_meta, lat, lon):
     for idt, dt in enumerate(dates):
         # get solar using twostream
         dtt = pd.to_datetime(dt)
-        basin_sol.iloc[idt, :] = model_solar(dtt, lat, lon)
+        basin_sol.iloc[idt, :] = np.float32(model_solar(dtt, lat, lon))
 
     # if it's close to sun down or sun up, then the cloud factor gets
     # difficult to calculate
@@ -79,8 +80,8 @@ def get_hrrr_cloud(df_solar, df_meta, lat, lon):
     df_cf = df_solar / basin_sol
 
     # linear interpolate the NaN values at night
-    df_cf = df_cf.interpolate(method='linear').ffill()
-    df_cf = df_cf.interpolate(method='linear').bfill()
+    df_cf = df_cf.interpolate(method="linear").ffill()
+    df_cf = df_cf.interpolate(method="linear").bfill()
 
     # Clean up the dataframe to be between 0 and 1
     df_cf[df_cf > 1.0] = 1.0

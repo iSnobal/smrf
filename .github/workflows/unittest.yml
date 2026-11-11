@@ -28,7 +28,7 @@ jobs:
         os: [ ubuntu-latest, macos-latest ]
     runs-on: ${{ matrix.os }}
     env:
-      GCC_VERSION: 11
+      GCC_VERSION: 13
       LINUX_YAML: isnobal_linux.yaml
       MACOS_YAML: isnobal_macOS.yaml
 

@@ -62,9 +62,9 @@ class WinstralWindModel:
         """
         self.wind_distribution = wind_distribution
         # open the maxus netCDF
-        with nc.Dataset(self.config['maxus_netcdf'], 'r') as maxus_file:
-            self.maxus = maxus_file.variables['maxus'][:]
-            self.maxus_direction = maxus_file.variables['direction'][:]
+        with nc.Dataset(self.config["maxus_netcdf"], "r") as maxus_file:
+            self.maxus = maxus_file.variables["maxus"][:]
+            self.maxus_direction = maxus_file.variables["direction"][:]
 
         self.wind_distribution._logger.debug(
             "Read data from {}".format(self.config["maxus_netcdf"])
@@ -74,7 +74,7 @@ class WinstralWindModel:
         matching = [s for s in self.config.keys() if "veg_" in s]
         v = {}
         for m in matching:
-            ms = m.split('_')
+            ms = m.split("_")
             if type(self.config[m]) == list:
                 v[ms[1]] = float(self.config[m][0])
             else:
@@ -106,9 +106,8 @@ class WinstralWindModel:
         self.Y = self.topo.Y
 
         # get the enhancements for the stations
-        if 'enhancement' not in self.metadata.columns:
-            self.metadata['enhancement'] = \
-                float(self.config['station_default'])
+        if "enhancement" not in self.metadata.columns:
+            self.metadata["enhancement"] = float(self.config["station_default"])
 
             for m in self.metadata.index:
                 sta_e = m.lower()
@@ -118,15 +117,14 @@ class WinstralWindModel:
                     else:
                         enhancement = self.config[sta_e]
 
-                    self.metadata.loc[m, 'enhancement'] = \
-                        float(enhancement)
+                    self.metadata.loc[m, "enhancement"] = float(enhancement)
 
         # Maxus must be the the same size as the topo.
         if self.topo.dem.shape != self.maxus[0].shape:
-            raise IOError(
+            raise OSError(
                 "Maxus file must be generated using the topo to"
-                " be valid. Maxus netcdf shape = {} and topo"
-                " netcdf shape = {}".format(self.topo.dem.shape, self.maxus.shape)
+                f" be valid. Maxus netcdf shape = {self.topo.dem.shape} and topo"
+                f" netcdf shape = {self.maxus.shape}"
             )
 
         # if not self.distribute_drifts:
@@ -199,9 +197,8 @@ class WinstralWindModel:
         )
         az[az < 0] = az[az < 0] + 360
 
-        dir_round_cell = np.ceil((az - self.nstep/2) / self.nstep) * self.nstep
-        dir_round_cell[dir_round_cell <
-                       0] = dir_round_cell[dir_round_cell < 0] + 360
+        dir_round_cell = np.ceil((az - self.nstep / 2) / self.nstep) * self.nstep
+        dir_round_cell[dir_round_cell < 0] = dir_round_cell[dir_round_cell < 0] + 360
         dir_round_cell[dir_round_cell == -0] = 0
         dir_round_cell[dir_round_cell == 360] = 0
 
@@ -219,50 +216,70 @@ class WinstralWindModel:
         dynamic_mask = np.ones(cellmaxus.shape)
         for k, v in self.veg.items():
             # Adjust veg types that were specified by the user
-            if k != 'default':
+            if k != "default":
                 ind = self.topo.veg_type == int(k)
                 dynamic_mask[ind] = 0
                 cellmaxus[ind] += v
 
         # Apply the veg default to those that weren't messed with
-        if self.veg['default'] != 0:
-            cellmaxus[dynamic_mask == 1] += self.veg['default']
+        if self.veg["default"] != 0:
+            cellmaxus[dynamic_mask == 1] += self.veg["default"]
 
         # correct unreasonable values
         cellmaxus[cellmaxus > 32] = 32
         cellmaxus[cellmaxus < -32] = -32
 
         # determine wind
-        factor = float(self.config['reduction_factor'])
+        factor = float(self.config["reduction_factor"])
         ind = cellmaxus < -30.10
         cellwind[ind] = factor * self.flatwind[ind] * 4.211
 
         ind = (cellmaxus > -30.10) & (cellmaxus < -21.3)
         c = np.abs(cellmaxus[ind])
-        cellwind[ind] = factor * self.flatwind[ind] * \
-            (1.756507 - 0.1678945 * c + 0.01927844 * np.power(c, 2) -
-             0.0003651592 * np.power(c, 3))
+        cellwind[ind] = (
+            factor
+            * self.flatwind[ind]
+            * (
+                1.756507
+                - 0.1678945 * c
+                + 0.01927844 * np.power(c, 2)
+                - 0.0003651592 * np.power(c, 3)
+            )
+        )
 
         ind = (cellmaxus > -21.3) & (cellmaxus < 0)
         c = np.abs(cellmaxus[ind])
-        cellwind[ind] = factor * self.flatwind[ind] * \
-            (1.0 + 0.1031717 * c - 0.008003561 * np.power(c, 2) +
-             0.0003996581 * np.power(c, 3))
+        cellwind[ind] = (
+            factor
+            * self.flatwind[ind]
+            * (
+                1.0
+                + 0.1031717 * c
+                - 0.008003561 * np.power(c, 2)
+                + 0.0003996581 * np.power(c, 3)
+            )
+        )
 
         ind = cellmaxus > 30.10
         cellwind[ind] = self.flatwind[ind] / 4.211
 
         ind = (cellmaxus < 30.10) & (cellmaxus > 21.3)
         c = cellmaxus[ind]
-        cellwind[ind] = self.flatwind[ind] / \
-            (1.756507 - 0.1678945 * c + 0.01927844 * np.power(c, 2) -
-             0.0003651592 * np.power(c, 3))
+        cellwind[ind] = self.flatwind[ind] / (
+            1.756507
+            - 0.1678945 * c
+            + 0.01927844 * np.power(c, 2)
+            - 0.0003651592 * np.power(c, 3)
+        )
 
         ind = (cellmaxus < 21.3) & (cellmaxus >= 0)
         c = cellmaxus[ind]
-        cellwind[ind] = self.flatwind[ind] / \
-            (1.0 + 0.1031717 * c - 0.008003561 * np.power(c, 2) +
-             0.0003996581 * np.power(c, 3))
+        cellwind[ind] = self.flatwind[ind] / (
+            1.0
+            + 0.1031717 * c
+            - 0.008003561 * np.power(c, 2)
+            + 0.0003996581 * np.power(c, 3)
+        )
 
         # Convert from 3m to 5m wind speed
         cellwind *= 1.07985
@@ -306,23 +323,27 @@ class WinstralWindModel:
 
         # number of bins that the maxus library was calculated for
         self.nbins = len(self.maxus_direction)
-        self.nstep = 360/self.nbins
+        self.nstep = 360 / self.nbins
 
         for m in self.metadata.index:
             # pixel locations
-            xi = self.metadata.loc[m, 'xi']
-            yi = self.metadata.loc[m, 'yi']
-            e = self.metadata.loc[m, 'enhancement']
+            xi = self.metadata.loc[m, "xi"]
+            yi = self.metadata.loc[m, "yi"]
+            e = self.metadata.loc[m, "enhancement"]
 
             # maxus value at the station
             if m in data_direction and not pd.isna(data_direction[m]):
-                if self.config['station_peak'] is not None and \
-                    m.upper() in self.config['station_peak']:
-                        val_maxus = np.min(self.maxus[:, yi, xi] + e)
+                if (
+                    self.config["station_peak"] is not None
+                    and m.upper() in self.config["station_peak"]
+                ):
+                    val_maxus = np.min(self.maxus[:, yi, xi] + e)
 
                 else:
-                    idx = int(np.ceil((data_direction[m] - self.nstep/2) /
-                                      self.nstep) * self.nstep)
+                    idx = int(
+                        np.ceil((data_direction[m] - self.nstep / 2) / self.nstep)
+                        * self.nstep
+                    )
                     if idx == 360:
                         idx = 0  # special case when 360=0
                     ind = self.maxus_direction == idx
@@ -330,34 +351,38 @@ class WinstralWindModel:
                     val_maxus = self.maxus[ind, yi, xi] + e
 
                 # correct unreasonable values
-                if val_maxus > 35:
-                    val_maxus = 35
-                if val_maxus < -35:
-                    val_maxus = -35
+                val_maxus = min(val_maxus, 35)
+                val_maxus = max(val_maxus, -35)
 
                 ma = np.abs(val_maxus)
 
                 # Lapse all measurements to flat terrain (i.e. maxus = 0)
-                if (ma > 21.3 and ma < 30.0):
-                    expVal = 1.756507 - 0.1678945 * ma + \
-                        0.01927844 * np.power(ma, 2) - \
-                        0.0003651592 * np.power(ma, 3)
-                elif (ma >= 30.0):
+                if ma > 21.3 and ma < 30.0:
+                    expVal = (
+                        1.756507
+                        - 0.1678945 * ma
+                        + 0.01927844 * np.power(ma, 2)
+                        - 0.0003651592 * np.power(ma, 3)
+                    )
+                elif ma >= 30.0:
                     expVal = 4.21
                 else:
-                    expVal = 1.0 + 0.1031717 * (ma) - \
-                        0.008003561 * np.power(ma, 2) + \
-                        0.0003996581 * np.power(ma, 3)
+                    expVal = (
+                        1.0
+                        + 0.1031717 * (ma)
+                        - 0.008003561 * np.power(ma, 2)
+                        + 0.0003996581 * np.power(ma, 3)
+                    )
 
                 if val_maxus > 0:
                     flatwind.loc[m] = data_speed[m] * expVal
                 else:
                     flatwind.loc[m] = data_speed[m] / expVal
             else:
-                flatwind.loc[m] = np.NaN
+                flatwind.loc[m] = np.nan
 
         self.flatwind_point = flatwind
 
         # wind direction components at the station
-        self.u_direction = np.sin(data_direction * np.pi/180)    # u
-        self.v_direction = np.cos(data_direction * np.pi/180)    # v
+        self.u_direction = np.sin(data_direction * np.pi / 180)  # u
+        self.v_direction = np.cos(data_direction * np.pi / 180)  # v
