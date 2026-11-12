@@ -34,12 +34,12 @@ class InputWRF(GriddedInput):
         }
     )
 
-    def get_file_times(self):
+    def get_file_times(self) -> pd.DatetimeIndex:
         """
-        Read the times from the file and attempt to interpret the format.
+        Read the times from the file and interpret them as WRF timestamps.
 
         Raises:
-            Exception: could not parse the times
+            ValueError: a time does not match the WRF format
 
         Returns:
             list: list of date times
@@ -47,20 +47,10 @@ class InputWRF(GriddedInput):
 
         t = self.file.variables["Times"]
         t.set_auto_maskandscale(False)
-        try:
-            times = [("").join(v) for v in t]
-        except TypeError:
-            times = []
-            for v in t:
-                times.append("".join([s.decode("utf-8") for s in v]))
-        except Exception:
-            raise Exception("Could not convert WRF times to readable format")
+        times = nc.chartostring(t[:])
 
-        times = [v.replace("_", " ") for v in times]
         in_utc = str(self.time_zone).lower() == str(pytz.UTC).lower()
-        time = pd.to_datetime(times, utc=in_utc)
-
-        return time
+        return pd.to_datetime(times, format="%Y-%m-%d_%H:%M:%S", utc=in_utc)
 
     def get_metadata(self):
 
