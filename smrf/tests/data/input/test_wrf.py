@@ -1,6 +1,7 @@
 import shutil
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import netCDF4 as nc
@@ -11,6 +12,7 @@ import utm
 from smrf.data.input import InputWRF
 from smrf.data.input.netcdf import metadata_name_from_index
 from smrf.data.load_topo import Topo
+from smrf.tests.smrf_test_case_lakes import SMRFTestCaseLakes
 
 ZONE_NUMBER = 11
 UTM_PLACES = 3
@@ -36,6 +38,8 @@ START_DATE = pd.to_datetime("2015-03-03 00:00 UTC")
 NAIVE_START_DATE = pd.to_datetime("2015-03-03 00:00")
 END_DATE = pd.to_datetime("2015-03-03 04:00 UTC")
 TIME_STAMPS = ["2015-03-03 00:00:00", "2015-03-03 01:00:00"]
+
+LAKES_DIR = Path(__file__).resolve().parents[2] / "basins" / "Lakes" / "WUS-D3"
 
 
 def write_wrf_file(
@@ -68,6 +72,15 @@ def write_wrf_file(
             v[:] = data
 
 
+def make_topo_mock() -> MagicMock:
+    """
+    Create a mocked Topo
+    """
+    topo = MagicMock(spec=Topo)
+    topo.zone_number = ZONE_NUMBER
+    return topo
+
+
 def make_wrf_input(file_path: str, start_date: pd.Timestamp = START_DATE) -> InputWRF:
     """
     Create InputWRF test instance and open the netCDF dataset.
@@ -82,9 +95,7 @@ def make_wrf_input(file_path: str, start_date: pd.Timestamp = START_DATE) -> Inp
         InputWRF with `file` set, but no metadata or data loaded yet
     """
     config = {"gridded": {"wrf_file": file_path}}
-    topo = MagicMock(spec=Topo)
-    topo.zone_number = ZONE_NUMBER
-    wrf = InputWRF(start_date, END_DATE, BBOX, topo, config)
+    wrf = InputWRF(start_date, END_DATE, BBOX, make_topo_mock(), config)
     wrf.file = nc.Dataset(file_path)
     return wrf
 
@@ -169,3 +180,44 @@ class TestInputWRF_WUS_D3(WRFTestCase):
 
         expected = pd.to_datetime(TIME_STAMPS, utc=True)
         pd.testing.assert_index_equal(times, expected)
+
+    def test_get_metadata_reads_static_file(self):
+        static_path = LAKES_DIR / "WUS-D3_domain.nc"
+        config = {
+            "gridded": {
+                "wrf_file": "not_opened_wrf_file.nc",
+                "wrf_metadata": str(static_path),
+            }
+        }
+        wrf = InputWRF(
+            START_DATE, END_DATE, SMRFTestCaseLakes.BBOX, make_topo_mock(), config
+        )
+
+        wrf.get_metadata()
+
+        with nc.Dataset(static_path) as f:
+            xlat = f.variables["XLAT"][:]
+            xlong = f.variables["XLONG"][:]
+            hgt = f.variables["HGT"][:]
+        mask = (
+            (xlat >= SMRFTestCaseLakes.BBOX[1])
+            & (xlat <= SMRFTestCaseLakes.BBOX[3])
+            & (xlong >= SMRFTestCaseLakes.BBOX[0])
+            & (xlong <= SMRFTestCaseLakes.BBOX[2])
+        )
+        np.testing.assert_array_equal(wrf.station_index, np.argwhere(mask))
+        np.testing.assert_allclose(wrf.metadata["elevation"].values, hgt[mask])
+
+    def test_get_metadata_raises_without_metadata_file(self):
+        # Gracefully handle the case when a user does not set the wrf_metadata in
+        # the config file although WUS-D3 is used
+        hourly_path = LAKES_DIR / "auxhist_d01_2022-11-08_00:00:00.nc"
+        config = {"gridded": {"wrf_file": str(hourly_path)}}
+        wrf = InputWRF(
+            START_DATE, END_DATE, SMRFTestCaseLakes.BBOX, make_topo_mock(), config
+        )
+        wrf.file = nc.Dataset(hourly_path)
+        self.addCleanup(wrf.file.close)
+
+        with self.assertRaisesRegex(ValueError, r"XLAT.*wrf_metadata .ini file option"):
+            wrf.get_metadata()

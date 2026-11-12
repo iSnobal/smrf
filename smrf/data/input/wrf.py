@@ -34,6 +34,14 @@ class InputWRF(GriddedInput):
         }
     )
 
+    GRID_VARIABLES = ("XLAT", "XLONG", "HGT")
+
+    def __init__(self, start_date, end_date, bbox, topo, config):
+        super().__init__(start_date, end_date, bbox, topo, config)
+
+        # Use the user file when given in the .ini to read grid variables
+        self.metadata_file = self.config.get("wrf_metadata")
+
     def get_file_times(self) -> pd.DatetimeIndex:
         """
         Read the times from the file and interpret them as WRF timestamps.
@@ -52,34 +60,69 @@ class InputWRF(GriddedInput):
         in_utc = str(self.time_zone).lower() == str(pytz.UTC).lower()
         return pd.to_datetime(times, format="%Y-%m-%d_%H:%M:%S", utc=in_utc)
 
-    def get_metadata(self):
+    @staticmethod
+    def _read_grid_fields(
+        file_with_grid_info: nc.Dataset,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Read the grid fields from an open netCDF dataset.
+
+        Args:
+            file_with_grid_info: netCDF4.Dataset holding every variable listed
+                in :attr:`InputWRF.GRID_VARIABLES`
+
+        Raises:
+            ValueError: a variable from :attr:`InputWRF.GRID_VARIABLES` is
+                missing from the dataset
+
+        Returns:
+            tuple: XLAT, XLONG and HGT as float64 arrays
+        """
+        missing = [
+            v for v in InputWRF.GRID_VARIABLES if v not in file_with_grid_info.variables
+        ]
+        if missing:
+            raise ValueError(
+                f"{missing} not found in {file_with_grid_info.filepath()}. "
+                "The grid fields can be "
+                "supplied with the wrf_metadata .ini file option"
+            )
+
+        xlat = file_with_grid_info.variables["XLAT"][:].astype("float64")
+        xlong = file_with_grid_info.variables["XLONG"][:].astype("float64")
+        hgt = file_with_grid_info.variables["HGT"][:].astype("float64")
+        return xlat, xlong, hgt
+
+    def get_metadata(self) -> None:
+        # Use the metadata file for the grid fields when one is set
+        if self.metadata_file:
+            with nc.Dataset(self.metadata_file) as grid:
+                xlat, xlong, hgt = self._read_grid_fields(grid)
+        else:
+            xlat, xlong, hgt = self._read_grid_fields(self.file)
 
         # get the values that are in the modeling domain
-        ind = (
-            (self.file.variables["XLAT"] >= self.bbox[1])
-            & (self.file.variables["XLAT"] <= self.bbox[3])
-            & (self.file.variables["XLONG"] >= self.bbox[0])
-            & (self.file.variables["XLONG"] <= self.bbox[2])
+        model_domain_mask = (
+            (xlat >= self.bbox[1])
+            & (xlat <= self.bbox[3])
+            & (xlong >= self.bbox[0])
+            & (xlong <= self.bbox[2])
         )
 
-        mlat = self.file.variables["XLAT"][:][ind]
-        mlon = self.file.variables["XLONG"][:][ind]
-        mhgt = self.file.variables["HGT"][:][ind]
-
         # create some fake station names based on the index
-        self.station_index = np.argwhere(ind)
+        self.station_index = np.argwhere(model_domain_mask)
         self.primary_id = [metadata_name_from_index(i) for i in self.station_index]
         self._logger.debug(f"{len(self.station_index)} grid cells within model domain")
 
         # create a metadata dataframe to store all the grid info
         metadata = pd.DataFrame(
+            {
+                "latitude": xlat[model_domain_mask],
+                "longitude": xlong[model_domain_mask],
+                "elevation": hgt[model_domain_mask],
+            },
             index=self.primary_id,
-            columns=("utm_x", "utm_y", "latitude", "longitude", "elevation"),
         )
-
-        metadata["latitude"] = mlat.flatten()
-        metadata["longitude"] = mlon.flatten()
-        metadata["elevation"] = mhgt.flatten()
         metadata = metadata.apply(apply_utm, args=(self.topo.zone_number,), axis=1)
 
         self.metadata = metadata
