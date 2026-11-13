@@ -2,12 +2,8 @@ import netCDF4 as nc
 import numpy as np
 import pandas as pd
 
+from smrf.data.helper import add_utm_columns, grid_station_names
 from smrf.data.input import GriddedInput
-from smrf.utils.utils import apply_utm
-
-
-def metadata_name_from_index(index):
-    return 'grid_y{:d}_x{:d}'.format(index[0], index[1])
 
 
 class InputNetcdf(GriddedInput):
@@ -60,20 +56,18 @@ class InputNetcdf(GriddedInput):
 
         # create some fake station names based on the index
         a = np.argwhere(ind)
-        primary_id = [metadata_name_from_index(i) for i in a]
+        primary_id = grid_station_names(a[:, 0], a[:, 1])
         self._logger.debug('{} grid cells within model domain'.format(len(a)))
 
         # create a metadata dataframe to store all the grid info
-        metadata = pd.DataFrame(index=primary_id,
-                                columns=('X', 'Y', 'latitude',
-                                         'longitude', 'elevation'))
+        metadata = pd.DataFrame(
+            index=primary_id, columns=("latitude", "longitude", "elevation")
+        )
 
-        metadata['latitude'] = mlat.flatten()
-        metadata['longitude'] = mlon.flatten()
-        metadata['elevation'] = mhgt.flatten()
-        metadata = metadata.apply(apply_utm,
-                                  args=(self.topo.zone_number,),
-                                  axis=1)
+        metadata["latitude"] = mlat.flatten()
+        metadata["longitude"] = mlon.flatten()
+        metadata["elevation"] = mhgt.flatten()
+        metadata = add_utm_columns(metadata, self.topo.zone_number)
 
         self.metadata = metadata
 
@@ -93,8 +87,7 @@ class InputNetcdf(GriddedInput):
             )
 
             df = pd.DataFrame(index=time, columns=primary_id)
-            for i in a:
-                g = metadata_name_from_index(i)
+            for g, i in zip(primary_id, a):
                 df[g] = f.variables[v_file][:, i[0], i[1]]
 
             # deal with any fillValues

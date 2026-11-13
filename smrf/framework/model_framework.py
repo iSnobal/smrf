@@ -80,7 +80,7 @@ class SMRF:
             )
         # start logging
         if external_logger is None:
-            self.smrf_logger = logger.SMRFLogger(ucfg.cfg["system"])
+            logger.setup_logging(ucfg.cfg["system"])
             self._logger = logging.getLogger(__name__)
         else:
             self._logger = external_logger
@@ -153,7 +153,9 @@ class SMRF:
 
         self.output_variables = set(self.config["output"]["variables"])
         self._logger.info(
-            "Configured output variables: \n {}".format(", ".join(self.output_variables))
+            "Configured output variables: \n {}".format(
+                ", ".join(self.output_variables)
+            )
         )
         self.output_writer = None
 
@@ -166,9 +168,7 @@ class SMRF:
         if self.config["system"]["qotw"]:
             self._logger.info(getqotw())
 
-        self._logger.info(
-            f"Started SMRF --> {datetime.now(tz=self.time_zone)}"
-        )
+        self._logger.info(f"Started SMRF --> {datetime.now(tz=self.time_zone)}")
         self._logger.info(f"Number of time steps: {self.time_steps}")
 
     def _setup_date_and_time(self):
@@ -200,10 +200,7 @@ class SMRF:
         Provide some logging info about when SMRF was closed
         """
 
-        self._logger.info(
-            f"SMRF closed --> {datetime.now(tz=self.time_zone)}"
-        )
-        logging.shutdown()
+        self._logger.info(f"SMRF closed --> {datetime.now(tz=self.time_zone)}")
 
     def load_topo(self):
         """
@@ -393,9 +390,7 @@ class SMRF:
             self.output(t)
 
             telapsed = datetime.now(tz=self.time_zone) - startTime
-            self._logger.debug(
-                f"{telapsed.total_seconds():.2f} seconds for time step"
-            )
+            self._logger.debug(f"{telapsed.total_seconds():.2f} seconds for time step")
 
         # Close all opened source files
         for v in self.distribute:
