@@ -3,10 +3,10 @@ from datetime import datetime, timedelta
 
 import numpy as np
 import pandas as pd
-import utm
 import xarray as xr
 
 from smrf.data.load_topo import Topo
+from smrf.data.helper import add_utm_columns
 
 from .file_handler import FileHandler
 from .grib_file_gdal import GribFileGdal
@@ -257,13 +257,7 @@ class FileLoader:
 
         # HRRR longitudes run 0 to 360 degrees east, so shift them to -180 to 180
         metadata["longitude"] -= 360
-        utm_x, utm_y, *_ = utm.from_latlon(
-            metadata["latitude"].to_numpy(),
-            metadata["longitude"].to_numpy(),
-            force_zone_number=utm_zone_number,
-        )
-        metadata["utm_x"] = utm_x
-        metadata["utm_y"] = utm_y
+        metadata = add_utm_columns(metadata, utm_zone_number)
 
         return metadata
 

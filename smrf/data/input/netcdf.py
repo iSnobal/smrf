@@ -2,8 +2,8 @@ import netCDF4 as nc
 import numpy as np
 import pandas as pd
 
+from smrf.data.helper import add_utm_columns
 from smrf.data.input import GriddedInput
-from smrf.utils.utils import apply_utm
 
 
 def metadata_name_from_index(index):
@@ -64,16 +64,14 @@ class InputNetcdf(GriddedInput):
         self._logger.debug('{} grid cells within model domain'.format(len(a)))
 
         # create a metadata dataframe to store all the grid info
-        metadata = pd.DataFrame(index=primary_id,
-                                columns=('X', 'Y', 'latitude',
-                                         'longitude', 'elevation'))
+        metadata = pd.DataFrame(
+            index=primary_id, columns=("latitude", "longitude", "elevation")
+        )
 
-        metadata['latitude'] = mlat.flatten()
-        metadata['longitude'] = mlon.flatten()
-        metadata['elevation'] = mhgt.flatten()
-        metadata = metadata.apply(apply_utm,
-                                  args=(self.topo.zone_number,),
-                                  axis=1)
+        metadata["latitude"] = mlat.flatten()
+        metadata["longitude"] = mlon.flatten()
+        metadata["elevation"] = mhgt.flatten()
+        metadata = add_utm_columns(metadata, self.topo.zone_number)
 
         self.metadata = metadata
 

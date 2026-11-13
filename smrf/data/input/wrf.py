@@ -8,7 +8,7 @@ import pytz
 from smrf.data.input.gridded_input import GriddedInput
 from smrf.data.input.netcdf import metadata_name_from_index
 from smrf.envphys.vapor_pressure import svp_for_celsius
-from smrf.utils.utils import apply_utm
+from smrf.data.helper import add_utm_columns
 
 
 class InputWRF(GriddedInput):
@@ -123,7 +123,7 @@ class InputWRF(GriddedInput):
             },
             index=self.primary_id,
         )
-        metadata = metadata.apply(apply_utm, args=(self.topo.zone_number,), axis=1)
+        metadata = add_utm_columns(metadata, self.topo.zone_number)
 
         self.metadata = metadata
 
