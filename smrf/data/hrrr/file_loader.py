@@ -6,7 +6,7 @@ import pandas as pd
 import xarray as xr
 
 from smrf.data.load_topo import Topo
-from smrf.data.helper import add_utm_columns
+from smrf.data.helper import add_utm_columns, grid_station_names
 
 from .file_handler import FileHandler
 from .grib_file_gdal import GribFileGdal
@@ -189,7 +189,7 @@ class FileLoader:
             df = pd.DataFrame(
                 values[:, has_data],
                 index=pd.DatetimeIndex(data[variable].time.values, name="date_time"),
-                columns=self._grid_names(rows[has_data], cols[has_data]),
+                columns=grid_station_names(rows[has_data], cols[has_data]),
             )
             dataframe[variable] = df
 
@@ -250,7 +250,7 @@ class FileLoader:
 
         # float64 keeps coordinates and elevation at the precision the grid expects
         metadata = (
-            pd.DataFrame(metadata_values, index=self._grid_names(rows, cols))
+            pd.DataFrame(metadata_values, index=grid_station_names(rows, cols))
             .dropna(subset=[self.HRRR_METADATA_NAME])
             .astype(np.float64)
         )
@@ -279,20 +279,6 @@ class FileLoader:
         rows, cols = np.indices(array.shape[-2:])
         values = array.values.reshape(-1, rows.size)
         return values, rows.ravel(), cols.ravel()
-
-    @staticmethod
-    def _grid_names(rows: np.ndarray, cols: np.ndarray) -> list[str]:
-        """
-        Build a column name for each grid cell from its y and x index
-
-        Args:
-            rows: y index of each grid cell
-            cols: x index of each grid cell
-
-        Returns:
-            List of names as grid_{y}_{x}, e.g. grid_0_1 for y=0 and x=1
-        """
-        return [f"grid_{row}_{col}" for row, col in zip(rows, cols)]
 
     def gdal(self, date: datetime, topo: Topo) -> dict[str, np.ndarray]:
         """

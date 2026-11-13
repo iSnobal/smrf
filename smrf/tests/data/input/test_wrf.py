@@ -10,7 +10,7 @@ import pandas as pd
 import utm
 
 from smrf.data.input import InputWRF
-from smrf.data.input.netcdf import metadata_name_from_index
+from smrf.data.helper import grid_station_names
 from smrf.data.load_topo import Topo
 from smrf.tests.smrf_test_case_lakes import SMRFTestCaseLakes
 
@@ -151,7 +151,7 @@ class TestInputWRF(WRFTestCase):
     def test_get_metadata_selects_cells_in_bbox(self):
         self.wrf.get_metadata()
 
-        name = metadata_name_from_index(CENTER)
+        name = grid_station_names([CENTER[0]], [CENTER[1]])[0]
         np.testing.assert_array_equal(self.wrf.station_index, [CENTER])
         self.assertEqual(self.wrf.primary_id, [name])
 

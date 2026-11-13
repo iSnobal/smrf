@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import utm
 
@@ -21,3 +22,17 @@ def add_utm_columns(df: pd.DataFrame, force_zone_number: int) -> pd.DataFrame:
     df["utm_x"] = p[0]
     df["utm_y"] = p[1]
     return df
+
+
+def grid_station_names(rows: np.ndarray, cols: np.ndarray) -> list[str]:
+    """
+    Build a station name for each grid cell from its y and x index
+
+    Args:
+        rows: y index of each grid cell
+        cols: x index of each grid cell
+
+    Returns:
+        List of names as grid_y{y}_x{x}, e.g. grid_y0_x1 for y=0 and x=1
+    """
+    return [f"grid_y{row:d}_x{col:d}" for row, col in zip(rows, cols)]

@@ -6,9 +6,8 @@ import pandas as pd
 import pytz
 
 from smrf.data.input.gridded_input import GriddedInput
-from smrf.data.input.netcdf import metadata_name_from_index
 from smrf.envphys.vapor_pressure import svp_for_celsius
-from smrf.data.helper import add_utm_columns
+from smrf.data.helper import add_utm_columns, grid_station_names
 
 
 class InputWRF(GriddedInput):
@@ -111,7 +110,9 @@ class InputWRF(GriddedInput):
 
         # create some fake station names based on the index
         self.station_index = np.argwhere(model_domain_mask)
-        self.primary_id = [metadata_name_from_index(i) for i in self.station_index]
+        self.primary_id = grid_station_names(
+            self.station_index[:, 0], self.station_index[:, 1]
+        )
         self._logger.debug(f"{len(self.station_index)} grid cells within model domain")
 
         # create a metadata dataframe to store all the grid info
@@ -164,8 +165,7 @@ class InputWRF(GriddedInput):
             )
 
             df = pd.DataFrame(index=time, columns=self.primary_id)
-            for i in self.station_index:
-                g = metadata_name_from_index(i)
+            for g, i in zip(self.primary_id, self.station_index):
                 df[g] = self.file.variables[wrf_variable][time_ind, i[0], i[1]]
 
             setattr(self, variable, df)
@@ -180,8 +180,7 @@ class InputWRF(GriddedInput):
         self._logger.debug("Loading cloud_factor")
         self.cloud_factor = pd.DataFrame(index=time, columns=self.primary_id)
         cf = 1 - np.mean(self.file.variables["CLDFRA"][time_ind, :], axis=1)
-        for i in self.station_index:
-            g = metadata_name_from_index(i)
+        for g, i in zip(self.primary_id, self.station_index):
             v = cf[:, i[0], i[1]]
             self.cloud_factor[g] = v
 
@@ -200,8 +199,7 @@ class InputWRF(GriddedInput):
         ind = d < 0
         d[ind] = d[ind] + 360
 
-        for i in self.station_index:
-            g = metadata_name_from_index(i)
+        for g, i in zip(self.primary_id, self.station_index):
             self.wind_speed[g] = s[:, i[0], i[1]]
             self.wind_direction[g] = d[:, i[0], i[1]]
 
