@@ -1,42 +1,19 @@
-.PHONY: clean-pyc clean-build docs clean
-define BROWSER_PYSCRIPT
-import os, webbrowser, sys
-try:
-	from urllib import pathname2url
-except:
-	from urllib.request import pathname2url
+.PHONY: clean-pyc clean-build clean-cython clean help tests tests-fast-fail tests-no-build install install-dev build_extensions
 
-webbrowser.open("file://" + pathname2url(os.path.abspath(sys.argv[1])))
-endef
-export BROWSER_PYSCRIPT
-BROWSER := python3 -c "$$BROWSER_PYSCRIPT"
+help: ## Display this help screen
+	@sed -n 's/^\([A-Za-z0-9_.-]*\):.*## \(.*\)$$/\1:\2/p' $(MAKEFILE_LIST) | sort | column -t -s ':'
 
-help:
-	@echo "build_extensions - Build Cython extensions"
-	@echo "clean - remove all build, test, coverage and Python artifacts"
-	@echo "clean-build - remove build artifacts"
-	@echo "clean-pyc - remove Python file artifacts"
-	@echo "clean-test - remove test and coverage artifacts"
-	@echo "lint - check style with flake8"
-	@echo "test - run tests quickly with the default Python"
-	@echo "test-all - run tests on every Python version with tox"
-	@echo "coverage - check code coverage quickly with the default Python"
-	@echo "docs - generate Sphinx HTML documentation, including API docs"
-	@echo "release - package and upload a release"
-	@echo "dist - package"
-	@echo "install - install the package to the active Python's site-packages"
+build_extensions: clean ## Build Cython extensions
+	python setup.py build_ext --inplace
 
-clean_cython:
+clean: clean-build clean-pyc ## Remove all build, test, coverage and Python artifacts
+
+clean-cython: ## Clean up Cython generated C files
 	find . -name detrended_kriging.c -type f -delete
 	find . -name envphys_c.c -type f -delete
 	find . -name wind_c.c -type f -delete
 
-build_extensions: clean
-	python setup.py build_ext --inplace
-
-clean: clean-build clean-pyc clean-test
-
-clean-build:
+clean-build: ## Remove build artifacts
 	rm -fr build/
 	rm -fr dist/
 	rm -fr .eggs/
@@ -44,61 +21,23 @@ clean-build:
 	find . -name '*.egg' -exec rm -f {} +
 	find . -name '*.so' -type f -delete
 
-clean-pyc:
+clean-pyc: ## Remove Python file artifacts
 	find . -name '*.pyc' -exec rm -f {} +
 	find . -name '*.pyo' -exec rm -f {} +
 	find . -name '*~' -exec rm -f {} +
 	find . -name '__pycache__' -exec rm -fr {} +
 
-clean-test:
-	rm -f .coverage
-	rm -fr htmlcov/
-
-isort: ## using isort to sort imports
-	isort -rc -v .
-
-lint:
-	flake8 smrf
-
-tests: build_extensions
+tests: build_extensions ## Run tests and build extensions if necessary
 	python3 -m unittest discover -s smrf/tests/
 
-tests_fast_fail: build_extensions
+tests_fast_fail: build_extensions ## Run tests and stop at first failure
 	python3 -m unittest discover -s smrf/tests/ -f
 
-coverage: ## run coverage and submit
-	coverage run --source smrf setup.py test
-	coverage report --fail-under=75
+tests-no-build: ## Run tests without building extensions
+	python3 -m unittest discover -s smrf/tests/
 
-coveralls: coverage ## run coveralls
-	coveralls
-
-coverage-html: coverage ## check code coverage quickly with the default Python
-	coverage html
-	$(BROWSER) htmlcov/index.html
-
-docs:
-	rm -f docs/smrf.rst
-	rm -f docs/modules.rst
-	sphinx-apidoc -o docs/api smrf smrf/tests/*
-	$(MAKE) -C docs clean
-	$(MAKE) -C docs html
-	$(BROWSER) docs/_build/html/index.html
-
-servedocs: docs
-	watchmedo shell-command -p '*.rst' -c '$(MAKE) -C docs html' -R -D .
-
-release: clean
-	python setup.py sdist upload
-	python setup.py bdist_wheel upload
-
-dist: clean
-	python setup.py sdist
-	python setup.py bdist_wheel
-	ls -l dist
-
-install: clean build_extensions
+install: clean build_extensions ## Install the package with dependencies
 	python3 -m pip install .[dev]
 
-install-dev: clean
+install-dev: clean ## Install the package without dependencies for development
 	python3 -m pip install --no-deps -e .[dev]

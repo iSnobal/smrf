@@ -3,8 +3,13 @@ import pandas as pd
 
 from smrf.envphys.solar.model import model_solar
 
+# Low-sun cutoff (W/m^2) on clear-sky shortwave; no cloud factor is computed below it.
+LOW_SOLAR_THRESHOLD = 50
 
-def cf_cloud(beam, diffuse, cf):
+
+def cf_cloud(
+    beam: np.ndarray, diffuse: np.ndarray, cf: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Correct beam and diffuse irradiance for cloud attenuation at a single
     time, using input clear-sky global and diffuse radiation calculations
@@ -16,10 +21,8 @@ def cf_cloud(beam, diffuse, cf):
         cf: cloud attenuation factor - actual irradiance / clear-sky irradiance
 
     Returns:
-        c_grad: cloud corrected gobal irradiance
+        c_grad: cloud corrected global irradiance
         c_drad: cloud corrected diffuse irradiance
-
-    20150610 Scott Havens - adapted from cloudcalc.c
     """
 
     # define some constants
@@ -33,12 +36,12 @@ def cf_cloud(beam, diffuse, cf):
     c_brad = c_grad * bf_c
     c_drad = c_grad - c_brad
 
-    # extensive cloud attenuation, no beam
+    # heavy cloud attenuation, no beam
     ind = cf <= CRAT1
     c_brad[ind] = 0
     c_drad[ind] = c_grad[ind]
 
-    # minimal cloud attenution, no beam ratio reduction
+    # minimal cloud attenuation, no beam ratio reduction
     ind = cf > CRAT2
     c_drad[ind] = diffuse[ind] * cf[ind]
     c_brad[ind] = c_grad[ind] - c_drad[ind]
@@ -46,45 +49,50 @@ def cf_cloud(beam, diffuse, cf):
     return c_grad, c_drad
 
 
-def get_hrrr_cloud(df_solar, df_meta, lat, lon):
+def get_hrrr_cloud(
+    incoming_solar: pd.DataFrame,
+    lat: float,
+    lon: float,
+) -> pd.DataFrame:
     """
-    Take the combined solar from HRRR and use the two stream calculation
-    at the specific HRRR pixels to find the cloud_factor.
+    Cloud factor (HRRR / clear-sky shortwave) at each grid cell.
+
+    Clear-sky is computed once at the basin lat/lon, so it is uniform across
+    the grid. Low-sun times are interpolated in time and clipped to [0, 1].
+    The index must be timezone-aware.
 
     Args:
-        df_solar - solar dataframe from hrrr
-        df_meta - meta_data from hrrr
-        lat - basin lat
-        lon - basin lon
+        incoming_solar: HRRR shortwave, indexed by timezone-aware datetimes.
+        lat: basin latitude.
+        lon: basin longitude.
 
     Returns:
-        df_cf - cloud factor dataframe in same format as df_solar input
+        Cloud factor with the same index and columns as df_solar.
     """
+    # Convert to naive UTC; ephemeris reads hour, minute, and second directly
+    date_times = incoming_solar.index.tz_convert(None).to_numpy()
 
-    # get and loop through the columns
-    dates = df_solar.index.values[:]
+    # Clear-sky shortwave at the basin lat/lon, one value per timestep
+    clear_sky_solar = np.float32(
+        [model_solar(pd.Timestamp(dt), lat, lon) for dt in date_times]
+    )
 
-    # find each cell solar at top of atmosphere for each date
-    basin_sol = df_solar.copy()
-    for idt, dt in enumerate(dates):
-        # get solar using twostream
-        dtt = pd.to_datetime(dt)
-        basin_sol.iloc[idt, :] = np.float32(model_solar(dtt, lat, lon))
+    # Same clear-sky value for every grid cell
+    basin_solar = pd.DataFrame(
+        np.broadcast_to(clear_sky_solar[:, None], incoming_solar.shape),
+        index=incoming_solar.index,
+        columns=incoming_solar.columns,
+    )
 
-    # if it's close to sun down or sun up, then the cloud factor gets
-    # difficult to calculate
-    basin_sol[basin_sol < 50] = 0
-    df_solar[basin_sol < 50] = 0
+    # Mask low-sun values in both arrays so the ratio is not computed there
+    low_sun = basin_solar < LOW_SOLAR_THRESHOLD
+    basin_solar = basin_solar.mask(low_sun, 0)
+    incoming_solar = incoming_solar.mask(low_sun, 0)
 
-    # This will produce NaN values when the sun is down
-    df_cf = df_solar / basin_sol
+    # Calculate
+    cloud_factor = incoming_solar / basin_solar
 
-    # linear interpolate the NaN values at night
-    df_cf = df_cf.interpolate(method="linear").ffill()
-    df_cf = df_cf.interpolate(method="linear").bfill()
+    # Fill gaps in time; edge gaps take the first or last valid value
+    cloud_factor = cloud_factor.interpolate(method="linear").ffill().bfill()
 
-    # Clean up the dataframe to be between 0 and 1
-    df_cf[df_cf > 1.0] = 1.0
-    df_cf[df_cf < 0.0] = 0.0
-
-    return df_cf
+    return cloud_factor.clip(0.0, 1.0)

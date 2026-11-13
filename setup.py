@@ -17,6 +17,7 @@ extension_params = {
     "extra_compile_args": [
         "-fopenmp",
         "-O3",
+        "-march=native",
     ],
     "extra_link_args": ["-fopenmp"],
     "include_dirs": [numpy.get_include()],
