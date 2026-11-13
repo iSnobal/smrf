@@ -9,8 +9,8 @@ import numpy as np
 import pandas as pd
 import utm
 
-from smrf.data.input import InputWRF
 from smrf.data.helper import grid_station_names
+from smrf.data.input import InputWRF
 from smrf.data.load_topo import Topo
 from smrf.tests.smrf_test_case_lakes import SMRFTestCaseLakes
 
@@ -38,6 +38,7 @@ START_DATE = pd.to_datetime("2015-03-03 00:00 UTC")
 NAIVE_START_DATE = pd.to_datetime("2015-03-03 00:00")
 END_DATE = pd.to_datetime("2015-03-03 04:00 UTC")
 TIME_STAMPS = ["2015-03-03 00:00:00", "2015-03-03 01:00:00"]
+HEIGHT_LEVEL = 2
 
 LAKES_DIR = Path(__file__).resolve().parents[2] / "basins" / "Lakes" / "WUS-D3"
 
@@ -63,6 +64,7 @@ def write_wrf_file(
         f.createDimension("DateStrLen", width)
         f.createDimension("south_north", XLAT.shape[0])
         f.createDimension("west_east", XLAT.shape[1])
+        f.createDimension("bottom_top", HEIGHT_LEVEL)
 
         t = f.createVariable("Times", "S1", ("Time", "DateStrLen"))
         t[:] = np.array([list(s) for s in wrf_times], dtype="S1")
@@ -70,6 +72,22 @@ def write_wrf_file(
         for name, data in {"XLAT": XLAT, "XLONG": XLONG, "HGT": HGT}.items():
             v = f.createVariable(name, "f4", ("south_north", "west_east"))
             v[:] = data
+
+        n_times = len(wrf_times)
+        forcing = {"T2": 275.15, "DWPT": 270.0, "UGRD": 0.0, "VGRD": -1.0}
+        for name, value in forcing.items():
+            v = f.createVariable(name, "f4", ("Time", "south_north", "west_east"))
+            v[:] = np.full((n_times, *XLAT.shape), value)
+
+        rain = f.createVariable("RAINNC", "f4", ("Time", "south_north", "west_east"))
+        rain[:] = np.broadcast_to(
+            np.arange(n_times)[:, None, None], (n_times, *XLAT.shape)
+        )
+
+        cloud = f.createVariable(
+            "CLDFRA", "f4", ("Time", "bottom_top", "south_north", "west_east")
+        )
+        cloud[:] = np.full((n_times, HEIGHT_LEVEL, *XLAT.shape), 0.5)
 
 
 def make_topo_mock() -> MagicMock:
@@ -128,6 +146,20 @@ class WRFTestCase(unittest.TestCase):
 
     def tearDown(self):
         self.wrf.file.close()
+
+    def test_load(self):
+        config = {"gridded": {"wrf_file": self.file_path}}
+        wrf = InputWRF(START_DATE, END_DATE, BBOX, make_topo_mock(), config)
+
+        wrf.load()
+
+        name = grid_station_names([CENTER[0]], [CENTER[1]])[0]
+        self.assertEqual(wrf.air_temp.columns.tolist(), [name])
+        np.testing.assert_allclose(wrf.air_temp[name], 2.0, atol=1e-3)
+        np.testing.assert_allclose(wrf.precip[name], [0.0, 1.0], atol=1e-3)
+        np.testing.assert_allclose(wrf.cloud_factor[name], 0.5, atol=1e-3)
+        np.testing.assert_allclose(wrf.wind_speed[name], 1.0, atol=1e-3)
+        np.testing.assert_allclose(wrf.wind_direction[name], 270.0, atol=1e-3)
 
 
 class TestInputWRF(WRFTestCase):

@@ -2,12 +2,13 @@ from types import MappingProxyType
 
 import netCDF4 as nc
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 import pytz
 
+from smrf.data.helper import add_utm_columns, grid_station_names
 from smrf.data.input.gridded_input import GriddedInput
 from smrf.envphys.vapor_pressure import svp_for_celsius
-from smrf.data.helper import add_utm_columns, grid_station_names
 
 
 class InputWRF(GriddedInput):
@@ -17,10 +18,6 @@ class InputWRF(GriddedInput):
     """
 
     DATA_TYPE = "wrf"
-
-    BASE_VARIABLES = MappingProxyType(
-        {"air_temp": "T2", "dew_point": "DWPT", "precip": "RAINNC"}
-    )
 
     WRF_VARIABLES = MappingProxyType(
         {
@@ -62,7 +59,7 @@ class InputWRF(GriddedInput):
     @staticmethod
     def _read_grid_fields(
         file_with_grid_info: nc.Dataset,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> tuple[npt.NDArray, npt.NDArray, npt.NDArray]:
         """
         Read the grid fields from an open netCDF dataset.
 
@@ -128,81 +125,119 @@ class InputWRF(GriddedInput):
 
         self.metadata = metadata
 
-    def load(self):
+    def load(self) -> None:
         """
-        Load the data from a netcdf file. This was setup to work with a WRF
-        output file, i.e. wrf_out so it's going to look for the following
-        variables:
+        Load the data from a WRF output file set in the wrf_file option.
+
+        The input file must contain these WRF variables:
         - Times
-        - XLAT
-        - XLONG
-        - HGT
         - T2
         - DWPT
-        - GLW
         - RAINNC
         - CLDFRA
         - UGRD
         - VGRD
 
-        Each cell will be identified by grid_IX_IY
+        The grid fields XLAT, XLONG and HGT are read by get_metadata, from the
+        wrf_metadata file when it is set and from wrf_file otherwise.
+
+        Only the grid cells that are within the topo domain are read. Each cell is
+        identified by grid_y{y}_x{x}, using its index in the full WRF grid.
         """
 
-        self._logger.info(
-            "Reading data coming from WRF output: {}".format(self.config["wrf_file"])
+        self._logger.info("Reading WRF data from: {}".format(self.config["wrf_file"]))
+        with nc.Dataset(self.config["wrf_file"]) as self.file:
+            self.get_metadata()
+
+            time = self.get_file_times()
+            time_index = (time >= self.start_date) & (time <= self.end_date)
+            raw = self.read_raw(time_index)
+
+        self.process(raw, time[time_index])
+
+    def _topo_domain(self) -> tuple[slice, slice]:
+        """
+        Get the row and column slices of the topo domain in the full WRF grid.
+
+        Returns:
+            tuple: row slice and column slice in the full WRF grid
+        """
+        rows = self.station_index[:, 0]
+        cols = self.station_index[:, 1]
+        return (
+            slice(rows.min(), rows.max() + 1),
+            slice(cols.min(), cols.max() + 1),
         )
-        self.file = nc.Dataset(self.config["wrf_file"])
 
-        self.get_metadata()
+    def read_raw(self, time_ind: npt.NDArray) -> dict[str, npt.NDArray]:
+        """
+        Read the WRF fields for the selected times over the topo domain.
 
-        time = self.get_file_times()
-        time_ind = (time >= self.start_date) & (time <= self.end_date)
-        time = time[time_ind]
+        Args:
+            time_ind: boolean mask of the times to read
 
-        for variable, wrf_variable in self.BASE_VARIABLES.items():
+        Returns:
+            dict: station arrays keyed by variable name
+        """
+        topo_rows, topo_cols = self._topo_domain()
+        rows = self.station_index[:, 0] - topo_rows.start
+        cols = self.station_index[:, 1] - topo_cols.start
+        raw = {}
+        for variable, wrf_variable in self.WRF_VARIABLES.items():
             self._logger.debug(
                 f"Loading variable {variable} from WRF field {wrf_variable}"
             )
+            field = self.file.variables[wrf_variable]
+            if variable == "cloud_factor":
+                # CLDFRA has a vertical dimension, which is kept in full
+                topo_values = field[time_ind, :, topo_rows, topo_cols]
+                raw[variable] = topo_values[:, :, rows, cols]
+            else:
+                topo_values = field[time_ind, topo_rows, topo_cols]
+                raw[variable] = topo_values[:, rows, cols]
+        return raw
 
-            df = pd.DataFrame(index=time, columns=self.primary_id)
-            for g, i in zip(self.primary_id, self.station_index):
-                df[g] = self.file.variables[wrf_variable][time_ind, i[0], i[1]]
+    def process(self, raw_data: dict[str, npt.NDArray], time: pd.DatetimeIndex) -> None:
+        """
+        Calculate variables from loaded WRF data.
+        Converts all instance variables to pandas DataFrames.
 
-            setattr(self, variable, df)
+        Args:
+            raw_data: Read WRF values from read_raw, keyed by variable name
+            time: timestamps of the selected times
+        """
+        self._logger.debug("Converting air temperature from K to C")
+        air_temp = raw_data["air_temp"] - 273.15
+        self.air_temp = pd.DataFrame(air_temp, index=time, columns=self.primary_id)
 
-        # Post processing of the data
-        self.air_temp = self.air_temp - 273.15
+        self._logger.debug("Calculating vapor pressure from dew point")
+        vapor_pressure = svp_for_celsius(raw_data["dew_point"])
+        self.vapor_pressure = pd.DataFrame(
+            vapor_pressure, index=time, columns=self.primary_id
+        )
 
-        self._logger.debug("Calculating vapor_pressure")
-        vp = svp_for_celsius(self.dew_point.values)
-        self.vapor_pressure = pd.DataFrame(vp, index=time, columns=self.primary_id)
+        self._logger.debug("Calculating cloud factor")
+        cloud_factor = 1 - np.mean(raw_data["cloud_factor"], axis=1)
+        self.cloud_factor = pd.DataFrame(
+            cloud_factor, index=time, columns=self.primary_id
+        )
 
-        self._logger.debug("Loading cloud_factor")
-        self.cloud_factor = pd.DataFrame(index=time, columns=self.primary_id)
-        cf = 1 - np.mean(self.file.variables["CLDFRA"][time_ind, :], axis=1)
-        for g, i in zip(self.primary_id, self.station_index):
-            v = cf[:, i[0], i[1]]
-            self.cloud_factor[g] = v
+        self._logger.debug("Calculating wind speed and wind direction")
+        speed = np.sqrt(raw_data["u10"] ** 2 + raw_data["v10"] ** 2)
+        self.wind_speed = pd.DataFrame(speed, index=time, columns=self.primary_id)
+        # arctan2 returns -180 to 180, so wrap the angles into 0 to 360
+        direction = np.mod(
+            np.degrees(np.arctan2(raw_data["v10"], raw_data["u10"])), 360
+        )
+        self.wind_direction = pd.DataFrame(
+            direction, index=time, columns=self.primary_id
+        )
 
-        self._logger.debug("Loading wind_speed and wind_direction")
-        self.wind_speed = pd.DataFrame(index=time, columns=self.primary_id)
-        self.wind_direction = pd.DataFrame(index=time, columns=self.primary_id)
-
-        u10 = self.file.variables["UGRD"][time_ind, :]
-        v10 = self.file.variables["VGRD"][time_ind, :]
-
-        # Calculate the wind speed
-        s = np.sqrt(u10**2 + v10**2)
-
-        # Calculate the wind direction
-        d = np.degrees(np.arctan2(v10, u10))
-        ind = d < 0
-        d[ind] = d[ind] + 360
-
-        for g, i in zip(self.primary_id, self.station_index):
-            self.wind_speed[g] = s[:, i[0], i[1]]
-            self.wind_direction[g] = d[:, i[0], i[1]]
-
-        self._logger.debug("Loading precip")
+        self._logger.debug("Loading precipitation")
+        self.precip = pd.DataFrame(
+            raw_data["precip"], index=time, columns=self.primary_id
+        )
         self.precip = self.precip.diff(axis=0)
+        # RAINNC is accumulated, so the first step has no previous value to
+        # difference against. Its precip is set to zero.
         self.precip.iloc[0, :] = 0
