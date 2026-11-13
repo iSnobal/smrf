@@ -3,8 +3,7 @@ import pandas as pd
 
 from smrf.envphys.solar.model import model_solar
 
-# Minimum value of incoming radiation where calculations for cloud factor are performed.
-# Units in W/m^2
+# Low-sun cutoff (W/m^2) on clear-sky shortwave; no cloud factor is computed below it.
 LOW_SOLAR_THRESHOLD = 50
 
 
@@ -51,46 +50,49 @@ def cf_cloud(
 
 
 def get_hrrr_cloud(
-    df_solar: pd.DataFrame,
+    incoming_solar: pd.DataFrame,
     lat: float,
     lon: float,
 ) -> pd.DataFrame:
     """
-    Take the combined solar from HRRR and use the two stream calculation
-    at the specific HRRR pixels to find the cloud_factor.
+    Cloud factor (HRRR / clear-sky shortwave) at each grid cell.
+
+    Clear-sky is computed once at the basin lat/lon, so it is uniform across
+    the grid. Low-sun times are interpolated in time and clipped to [0, 1].
+    The index must be timezone-aware.
 
     Args:
-        df_solar - solar dataframe from hrrr
-        lat - basin lat
-        lon - basin lon
+        incoming_solar: HRRR shortwave, indexed by timezone-aware datetimes.
+        lat: basin latitude.
+        lon: basin longitude.
 
     Returns:
-        df_cf - cloud factor dataframe in same format as df_solar input
+        Cloud factor with the same index and columns as df_solar.
     """
+    # Convert to naive UTC; ephemeris reads hour, minute, and second directly
+    date_times = incoming_solar.index.tz_convert(None).to_numpy()
 
-    # Clear-sky solar at the basin lat/lon for each time. The index is converted
-    # to UTC without a timezone because ephemeris reads the hour, minute, and
-    # second fields directly
-    dates = df_solar.index.tz_convert(None).to_numpy()
+    # Clear-sky shortwave at the basin lat/lon, one value per timestep
     clear_sky_solar = np.float32(
-        [model_solar(pd.Timestamp(dt), lat, lon) for dt in dates]
-    )
-    basin_solar = pd.DataFrame(
-        np.broadcast_to(clear_sky_solar[:, None], df_solar.shape),
-        index=df_solar.index,
-        columns=df_solar.columns,
+        [model_solar(pd.Timestamp(dt), lat, lon) for dt in date_times]
     )
 
-    # Zero out low solar (night and near sunrise/sunset), where the cloud
-    # factor is difficult to calculate
+    # Same clear-sky value for every grid cell
+    basin_solar = pd.DataFrame(
+        np.broadcast_to(clear_sky_solar[:, None], incoming_solar.shape),
+        index=incoming_solar.index,
+        columns=incoming_solar.columns,
+    )
+
+    # Mask low-sun values in both arrays so the ratio is not computed there
     low_sun = basin_solar < LOW_SOLAR_THRESHOLD
     basin_solar = basin_solar.mask(low_sun, 0)
-    df_solar = df_solar.mask(low_sun, 0)
+    incoming_solar = incoming_solar.mask(low_sun, 0)
 
-    # Masked values are 0 / 0 at night, which gives NaN
-    df_cf = df_solar / basin_solar
+    # Calculate
+    cloud_factor = incoming_solar / basin_solar
 
-    # Fill night gaps by linear interpolation, then the nearest value at the ends
-    df_cf = df_cf.interpolate(method="linear").ffill().bfill()
+    # Fill gaps in time; edge gaps take the first or last valid value
+    cloud_factor = cloud_factor.interpolate(method="linear").ffill().bfill()
 
-    return df_cf.clip(0.0, 1.0)
+    return cloud_factor.clip(0.0, 1.0)
