@@ -7,9 +7,9 @@ from types import MappingProxyType
 import netCDF4 as nc
 import numpy as np
 
-from smrf import __version__
 from smrf.data import load_topo
 from smrf.utils.spatialnc import add_proj, add_proj_from_file
+from smrf.version import __version__ as SMRF_VERSION
 
 
 class OutputNetcdf:
@@ -106,7 +106,7 @@ class OutputNetcdf:
             if "projection" not in file.variables:
                 file = add_proj(file, map_meta=self.map_meta)
 
-            file.setncattr_string("SMRF_version", __version__)
+            file.setncattr_string("SMRF_version", SMRF_VERSION)
 
     def create_new_file(self, file_name: str, nc_variable: str, module, time: dict):
         """
@@ -178,7 +178,7 @@ class OutputNetcdf:
             new_file.variables["y"][:] = self.topo_y
             new_file.variables["x"][:] = self.topo_x
 
-            new_file.setncattr_string("SMRF_version", __version__)
+            new_file.setncattr_string("SMRF_version", SMRF_VERSION)
 
     def output(self, date_time):
         """

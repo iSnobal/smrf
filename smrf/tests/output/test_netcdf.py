@@ -2,11 +2,11 @@ import netCDF4 as nc
 import numpy as np
 import numpy.testing as npt
 
-from smrf import __version__
 from smrf.framework.model_framework import SMRF
 from smrf.distribute import AirTemperature, CloudFactor
 from smrf.output.output_netcdf import OutputNetcdf
 from smrf.tests.smrf_test_case import SMRFTestCase
+from smrf.version import __version__ as SMRF_VERSION
 
 
 class TestOutputNetCDF(SMRFTestCase):
@@ -36,7 +36,7 @@ class TestOutputNetCDF(SMRFTestCase):
 
     def test_netcdf_smrf_version(self):
         with nc.Dataset(self.writer.file_name("air_temp")) as out_file:
-            self.assertEqual(__version__, out_file.getncattr("SMRF_version"))
+            self.assertEqual(SMRF_VERSION, out_file.getncattr("SMRF_version"))
             self.assertTrue(out_file.variables["air_temp"].dtype == np.float32)
 
     def test_netcdf_precision(self):

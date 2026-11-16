@@ -1,4 +1,6 @@
-from inicheck.checkers import CheckType
+import os
+
+from inicheck.checkers import CheckCriticalFilename, CheckType
 
 
 class CheckStation(CheckType):
@@ -7,7 +9,7 @@ class CheckStation(CheckType):
     """
 
     def __init__(self, **kwargs):
-        super(CheckStation, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
     def type_func(self, value):
         """
@@ -28,7 +30,7 @@ class CheckRawString(CheckType):
     """
 
     def __init__(self, **kwargs):
-        super(CheckRawString, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
     def type_func(self, value):
         """
@@ -40,3 +42,28 @@ class CheckRawString(CheckType):
         """
 
         return value
+
+
+class CheckCriticalFileOrDirectory(CheckCriticalFilename):
+    """
+    Custom `inicheck` checker when needing a file or a folder.
+    Example: WRF input
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.message = "Path is neither a file nor a directory."
+
+    def is_valid(self, value):
+        """
+        Check that the value exists as a file or as a directory.
+
+        Args:
+            value: path to a file or directory
+        Returns:
+            tuple: whether the value is valid, and the message if it is not
+        """
+        path = self.make_abs_from_cfg(value)
+        if os.path.isfile(path) or os.path.isdir(path):
+            return True, None
+        return False, self.message
