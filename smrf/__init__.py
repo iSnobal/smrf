@@ -8,4 +8,6 @@ from .inicheck_setup import (
     __recipes__,
 )
 
-from . import data, distribute, envphys, framework, output, spatial, utils
+# Import utils so smrf.utils.checkers is loaded for inicheck, which looks it up
+# in sys.modules and does not import it
+from . import utils
