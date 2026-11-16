@@ -20,6 +20,7 @@ Example:
 
 import logging
 import os
+import random
 import sys
 from datetime import datetime
 from os.path import abspath, join
@@ -50,7 +51,7 @@ from smrf.distribute import (
 from smrf.envphys import sunang
 from smrf.framework import ascii_art, logger
 from smrf.output import output_netcdf
-from smrf.utils.utils import backup_input, date_range, getqotw, water_day
+from smrf.utils.utils import backup_input, date_range, water_day
 
 
 class SMRF:
@@ -166,10 +167,24 @@ class SMRF:
         self.data = None
 
         if self.config["system"]["qotw"]:
-            self._logger.info(getqotw())
+            self._logger.info(self.getqotw())
 
         self._logger.info(f"Started SMRF --> {datetime.now(tz=self.time_zone)}")
         self._logger.info(f"Number of time steps: {self.time_steps}")
+
+    @staticmethod
+    def getqotw() -> str:
+        """
+        Get a random quote of the week from the .qotw file.
+
+        Returns:
+            str: one line from the .qotw file
+        """
+        q_f = os.path.join(os.path.dirname(__file__), ".qotw")
+        with open(q_f) as f:
+            qs = f.readlines()
+        i = random.randrange(0, len(qs))
+        return qs[i]
 
     def _setup_date_and_time(self):
         self.time_zone = pytz.timezone(self.config["time"]["time_zone"])

@@ -1,6 +1,5 @@
 import copy
 import os
-import random
 import sys
 from datetime import datetime
 from shutil import copyfile
@@ -13,8 +12,6 @@ from inicheck.output import generate_config
 from inicheck.utilities import mk_lst
 from scipy.interpolate import CloughTocher2DInterpolator, LinearNDInterpolator
 from scipy.spatial import Delaunay
-
-from smrf import __core_config__
 
 
 def find_configs(directory):
@@ -319,16 +316,6 @@ def get_asc_stats(fp):
     ts['y'] = ts['y'] + ts['du']/2
 
     return ts
-
-
-def getqotw():
-    p = os.path.dirname(__core_config__)
-    q_f = os.path.abspath(os.path.join(f'{p}', '.qotw'))
-    with open(q_f) as f:
-        qs = f.readlines()
-        f.close()
-    i = random.randrange(0, len(qs))
-    return qs[i]
 
 
 def interp_weights(xy, uv, d=2):
