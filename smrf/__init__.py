@@ -33,5 +33,5 @@ __config_titles__ = {
 from . import utils, data, distribute, envphys, framework, output, spatial  # isort:skip
 
 __config_header__ = "Config File for SMRF {0}\n".format(__version__)
-__config_checkers__ = 'utils.utils'
+__config_checkers__ = 'utils.checkers'
 # -*- coding: utf-8 -*-
