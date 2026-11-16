@@ -8,7 +8,6 @@ from shutil import copyfile
 import numpy as np
 import pandas as pd
 import pytz
-from inicheck.checkers import CheckType
 from inicheck.output import generate_config
 from inicheck.utilities import mk_lst
 from scipy.interpolate import (CloughTocher2DInterpolator,
@@ -16,47 +15,6 @@ from scipy.interpolate import (CloughTocher2DInterpolator,
 from scipy.spatial import Delaunay
 
 from smrf import __core_config__
-
-
-class CheckStation(CheckType):
-    """
-    Custom check for ensuring our stations are always capitalized
-    """
-
-    def __init__(self, **kwargs):
-        super(CheckStation, self).__init__(**kwargs)
-
-    def type_func(self, value):
-        """
-        Attempt to convert all the values to upper case.
-
-        Args:
-            value: A single string in config entry representing a station name
-        Returns:
-            value: A single station name all upper case
-        """
-
-        return value.upper()
-
-
-class CheckRawString(CheckType):
-    """
-    Custom `inicheck` checker that will not change the input string
-    """
-
-    def __init__(self, **kwargs):
-        super(CheckRawString, self).__init__(**kwargs)
-
-    def type_func(self, value):
-        """
-        Do not change the passed value at all
-        Args:
-            value: A single string
-        Returns:
-            value: A single string unchanged
-        """
-
-        return value
 
 
 def find_configs(directory):
