@@ -1,1 +1,1 @@
-from . import checkers  # noqa: F401  registers the custom config checkers with inicheck
+from . import checkers  # registers the custom config checkers with inicheck
