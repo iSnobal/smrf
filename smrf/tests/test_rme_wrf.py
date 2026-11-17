@@ -15,7 +15,7 @@ class TestLoadGrid(SMRFTestCase):
         adj_config = {
             'gridded': {
                 'data_type': 'wrf',
-                'wrf_file': './gridded/WRF_test.nc',
+                'wrf_path': './gridded/WRF_test.nc',
             },
             'system': {
                 'log_file': './output/log.txt'

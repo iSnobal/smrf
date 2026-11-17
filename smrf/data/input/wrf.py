@@ -1,3 +1,4 @@
+import os
 from types import MappingProxyType
 
 import netCDF4 as nc
@@ -10,6 +11,8 @@ from smrf.data.helper import add_utm_columns, grid_station_names
 from smrf.data.input.gridded_input import GriddedInput
 from smrf.envphys.vapor_pressure import svp_for_celsius
 
+WRF_TIME_FORMAT = "%Y-%m-%d_%H:%M:%S"
+
 
 class InputWRF(GriddedInput):
     """
@@ -18,6 +21,11 @@ class InputWRF(GriddedInput):
     """
 
     DATA_TYPE = "wrf"
+
+    class ConfigKey:
+        PATH = "wrf_path"
+        PREFIX = "wrf_prefix"
+        METADATA = "wrf_metadata"
 
     WRF_VARIABLES = MappingProxyType(
         {
@@ -36,7 +44,7 @@ class InputWRF(GriddedInput):
         super().__init__(start_date, end_date, bbox, topo, config)
 
         # Use the user file when given in the .ini to read grid variables
-        self.metadata_file = self.config.get("wrf_metadata")
+        self.metadata_file = self.config.get(self.ConfigKey.METADATA)
 
     def get_file_times(self) -> pd.DatetimeIndex:
         """
@@ -54,7 +62,7 @@ class InputWRF(GriddedInput):
         times = nc.chartostring(t[:])
 
         in_utc = str(self.time_zone).lower() == str(pytz.UTC).lower()
-        return pd.to_datetime(times, format="%Y-%m-%d_%H:%M:%S", utc=in_utc)
+        return pd.to_datetime(times, format=WRF_TIME_FORMAT, utc=in_utc)
 
     @staticmethod
     def _read_grid_fields(
@@ -127,7 +135,7 @@ class InputWRF(GriddedInput):
 
     def load(self) -> None:
         """
-        Load the data from a WRF output file set in the wrf_file option.
+        Load the data from a WRF output file set in the wrf_path option.
 
         The input file must contain these WRF variables:
         - Times
@@ -139,21 +147,96 @@ class InputWRF(GriddedInput):
         - VGRD
 
         The grid fields XLAT, XLONG and HGT are read by get_metadata, from the
-        wrf_metadata file when it is set and from wrf_file otherwise.
+        wrf_metadata file when it is set and from wrf_path otherwise.
+
+        If wrf_path is a directory, the file for each hour from start_date through
+        end_date is read, named with wrf_prefix. A missing file raises a ValueError
+        when the data is processed.
 
         Only the grid cells that are within the topo domain are read. Each cell is
         identified by grid_y{y}_x{x}, using its index in the full WRF grid.
         """
 
-        self._logger.info("Reading WRF data from: {}".format(self.config["wrf_file"]))
-        with nc.Dataset(self.config["wrf_file"]) as self.file:
+        self.hours = pd.date_range(self.start_date, self.end_date, freq="h")
+        wrf_path = self.config[self.ConfigKey.PATH]
+        self._logger.info(f"Reading WRF data from: {wrf_path}")
+        if os.path.isdir(wrf_path):
+            if not self.config.get(self.ConfigKey.PREFIX):
+                raise ValueError("wrf_prefix must be set when wrf_path is a directory")
+            self._load_directory()
+        else:
+            self._load_file(wrf_path)
+        self.file = None
+        self.hours = None
+
+    def _load_file(self, path: str) -> None:
+        """
+        Load the time steps of one WRF file that fall in the requested period.
+
+        Parameters
+        ----------
+        path : str
+            Path to the WRF file.
+        """
+        with nc.Dataset(path) as self.file:
             self.get_metadata()
-
-            time = self.get_file_times()
-            time_index = (time >= self.start_date) & (time <= self.end_date)
+            # Times in the hourly files can be a few seconds off the hour, for
+            # example 01:00:49 in the 01:00 file, so round them before matching
+            time = self.get_file_times().round("h")
+            time_index = time.isin(self.hours)
             raw = self.read_raw(time_index)
-
         self.process(raw, time[time_index])
+
+    def _load_directory(self) -> None:
+        """
+        Load one hourly WRF file per hour in the requested period.
+
+        A missing file is logged as a warning. The load then raises a ValueError
+        in process, because the hour is missing from the data.
+        """
+        time_parts, raw_parts = [], []
+        for hour in self.hours:
+            path = self._file_for_time(hour)
+            if path is None:
+                continue
+            with nc.Dataset(path) as self.file:
+                if not time_parts:
+                    self.get_metadata()
+                time = self.get_file_times().round("h")
+                time_index = time.isin(self.hours)
+                raw_parts.append(self.read_raw(time_index))
+                time_parts.append(time[time_index])
+
+        if not raw_parts:
+            raise ValueError(
+                f"No WRF files in {self.config[self.ConfigKey.PATH]} for the period "
+                f"{self.start_date} to {self.end_date}"
+            )
+        raw = {k: np.concatenate([p[k] for p in raw_parts]) for k in raw_parts[0]}
+        self.process(raw, time_parts[0].append(time_parts[1:]))
+
+    def _file_for_time(self, time: pd.Timestamp) -> str | None:
+        """
+        Get the path of the hourly WRF file for a time.
+
+        Parameters
+        ----------
+        time : pd.Timestamp
+            Hour of the file to find.
+
+        Returns
+        -------
+        str or None
+            Path of the file, or None if it is missing.
+        """
+        name = (
+            f"{self.config[self.ConfigKey.PREFIX]}_{time.strftime(WRF_TIME_FORMAT)}.nc"
+        )
+        path = os.path.join(self.config[self.ConfigKey.PATH], name)
+        if os.path.exists(path):
+            return path
+        self._logger.warning(f"No WRF file for {time}")
+        return None
 
     def _topo_domain(self) -> tuple[slice, slice]:
         """
@@ -205,39 +288,32 @@ class InputWRF(GriddedInput):
         Args:
             raw_data: Read WRF values from read_raw, keyed by variable name
             time: timestamps of the selected times
+
+        Raises:
+            ValueError: a requested hour is missing from time
         """
-        self._logger.debug("Converting air temperature from K to C")
-        air_temp = raw_data["air_temp"] - 273.15
-        self.air_temp = pd.DataFrame(air_temp, index=time, columns=self.primary_id)
+        missing = self.hours.difference(time)
+        if len(missing) > 0:
+            raise ValueError(f"WRF data has no time step for {missing}")
 
-        self._logger.debug("Calculating vapor pressure from dew point")
-        vapor_pressure = svp_for_celsius(raw_data["dew_point"])
-        self.vapor_pressure = pd.DataFrame(
-            vapor_pressure, index=time, columns=self.primary_id
-        )
+        # RAINNC is accumulated, so the first step has no previous value to
+        # difference against. Its precip is set to zero.
+        precip = np.zeros_like(raw_data["precip"])
+        precip[1:] = np.diff(raw_data["precip"], axis=0)
 
-        self._logger.debug("Calculating cloud factor")
-        cloud_factor = 1 - np.mean(raw_data["cloud_factor"], axis=1)
-        self.cloud_factor = pd.DataFrame(
-            cloud_factor, index=time, columns=self.primary_id
-        )
-
-        self._logger.debug("Calculating wind speed and wind direction")
-        speed = np.sqrt(raw_data["u10"] ** 2 + raw_data["v10"] ** 2)
-        self.wind_speed = pd.DataFrame(speed, index=time, columns=self.primary_id)
         # arctan2 returns -180 to 180, so wrap the angles into 0 to 360
         direction = np.mod(
             np.degrees(np.arctan2(raw_data["v10"], raw_data["u10"])), 360
         )
-        self.wind_direction = pd.DataFrame(
-            direction, index=time, columns=self.primary_id
-        )
 
-        self._logger.debug("Loading precipitation")
-        self.precip = pd.DataFrame(
-            raw_data["precip"], index=time, columns=self.primary_id
-        )
-        self.precip = self.precip.diff(axis=0)
-        # RAINNC is accumulated, so the first step has no previous value to
-        # difference against. Its precip is set to zero.
-        self.precip.iloc[0, :] = 0
+        frames = {
+            "air_temp": raw_data["air_temp"] - 273.15,
+            "vapor_pressure": svp_for_celsius(raw_data["dew_point"]),
+            "cloud_factor": 1 - np.mean(raw_data["cloud_factor"], axis=1),
+            "wind_speed": np.sqrt(raw_data["u10"] ** 2 + raw_data["v10"] ** 2),
+            "wind_direction": direction,
+            "precip": precip,
+        }
+        for name, values in frames.items():
+            frame = pd.DataFrame(values, index=time, columns=self.primary_id)
+            setattr(self, name, frame)
