@@ -340,9 +340,9 @@ class TestInputWRF(WRFTestCase):
             with self.assertRaisesRegex(ValueError, "no time step"):
                 wrf.load()
 
-        self.assertEqual(len(logs.output), 2)
-        self.assertIn("No WRF file for 2015-03-03 01:00:00", logs.output[0])
-        self.assertIn("No WRF file for 2015-03-03 02:00:00", logs.output[1])
+        missing = [line for line in logs.output if "No WRF file" in line]
+        self.assertTrue(any("2015-03-03 01:00:00" in line for line in missing))
+        self.assertTrue(any("2015-03-03 02:00:00" in line for line in missing))
 
     def test_load_directory_raises_when_file_times_do_not_match(self):
         folder = self.new_folder()
@@ -355,6 +355,28 @@ class TestInputWRF(WRFTestCase):
         with self.assertRaisesRegex(ValueError, "no time step"):
             wrf.load()
 
+
+    def test_load_file_uses_previous_hour_precip(self):
+        # RAINNC is 0 at 00:00 and 1 at 01:00, so the 01:00 precip is 1
+        wrf = InputWRF(HOUR_01, HOUR_01, BBOX, TOPO, make_config(self.file_path))
+
+        wrf.load()
+
+        name = grid_station_names([CENTER[0]], [CENTER[1]])[0]
+        np.testing.assert_allclose(wrf.precip[name], [1.0], atol=1e-3)
+
+    def test_load_file_warns_when_previous_hour_missing(self):
+        # The file starts at 01:00, so the 00:00 precip is missing and set to 0
+        path = f"{self.new_folder()}/late.nc"
+        write_wrf_file(path, ["2015-03-03 01:00:00", "2015-03-03 02:00:00"])
+        wrf = InputWRF(HOUR_01, HOUR_02, BBOX, TOPO, make_config(path))
+
+        with self.assertLogs(wrf._logger, level="WARNING") as logs:
+            wrf.load()
+
+        name = grid_station_names([CENTER[0]], [CENTER[1]])[0]
+        np.testing.assert_allclose(wrf.precip[name], [0.0, 1.0], atol=1e-3)
+        self.assertIn("Previous hour", logs.output[0])
 
     def test_load_file_raises_when_hour_missing(self):
         wrf = InputWRF(
@@ -436,6 +458,39 @@ class TestInputWRF_WUS_D3(WRFTestCase):
         np.testing.assert_allclose(wrf.precip.values, expected_precip, atol=1e-3)
         self.assertIsNone(wrf.file)
         self.assertIsNone(wrf.hours)
+
+    def test_load_directory_uses_previous_hour_precip(self):
+        folder = self.new_folder()
+        for hour in ["00", "01", "02"]:
+            make_lakes_copy(hour, folder)
+        previous = f"{LAKES_PREFIX}_2022-11-07_23:00:00.nc"
+        shutil.copy(LAKES_DIR / previous, folder)
+        config = make_config(folder, LAKES_PREFIX, LAKES_DOMAIN)
+        wrf = InputWRF(LAKES_START, LAKES_END, LAKES_BBOX, TOPO, config)
+
+        wrf.load()
+
+        rows, cols = wrf.station_index.T
+        with nc.Dataset(lakes_file("00")) as f:
+            rain_start = f.variables["RAINNC"][0][rows, cols]
+        with nc.Dataset(LAKES_DIR / previous) as f:
+            rain_previous = f.variables["RAINNC"][0][rows, cols]
+        np.testing.assert_allclose(
+            wrf.precip.loc[LAKES_START].values, rain_start - rain_previous, atol=1e-3
+        )
+
+    def test_load_directory_warns_when_previous_hour_missing(self):
+        folder = self.new_folder()
+        for hour in ["00", "01", "02"]:
+            make_lakes_copy(hour, folder)
+        config = make_config(folder, LAKES_PREFIX, LAKES_DOMAIN)
+        wrf = InputWRF(LAKES_START, LAKES_END, LAKES_BBOX, TOPO, config)
+
+        with self.assertLogs(wrf._logger, level="WARNING") as logs:
+            wrf.load()
+
+        self.assertTrue(any("Previous hour" in line for line in logs.output))
+        self.assertEqual(wrf.precip.loc[LAKES_START].values.sum(), 0.0)
 
     def test_file_for_time_returns_existing_file(self):
         wrf = InputWRF(
