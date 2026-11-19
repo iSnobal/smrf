@@ -2,7 +2,7 @@ import shutil
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import netCDF4 as nc
 import numpy as np
@@ -10,7 +10,7 @@ import pandas as pd
 import utm
 
 from smrf.data.helper import grid_station_names
-from smrf.data.input import InputWRF
+from smrf.data.input import InputWRF, wrf_schema
 from smrf.data.load_topo import Topo
 from smrf.tests.smrf_test_case_lakes import SMRFTestCaseLakes
 
@@ -29,6 +29,7 @@ HGT = np.full(XLAT.shape, ELEVATION)
 CENTER = (1, 1)
 CENTER_LAT = LATS[CENTER[0]]
 CENTER_LON = LONS[CENTER[1]]
+CENTER_NAME = grid_station_names([CENTER[0]], [CENTER[1]])[0]
 BBOX = [
     CENTER_LON - SPACING / 2,
     CENTER_LAT - SPACING / 2,
@@ -42,6 +43,7 @@ START_DATE = pd.to_datetime("2015-03-03 00:00 UTC")
 HOUR_01 = pd.to_datetime("2015-03-03 01:00 UTC")
 HOUR_02 = pd.to_datetime("2015-03-03 02:00 UTC")
 END_DATE = pd.to_datetime("2015-03-03 04:00 UTC")
+FUTURE_DATE = pd.to_datetime("2030-01-01 00:00 UTC")
 NAIVE_START_DATE = pd.to_datetime("2015-03-03 00:00")
 TIME_STAMPS = ["2015-03-03 00:00:00", "2015-03-03 01:00:00"]
 
@@ -51,13 +53,14 @@ LAKES_PREFIX = "auxhist_d01"
 LAKES_DOMAIN = LAKES_DIR / "WUS-D3_domain.nc"
 LAKES_BBOX = SMRFTestCaseLakes.BBOX
 LAKES_START = pd.to_datetime("2022-11-08 00:00 UTC")
-LAKES_01 = pd.to_datetime("2022-11-08 01:00 UTC")
 LAKES_END = pd.to_datetime("2022-11-08 02:00 UTC")
-LAKES_FUTURE = pd.to_datetime("2030-01-01 00:00 UTC")
 
 
 TOPO = MagicMock(spec=Topo)
 TOPO.zone_number = ZONE_NUMBER
+
+# Error raised when grid fields are missing from the data file and no wrf_metadata
+MISSING_GRID_ERROR = r"XLAT.*wrf_metadata .ini file option"
 
 
 def lakes_file(hour: str) -> Path:
@@ -104,7 +107,10 @@ def make_config(path, prefix=None, metadata=None) -> dict:
 
 
 def write_wrf_file(
-    path: str, time_stamps: list[str] = TIME_STAMPS, width: int | None = None
+    path: str,
+    time_stamps: list[str] = TIME_STAMPS,
+    width: int | None = None,
+    grid: bool = True,
 ) -> None:
     """
     Write a small WRF-style netCDF file on the synthetic grid.
@@ -119,6 +125,8 @@ def write_wrf_file(
         Size of each Times entry in bytes. Each timestamp is padded with null
         bytes up to this size, as the RME file does. Defaults to the timestamp
         length.
+    grid : bool, optional
+        Whether to write the grid fields XLAT, XLONG and HGT. Defaults to True.
     """
     wrf_times = [s.replace(" ", "_") for s in time_stamps]
     width = width or max(len(s) for s in wrf_times)
@@ -133,9 +141,10 @@ def write_wrf_file(
         t = f.createVariable("Times", "S1", ("Time", "DateStrLen"))
         t[:] = np.array([list(s) for s in wrf_times], dtype="S1")
 
-        for name, data in {"XLAT": XLAT, "XLONG": XLONG, "HGT": HGT}.items():
-            v = f.createVariable(name, "f4", ("south_north", "west_east"))
-            v[:] = data
+        if grid:
+            for name, data in {"XLAT": XLAT, "XLONG": XLONG, "HGT": HGT}.items():
+                v = f.createVariable(name, "f4", ("south_north", "west_east"))
+                v[:] = data
 
         n_times = len(wrf_times)
         forcing = {"T2": 275.15, "DWPT": 270.0, "UGRD": 0.0, "VGRD": -1.0}
@@ -144,9 +153,9 @@ def write_wrf_file(
             v[:] = np.full((n_times, *XLAT.shape), value)
 
         rain = f.createVariable("RAINNC", "f4", ("Time", "south_north", "west_east"))
-        rain[:] = np.broadcast_to(
-            np.arange(n_times)[:, None, None], (n_times, *XLAT.shape)
-        )
+        # RAINNC is the hour of each time step, so hourly precip is 1 per hour
+        hours = np.array([pd.Timestamp(s).hour for s in time_stamps])
+        rain[:] = np.broadcast_to(hours[:, None, None], (n_times, *XLAT.shape))
 
         cloud = f.createVariable(
             "CLDFRA", "f4", ("Time", "bottom_top", "south_north", "west_east")
@@ -154,64 +163,16 @@ def write_wrf_file(
         cloud[:] = np.full((n_times, HEIGHT_LEVEL, *XLAT.shape), 0.5)
 
 
-def make_lakes_copy(hour: str, dst_dir: str | Path) -> Path:
+class TestInputWRFFile(unittest.TestCase):
     """
-    Copy a Lakes hourly file and add the fields the loader needs.
-
-    The repo's WUS-D3 hourly files lack DWPT, UGRD, VGRD and CLDFRA, which the
-    loader reads for every file. The copies add these fields artificially, so
-    they test the loader's logic, not the physics: UGRD and VGRD copy U10 and
-    V10, DWPT is derived from Q2 and PSFC, and CLDFRA is a constant 0.5. The
-    repo data is not changed.
-
-    Parameters
-    ----------
-    hour : str
-        Two-digit hour of the source file, such as "00"
-    dst_dir : str or Path
-        Folder to write the copy into, with the same file name
-
-    Returns
-    -------
-    Path
-        Path of the copy
+    Tests for InputWRF loading one synthetic WRF file.
     """
-    src = lakes_file(hour)
-    dst = Path(dst_dir, src.name)
-    shutil.copy(src, dst)
-    with nc.Dataset(dst, "r+") as f:
-        q2 = f.variables["Q2"][:]
-        p_hpa = f.variables["PSFC"][:] / 100.0
-        vapor_hpa = q2 * p_hpa / (0.622 + q2)
-        ln_e = np.log(vapor_hpa / 6.112)
-        dwpt = 243.5 * ln_e / (17.67 - ln_e)
-        dims = ("Time", "south_north", "west_east")
-        f.createVariable("DWPT", "f4", dims)[:] = dwpt
-        f.createVariable("UGRD", "f4", dims)[:] = f.variables["U10"][:]
-        f.createVariable("VGRD", "f4", dims)[:] = f.variables["V10"][:]
-        f.createDimension("bottom_top", 1)
-        cloud_dims = ("Time", "bottom_top", "south_north", "west_east")
-        f.createVariable("CLDFRA", "f4", cloud_dims)[:] = 0.5
-    return dst
-
-
-class WRFTestCase(unittest.TestCase):
-    """
-    Base class that writes one synthetic WRF file per test class.
-
-    Subclasses set `file_name`, `time_stamps` and `width` to choose the file's
-    contents. Each test gets a fresh `self.wrf`, which is closed afterward.
-    """
-
-    file_name = "wrf.nc"
-    time_stamps = TIME_STAMPS
-    width = None
 
     @classmethod
     def setUpClass(cls):
         cls.tmp_dir = tempfile.mkdtemp()
-        cls.file_path = f"{cls.tmp_dir}/{cls.file_name}"
-        write_wrf_file(cls.file_path, cls.time_stamps, cls.width)
+        cls.file_path = f"{cls.tmp_dir}/wrf.nc"
+        write_wrf_file(cls.file_path)
 
     @classmethod
     def tearDownClass(cls):
@@ -226,60 +187,21 @@ class WRFTestCase(unittest.TestCase):
     def tearDown(self):
         self.wrf.file.close()
 
-    def new_folder(self) -> str:
-        """
-        Create an empty temporary folder, removed after the test.
-
-        Returns
-        -------
-        str
-            Path of the folder
-        """
-        folder = tempfile.mkdtemp()
-        self.addCleanup(shutil.rmtree, folder)
-        return folder
-
-    def test_load(self):
-        wrf = InputWRF(START_DATE, HOUR_01, BBOX, TOPO, make_config(self.file_path))
-
-        wrf.load()
-
-        name = grid_station_names([CENTER[0]], [CENTER[1]])[0]
-        self.assertEqual(wrf.air_temp.columns.tolist(), [name])
-        np.testing.assert_allclose(wrf.air_temp[name], 2.0, atol=1e-3)
-        np.testing.assert_allclose(wrf.precip[name], [0.0, 1.0], atol=1e-3)
-        np.testing.assert_allclose(wrf.cloud_factor[name], 0.5, atol=1e-3)
-        np.testing.assert_allclose(wrf.wind_speed[name], 1.0, atol=1e-3)
-        np.testing.assert_allclose(wrf.wind_direction[name], 270.0, atol=1e-3)
-
-
-class TestInputWRF(WRFTestCase):
-    """
-    Tests for InputWRF using a synthetic WRF file and folder.
-    """
-
-    def make_hourly_folder(self, hours: list[str]) -> str:
-        """
-        Write one synthetic hourly WRF file per hour into a new folder.
-
-        Parameters
-        ----------
-        hours : list of str
-            Two-digit hours to write, such as ["00", "02"]
-
-        Returns
-        -------
-        str
-            Path of the folder
-        """
-        folder = self.new_folder()
-        for hour in hours:
-            path = Path(folder, f"{FILE_PREFIX}_2015-03-03_{hour}:00:00.nc")
-            write_wrf_file(str(path), [f"2015-03-03 {hour}:00:00"])
-        return folder
-
     def test_get_file_times_char_array(self):
         times = self.wrf.get_file_times()
+
+        expected = pd.to_datetime(TIME_STAMPS, utc=True)
+        pd.testing.assert_index_equal(times, expected)
+
+    def test_get_file_times_padded(self):
+        folder = self.enterContext(tempfile.TemporaryDirectory())
+        path = f"{folder}/padded.nc"
+        write_wrf_file(path, TIME_STAMPS, width=64)
+        wrf = InputWRF(START_DATE, END_DATE, BBOX, TOPO, make_config(path))
+        wrf.file = nc.Dataset(path)
+        self.addCleanup(wrf.file.close)
+
+        times = wrf.get_file_times()
 
         expected = pd.to_datetime(TIME_STAMPS, utc=True)
         pd.testing.assert_index_equal(times, expected)
@@ -294,11 +216,10 @@ class TestInputWRF(WRFTestCase):
     def test_get_metadata_selects_cells_in_bbox(self):
         self.wrf.get_metadata()
 
-        name = grid_station_names([CENTER[0]], [CENTER[1]])[0]
         np.testing.assert_array_equal(self.wrf.station_index, [CENTER])
-        self.assertEqual(self.wrf.primary_id, [name])
+        self.assertEqual(self.wrf.primary_id, [CENTER_NAME])
 
-        row = self.wrf.metadata.loc[name]
+        row = self.wrf.metadata.loc[CENTER_NAME]
         self.assertAlmostEqual(row["latitude"], CENTER_LAT)
         self.assertAlmostEqual(row["longitude"], CENTER_LON)
         self.assertAlmostEqual(row["elevation"], ELEVATION)
@@ -309,28 +230,97 @@ class TestInputWRF(WRFTestCase):
         self.assertAlmostEqual(row["utm_x"], expected_x, places=UTM_PLACES)
         self.assertAlmostEqual(row["utm_y"], expected_y, places=UTM_PLACES)
 
-    def test_load_file_single_hour(self):
-        path = make_lakes_copy("00", self.new_folder())
-        config = make_config(path, metadata=LAKES_DOMAIN)
-        wrf = InputWRF(LAKES_START, LAKES_START, LAKES_BBOX, TOPO, config)
+    def test_get_metadata_raises_without_grid_fields(self):
+        folder = self.enterContext(tempfile.TemporaryDirectory())
+        path = f"{folder}/no_grid.nc"
+        write_wrf_file(path, grid=False)
+        wrf = InputWRF(START_DATE, END_DATE, BBOX, TOPO, make_config(path))
+        wrf.file = nc.Dataset(path)
+        self.addCleanup(wrf.file.close)
+
+        with self.assertRaisesRegex(ValueError, MISSING_GRID_ERROR):
+            wrf.get_metadata()
+
+    def test_load(self):
+        wrf = InputWRF(START_DATE, HOUR_01, BBOX, TOPO, make_config(self.file_path))
 
         wrf.load()
 
-        self.assertEqual(wrf.air_temp.index.tolist(), [LAKES_START])
-        np.testing.assert_allclose(wrf.precip.values, 0.0)
-        self.assertIsNone(wrf.file)
-        self.assertIsNone(wrf.hours)
+        self.assertEqual(wrf.air_temp.columns.tolist(), [CENTER_NAME])
+        np.testing.assert_allclose(wrf.air_temp[CENTER_NAME], 2.0, atol=1e-3)
+        np.testing.assert_allclose(wrf.precip[CENTER_NAME], [0.0, 1.0], atol=1e-3)
+        np.testing.assert_allclose(wrf.cloud_factor[CENTER_NAME], 0.5, atol=1e-3)
+        np.testing.assert_allclose(wrf.wind_speed[CENTER_NAME], 1.0, atol=1e-3)
+        np.testing.assert_allclose(wrf.wind_direction[CENTER_NAME], 270.0, atol=1e-3)
 
-    def test_load_directory_raises_when_hour_missing(self):
-        folder = self.make_hourly_folder(["00", "02"])
-        wrf = InputWRF(
-            START_DATE, HOUR_02, BBOX, TOPO, make_config(folder, FILE_PREFIX)
-        )
+    def test_load_file_warns_when_previous_hour_missing(self):
+        # The file starts at 01:00, so the 00:00 precip is missing and set to 0
+        folder = self.enterContext(tempfile.TemporaryDirectory())
+        path = f"{folder}/late.nc"
+        write_wrf_file(path, ["2015-03-03 01:00:00", "2015-03-03 02:00:00"])
+        wrf = InputWRF(HOUR_01, HOUR_02, BBOX, TOPO, make_config(path))
+
+        with self.assertLogs(wrf._logger, level="WARNING") as logs:
+            wrf.load()
+
+        np.testing.assert_allclose(wrf.precip[CENTER_NAME], [0.0, 1.0], atol=1e-3)
+        self.assertIn("Previous hour", logs.output[0])
+
+    def test_load_file_raises_when_hour_missing(self):
+        wrf = InputWRF(START_DATE, HOUR_02, BBOX, TOPO, make_config(self.file_path))
 
         with self.assertRaisesRegex(ValueError, "no time step"):
             wrf.load()
 
-    def test_load_directory_logs_missing_hours(self):
+    def test_load_file_raises_without_grid_fields(self):
+        folder = self.enterContext(tempfile.TemporaryDirectory())
+        path = f"{folder}/no_grid.nc"
+        write_wrf_file(path, grid=False)
+        wrf = InputWRF(START_DATE, HOUR_01, BBOX, TOPO, make_config(path))
+
+        with self.assertRaisesRegex(ValueError, MISSING_GRID_ERROR):
+            wrf.load()
+
+
+class TestInputWRFFolder(unittest.TestCase):
+    """
+    Tests for InputWRF loading a folder of synthetic hourly WRF files.
+    """
+
+    def make_hourly_folder(self, hours: list[str]) -> str:
+        """
+        Write one synthetic hourly WRF file per hour into a new folder.
+
+        Parameters
+        ----------
+        hours : list of str
+            Two-digit hours to write, such as ["00", "02"]
+
+        Returns
+        -------
+        str
+            Path of the folder. RAINNC in each file equals its hour, so hourly
+            precip is 1 for each hour after the first.
+        """
+        folder = self.enterContext(tempfile.TemporaryDirectory())
+        for hour in hours:
+            path = Path(folder, f"{FILE_PREFIX}_2015-03-03_{hour}:00:00.nc")
+            write_wrf_file(str(path), [f"2015-03-03 {hour}:00:00"])
+        return folder
+
+    def test_load_directory_checks_input_type_once(self):
+        folder = self.make_hourly_folder(["00", "01", "02"])
+        config = make_config(folder, FILE_PREFIX)
+        wrf = InputWRF(START_DATE, HOUR_02, BBOX, TOPO, config)
+        detect = wrf_schema.detect_input_type
+
+        with patch("smrf.data.input.wrf_schema.detect_input_type", wraps=detect) as spy:
+            wrf.load()
+
+        self.assertEqual(spy.call_count, 1)
+        self.assertIsNone(wrf.input_type)
+
+    def test_load_directory_raises_and_logs_missing_hours(self):
         folder = self.make_hourly_folder(["00"])
         wrf = InputWRF(
             START_DATE, HOUR_02, BBOX, TOPO, make_config(folder, FILE_PREFIX)
@@ -345,7 +335,7 @@ class TestInputWRF(WRFTestCase):
         self.assertTrue(any("2015-03-03 02:00:00" in line for line in missing))
 
     def test_load_directory_raises_when_file_times_do_not_match(self):
-        folder = self.new_folder()
+        folder = self.enterContext(tempfile.TemporaryDirectory())
         write_wrf_file(
             str(Path(folder, f"{FILE_PREFIX}_2015-03-03_01:00:00.nc")),
             ["2015-03-03 00:00:00"],
@@ -355,51 +345,73 @@ class TestInputWRF(WRFTestCase):
         with self.assertRaisesRegex(ValueError, "no time step"):
             wrf.load()
 
+    def test_load_directory_requires_prefix(self):
+        folder = self.make_hourly_folder(["00"])
+        wrf = InputWRF(START_DATE, HOUR_02, BBOX, TOPO, make_config(folder))
 
-    def test_load_file_uses_previous_hour_precip(self):
-        # RAINNC is 0 at 00:00 and 1 at 01:00, so the 01:00 precip is 1
-        wrf = InputWRF(HOUR_01, HOUR_01, BBOX, TOPO, make_config(self.file_path))
+        with self.assertRaisesRegex(ValueError, "wrf_prefix must be set"):
+            wrf.load()
 
-        wrf.load()
+    def test_load_directory_raises_when_folder_empty(self):
+        folder = self.enterContext(tempfile.TemporaryDirectory())
+        config = make_config(folder, FILE_PREFIX)
+        wrf = InputWRF(START_DATE, HOUR_02, BBOX, TOPO, config)
 
-        name = grid_station_names([CENTER[0]], [CENTER[1]])[0]
-        np.testing.assert_allclose(wrf.precip[name], [1.0], atol=1e-3)
+        with self.assertRaisesRegex(ValueError, "No WRF files in"):
+            wrf.load()
 
-    def test_load_file_warns_when_previous_hour_missing(self):
-        # The file starts at 01:00, so the 00:00 precip is missing and set to 0
-        path = f"{self.new_folder()}/late.nc"
-        write_wrf_file(path, ["2015-03-03 01:00:00", "2015-03-03 02:00:00"])
-        wrf = InputWRF(HOUR_01, HOUR_02, BBOX, TOPO, make_config(path))
+    def test_load_directory_raises_when_no_file_in_period(self):
+        folder = self.make_hourly_folder(["00"])
+        config = make_config(folder, FILE_PREFIX)
+        wrf = InputWRF(FUTURE_DATE, FUTURE_DATE, BBOX, TOPO, config)
+
+        with self.assertRaisesRegex(ValueError, "No WRF files in"):
+            wrf.load()
+
+    def test_load_directory_raises_without_grid_fields(self):
+        folder = self.enterContext(tempfile.TemporaryDirectory())
+        path = Path(folder, f"{FILE_PREFIX}_2015-03-03_00:00:00.nc")
+        write_wrf_file(str(path), ["2015-03-03 00:00:00"], grid=False)
+        config = make_config(folder, FILE_PREFIX)
+        wrf = InputWRF(START_DATE, START_DATE, BBOX, TOPO, config)
+
+        with self.assertRaisesRegex(ValueError, MISSING_GRID_ERROR):
+            wrf.load()
+
+    def test_load_directory_warns_when_previous_hour_missing(self):
+        folder = self.make_hourly_folder(["00", "01", "02"])
+        config = make_config(folder, FILE_PREFIX)
+        wrf = InputWRF(START_DATE, HOUR_02, BBOX, TOPO, config)
 
         with self.assertLogs(wrf._logger, level="WARNING") as logs:
             wrf.load()
 
-        name = grid_station_names([CENTER[0]], [CENTER[1]])[0]
-        np.testing.assert_allclose(wrf.precip[name], [0.0, 1.0], atol=1e-3)
-        self.assertIn("Previous hour", logs.output[0])
+        self.assertTrue(any("Previous hour" in line for line in logs.output))
+        # The first precip step is 0, then the file values for each later hour
+        np.testing.assert_allclose(wrf.precip[CENTER_NAME], [0.0, 1.0, 1.0], atol=1e-3)
 
-    def test_load_file_raises_when_hour_missing(self):
-        wrf = InputWRF(
-            START_DATE, HOUR_02, BBOX, TOPO, make_config(self.file_path)
-        )
+    def test_file_for_time_returns_existing_file(self):
+        folder = self.make_hourly_folder(["01"])
+        config = make_config(folder, FILE_PREFIX)
+        wrf = InputWRF(START_DATE, HOUR_02, BBOX, TOPO, config)
 
-        with self.assertRaisesRegex(ValueError, "no time step"):
-            wrf.load()
+        path = wrf._file_for_time(HOUR_01)
+
+        expected = Path(folder, f"{FILE_PREFIX}_2015-03-03_01:00:00.nc")
+        self.assertEqual(path, str(expected))
+
+    def test_file_for_time_returns_none_when_missing(self):
+        folder = self.make_hourly_folder(["01"])
+        config = make_config(folder, FILE_PREFIX)
+        wrf = InputWRF(START_DATE, HOUR_02, BBOX, TOPO, config)
+
+        self.assertIsNone(wrf._file_for_time(HOUR_02))
 
 
-class TestInputWRF_WUS_D3(WRFTestCase):
+class TestInputWRF_WUS_D3(unittest.TestCase):
     """
     Tests for InputWRF using the WUS-D3 Lakes data.
     """
-
-    file_name = "wus_d3.nc"
-    width = 64
-
-    def test_get_file_times_padded(self):
-        times = self.wrf.get_file_times()
-
-        expected = pd.to_datetime(TIME_STAMPS, utc=True)
-        pd.testing.assert_index_equal(times, expected)
 
     def test_get_metadata_reads_static_file(self):
         config = make_config("not_opened_wrf_file.nc", metadata=LAKES_DOMAIN)
@@ -420,119 +432,105 @@ class TestInputWRF_WUS_D3(WRFTestCase):
         np.testing.assert_array_equal(wrf.station_index, np.argwhere(mask))
         np.testing.assert_allclose(wrf.metadata["elevation"].values, hgt[mask])
 
-    def test_get_metadata_raises_without_metadata_file(self):
-        # The hourly file has no grid fields, so the loader needs wrf_metadata
-        wrf = InputWRF(
-            START_DATE, END_DATE, LAKES_BBOX, TOPO, make_config(lakes_file("00"))
-        )
-        wrf.file = nc.Dataset(lakes_file("00"))
-        self.addCleanup(wrf.file.close)
+    def test_load_file_single_hour(self):
+        config = make_config(lakes_file("00"), metadata=LAKES_DOMAIN)
+        wrf = InputWRF(LAKES_START, LAKES_START, LAKES_BBOX, TOPO, config)
 
-        with self.assertRaisesRegex(ValueError, r"XLAT.*wrf_metadata .ini file option"):
-            wrf.get_metadata()
+        with patch.object(InputWRF, "process") as process:
+            wrf.load()
 
-    def test_load_directory(self):
-        folder = self.new_folder()
-        for hour in ["00", "01", "02"]:
-            make_lakes_copy(hour, folder)
-        config = make_config(folder, LAKES_PREFIX, LAKES_DOMAIN)
-        wrf = InputWRF(LAKES_START, LAKES_END, LAKES_BBOX, TOPO, config)
-
-        wrf.load()
-
-        hours = pd.date_range(LAKES_START, LAKES_END, freq="h")
-        self.assertEqual(wrf.air_temp.index.tolist(), hours.tolist())
-        rows, cols = wrf.station_index.T
-        rainnc = []
-        for hour in hours:
-            with nc.Dataset(lakes_file(f"{hour:%H}")) as f:
-                t2 = f.variables["T2"][0]
-                rainnc.append(f.variables["RAINNC"][0][rows, cols])
-            np.testing.assert_allclose(
-                wrf.air_temp.loc[hour].values, t2[rows, cols] - 273.15, atol=1e-3
-            )
-
-        rainnc = np.array(rainnc)
-        expected_precip = np.zeros_like(rainnc)
-        expected_precip[1:] = np.diff(rainnc, axis=0)
-        np.testing.assert_allclose(wrf.precip.values, expected_precip, atol=1e-3)
+        _, time = process.call_args.args
+        self.assertEqual(time.tolist(), [LAKES_START])
         self.assertIsNone(wrf.file)
         self.assertIsNone(wrf.hours)
 
-    def test_load_directory_uses_previous_hour_precip(self):
-        folder = self.new_folder()
-        for hour in ["00", "01", "02"]:
-            make_lakes_copy(hour, folder)
+    def test_load_directory(self):
+        hours = ["00", "01", "02"]
+        folder = self.lakes_folder(hours)
         previous = f"{LAKES_PREFIX}_2022-11-07_23:00:00.nc"
         shutil.copy(LAKES_DIR / previous, folder)
         config = make_config(folder, LAKES_PREFIX, LAKES_DOMAIN)
         wrf = InputWRF(LAKES_START, LAKES_END, LAKES_BBOX, TOPO, config)
 
-        wrf.load()
+        with patch.object(InputWRF, "process") as process:
+            wrf.load()
 
+        raw, time = process.call_args.args
         rows, cols = wrf.station_index.T
-        with nc.Dataset(lakes_file("00")) as f:
-            rain_start = f.variables["RAINNC"][0][rows, cols]
-        with nc.Dataset(LAKES_DIR / previous) as f:
-            rain_previous = f.variables["RAINNC"][0][rows, cols]
+        self.assertEqual(
+            set(raw),
+            {
+                "air_temp",
+                "humidity",
+                "surface_pressure",
+                "precip",
+                "u10",
+                "v10",
+                "shortwave",
+                "clear_shortwave",
+                "longwave",
+            },
+        )
+        self.assertEqual(
+            time.tolist(), pd.date_range(LAKES_START, LAKES_END, freq="h").tolist()
+        )
         np.testing.assert_allclose(
-            wrf.precip.loc[LAKES_START].values, rain_start - rain_previous, atol=1e-3
+            raw["air_temp"],
+            [self.read_lakes(lakes_file(h), "T2", rows, cols) for h in hours],
         )
-
-    def test_load_directory_warns_when_previous_hour_missing(self):
-        folder = self.new_folder()
-        for hour in ["00", "01", "02"]:
-            make_lakes_copy(hour, folder)
-        config = make_config(folder, LAKES_PREFIX, LAKES_DOMAIN)
-        wrf = InputWRF(LAKES_START, LAKES_END, LAKES_BBOX, TOPO, config)
-
-        with self.assertLogs(wrf._logger, level="WARNING") as logs:
-            wrf.load()
-
-        self.assertTrue(any("Previous hour" in line for line in logs.output))
-        self.assertEqual(wrf.precip.loc[LAKES_START].values.sum(), 0.0)
-
-    def test_file_for_time_returns_existing_file(self):
-        wrf = InputWRF(
-            LAKES_START, LAKES_START, BBOX, TOPO, make_config(LAKES_DIR, LAKES_PREFIX)
+        np.testing.assert_allclose(
+            raw["precip"],
+            [self.read_lakes(LAKES_DIR / previous, "RAINNC", rows, cols)]
+            + [self.read_lakes(lakes_file(h), "RAINNC", rows, cols) for h in hours],
         )
+        self.assertIsNone(wrf.file)
+        self.assertIsNone(wrf.hours)
 
-        path = wrf._file_for_time(LAKES_01)
+    def test_process_raises_not_implemented(self):
+        config = make_config(lakes_file("00"))
+        wrf = InputWRF(LAKES_START, LAKES_START, LAKES_BBOX, TOPO, config)
+        wrf.input_type = "wus_d3"
 
-        self.assertEqual(path, str(lakes_file("01")))
+        with self.assertRaisesRegex(NotImplementedError, "wus_d3 input"):
+            wrf.process({}, pd.DatetimeIndex([LAKES_START]))
 
-    def test_file_for_time_returns_none_when_missing(self):
-        wrf = InputWRF(
-            LAKES_START, LAKES_START, BBOX, TOPO, make_config(LAKES_DIR, LAKES_PREFIX)
-        )
+    @staticmethod
+    def read_lakes(path: Path, name: str, rows, cols) -> np.ndarray:
+        """
+        Read one Lakes field at its first time step for the given grid cells.
 
-        self.assertIsNone(wrf._file_for_time(LAKES_FUTURE))
+        Parameters
+        ----------
+        path : Path
+            Lakes hourly file
+        name : str
+            Name of the WRF variable
+        rows, cols : ndarray
+            Row and column of each grid cell in the full WRF grid
 
-    def test_load_directory_raises_without_metadata_file(self):
-        config = make_config(LAKES_DIR, LAKES_PREFIX)
-        wrf = InputWRF(LAKES_START, LAKES_01, LAKES_BBOX, TOPO, config)
+        Returns
+        -------
+        ndarray
+            Field values for each grid cell
+        """
+        with nc.Dataset(path) as f:
+            return f.variables[name][0][rows, cols]
 
-        with self.assertRaisesRegex(ValueError, r"XLAT.*wrf_metadata .ini file option"):
-            wrf.load()
+    def lakes_folder(self, hours: list[str]) -> str:
+        """
+        Copy the Lakes hourly files for the given hours into a new folder.
 
-    def test_load_directory_requires_prefix(self):
-        wrf = InputWRF(
-            LAKES_START, LAKES_START, LAKES_BBOX, TOPO, make_config(LAKES_DIR)
-        )
+        Parameters
+        ----------
+        hours : list of str
+            Two-digit hours to copy, such as ["00", "01"]
 
-        with self.assertRaisesRegex(ValueError, "wrf_prefix must be set"):
-            wrf.load()
-
-    def test_load_directory_raises_when_folder_empty(self):
-        config = make_config(self.new_folder(), LAKES_PREFIX)
-        wrf = InputWRF(LAKES_START, LAKES_END, LAKES_BBOX, TOPO, config)
-
-        with self.assertRaisesRegex(ValueError, "No WRF files in"):
-            wrf.load()
-
-    def test_load_directory_raises_when_no_file_in_period(self):
-        config = make_config(LAKES_DIR, LAKES_PREFIX)
-        wrf = InputWRF(LAKES_FUTURE, LAKES_FUTURE, LAKES_BBOX, TOPO, config)
-
-        with self.assertRaisesRegex(ValueError, "No WRF files in"):
-            wrf.load()
+        Returns
+        -------
+        str
+            Path of the folder
+        """
+        folder = self.enterContext(tempfile.TemporaryDirectory())
+        for hour in hours:
+            shutil.copy(lakes_file(hour), folder)
+        return folder

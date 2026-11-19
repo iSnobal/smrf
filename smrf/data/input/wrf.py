@@ -1,5 +1,4 @@
 import os
-from types import MappingProxyType
 
 import netCDF4 as nc
 import numpy as np
@@ -8,6 +7,7 @@ import pandas as pd
 import pytz
 
 from smrf.data.helper import add_utm_columns, grid_station_names
+from smrf.data.input import wrf_schema
 from smrf.data.input.gridded_input import GriddedInput
 from smrf.envphys.vapor_pressure import svp_for_celsius
 
@@ -25,31 +25,12 @@ class InputWRF(GriddedInput):
         PREFIX = "wrf_prefix"
         METADATA = "wrf_metadata"
 
-    class Schema:
-        """
-        Names and formats of the fields in WRF netcdf input files.
-        """
-
-        TIME_FORMAT = "%Y-%m-%d_%H:%M:%S"
-
-        VARIABLES = MappingProxyType(
-            {
-                "air_temp": "T2",
-                "dew_point": "DWPT",
-                "u10": "UGRD",
-                "v10": "VGRD",
-                "cloud_factor": "CLDFRA",
-                "precip": "RAINNC",
-            }
-        )
-
-        GRID_VARIABLES = ("XLAT", "XLONG", "HGT")
-
     def __init__(self, start_date, end_date, bbox, topo, config):
         super().__init__(start_date, end_date, bbox, topo, config)
 
         # Use the user file when given in the .ini to read grid variables
         self.metadata_file = self.config.get(self.ConfigKey.METADATA)
+        self.input_type = None
 
     def get_file_times(self) -> pd.DatetimeIndex:
         """
@@ -67,7 +48,7 @@ class InputWRF(GriddedInput):
         times = nc.chartostring(t[:])
 
         in_utc = str(self.time_zone).lower() == str(pytz.UTC).lower()
-        return pd.to_datetime(times, format=self.Schema.TIME_FORMAT, utc=in_utc)
+        return pd.to_datetime(times, format=wrf_schema.TIME_FORMAT, utc=in_utc)
 
     @staticmethod
     def _read_grid_fields(
@@ -78,18 +59,19 @@ class InputWRF(GriddedInput):
 
         Args:
             file_with_grid_info: netCDF4.Dataset holding every variable listed
-                in :attr:`InputWRF.Schema.GRID_VARIABLES`
+                in :data:`smrf.data.input.wrf_schema.GRID_VARIABLES`
 
         Raises:
-            ValueError: a variable from :attr:`InputWRF.Schema.GRID_VARIABLES` is
-                missing from the dataset
+            ValueError: a variable from
+                :data:`smrf.data.input.wrf_schema.GRID_VARIABLES` is missing from
+                the dataset
 
         Returns:
             tuple: XLAT, XLONG and HGT as float64 arrays
         """
         missing = [
             v
-            for v in InputWRF.Schema.GRID_VARIABLES
+            for v in wrf_schema.GRID_VARIABLES
             if v not in file_with_grid_info.variables
         ]
         if missing:
@@ -99,9 +81,9 @@ class InputWRF(GriddedInput):
                 "supplied with the wrf_metadata .ini file option"
             )
 
-        xlat = file_with_grid_info.variables["XLAT"][:].astype("float64")
-        xlong = file_with_grid_info.variables["XLONG"][:].astype("float64")
-        hgt = file_with_grid_info.variables["HGT"][:].astype("float64")
+        xlat = file_with_grid_info.variables[wrf_schema.XLAT][:].astype("float64")
+        xlong = file_with_grid_info.variables[wrf_schema.XLONG][:].astype("float64")
+        hgt = file_with_grid_info.variables[wrf_schema.HGT][:].astype("float64")
         return xlat, xlong, hgt
 
     def get_metadata(self) -> None:
@@ -144,14 +126,8 @@ class InputWRF(GriddedInput):
         """
         Load the data from a WRF output file set in the wrf_path option.
 
-        The input file must contain these WRF variables:
-        - Times
-        - T2
-        - DWPT
-        - RAINNC
-        - CLDFRA
-        - UGRD
-        - VGRD
+        The input file must contain Times and every WRF variable of its input
+        type, as listed in smrf.data.input.wrf_schema.FIELDS.
 
         The grid fields XLAT, XLONG and HGT are read by get_metadata, from the
         wrf_metadata file when it is set and from wrf_path otherwise.
@@ -167,14 +143,18 @@ class InputWRF(GriddedInput):
         self.hours = pd.date_range(self.start_date, self.end_date, freq="h")
         wrf_path = self.config[self.ConfigKey.PATH]
         self._logger.info(f"Reading WRF data from: {wrf_path}")
+
         if os.path.isdir(wrf_path):
             if not self.config.get(self.ConfigKey.PREFIX):
                 raise ValueError("wrf_prefix must be set when wrf_path is a directory")
             self._load_directory()
         else:
             self._load_file(wrf_path)
+
+        # Reset variables to not persist across instance calls
         self.file = None
         self.hours = None
+        self.input_type = None
 
     def _load_file(self, path: str) -> None:
         """
@@ -186,6 +166,7 @@ class InputWRF(GriddedInput):
             Path to the WRF file.
         """
         with nc.Dataset(path) as self.file:
+            self.input_type = wrf_schema.detect_input_type(self.file.variables)
             self.get_metadata()
             # Times in the hourly files can be a few seconds off the hour, for
             # example 01:00:49 in the 01:00 file, so round them before matching
@@ -211,6 +192,7 @@ class InputWRF(GriddedInput):
                 continue
             with nc.Dataset(path) as self.file:
                 if not time_parts:
+                    self.input_type = wrf_schema.detect_input_type(self.file.variables)
                     self.get_metadata()
                 time = self.get_file_times().round("h")
                 time_index = time.isin(self.hours)
@@ -244,7 +226,7 @@ class InputWRF(GriddedInput):
         """
         name = (
             f"{self.config[self.ConfigKey.PREFIX]}_"
-            f"{time.strftime(self.Schema.TIME_FORMAT)}.nc"
+            f"{time.strftime(wrf_schema.TIME_FORMAT)}.nc"
         )
         path = os.path.join(self.config[self.ConfigKey.PATH], name)
         if os.path.exists(path):
@@ -329,7 +311,7 @@ class InputWRF(GriddedInput):
         Parameters
         ----------
         variable : str
-            Key of the field in InputWRF.Schema.VARIABLES, such as "air_temp"
+            Key of the field in the data set's field names, such as "air_temp"
         time_ind : ndarray
             Boolean mask of the times to read
 
@@ -342,9 +324,9 @@ class InputWRF(GriddedInput):
         topo_rows, topo_cols = self._topo_domain()
         rows = self.station_index[:, 0] - topo_rows.start
         cols = self.station_index[:, 1] - topo_cols.start
-        field = self.file.variables[self.Schema.VARIABLES[variable]]
-        if variable == "cloud_factor":
-            # CLDFRA has a vertical dimension, which is kept in full
+        field = self.file.variables[wrf_schema.FIELDS[self.input_type][variable]]
+        if variable in wrf_schema.LEVEL_FIELDS:
+            # Fields with a vertical dimension are kept in full
             topo_values = field[time_ind, :, topo_rows, topo_cols]
             return topo_values[:, :, rows, cols]
         topo_values = field[time_ind, topo_rows, topo_cols]
@@ -361,7 +343,7 @@ class InputWRF(GriddedInput):
             dict: station arrays keyed by variable name
         """
         raw = {}
-        for variable, wrf_variable in self.Schema.VARIABLES.items():
+        for variable, wrf_variable in wrf_schema.FIELDS[self.input_type].items():
             self._logger.debug(
                 f"Loading variable {variable} from WRF field {wrf_variable}"
             )
@@ -379,7 +361,10 @@ class InputWRF(GriddedInput):
 
         Raises:
             ValueError: a requested hour is missing from time
+            NotImplementedError: the input type has no processing yet
         """
+        if self.input_type != wrf_schema.WRF:
+            raise NotImplementedError(f"{self.input_type} input is not supported yet")
         missing = self.hours.difference(time)
         if len(missing) > 0:
             raise ValueError(f"WRF data has no time step for {missing}")
