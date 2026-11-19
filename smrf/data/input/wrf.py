@@ -11,8 +11,6 @@ from smrf.data.helper import add_utm_columns, grid_station_names
 from smrf.data.input.gridded_input import GriddedInput
 from smrf.envphys.vapor_pressure import svp_for_celsius
 
-WRF_TIME_FORMAT = "%Y-%m-%d_%H:%M:%S"
-
 
 class InputWRF(GriddedInput):
     """
@@ -27,18 +25,25 @@ class InputWRF(GriddedInput):
         PREFIX = "wrf_prefix"
         METADATA = "wrf_metadata"
 
-    WRF_VARIABLES = MappingProxyType(
-        {
-            "air_temp": "T2",
-            "dew_point": "DWPT",
-            "u10": "UGRD",
-            "v10": "VGRD",
-            "cloud_factor": "CLDFRA",
-            "precip": "RAINNC",
-        }
-    )
+    class Schema:
+        """
+        Names and formats of the fields in WRF netcdf input files.
+        """
 
-    GRID_VARIABLES = ("XLAT", "XLONG", "HGT")
+        TIME_FORMAT = "%Y-%m-%d_%H:%M:%S"
+
+        VARIABLES = MappingProxyType(
+            {
+                "air_temp": "T2",
+                "dew_point": "DWPT",
+                "u10": "UGRD",
+                "v10": "VGRD",
+                "cloud_factor": "CLDFRA",
+                "precip": "RAINNC",
+            }
+        )
+
+        GRID_VARIABLES = ("XLAT", "XLONG", "HGT")
 
     def __init__(self, start_date, end_date, bbox, topo, config):
         super().__init__(start_date, end_date, bbox, topo, config)
@@ -62,7 +67,7 @@ class InputWRF(GriddedInput):
         times = nc.chartostring(t[:])
 
         in_utc = str(self.time_zone).lower() == str(pytz.UTC).lower()
-        return pd.to_datetime(times, format=WRF_TIME_FORMAT, utc=in_utc)
+        return pd.to_datetime(times, format=self.Schema.TIME_FORMAT, utc=in_utc)
 
     @staticmethod
     def _read_grid_fields(
@@ -73,17 +78,19 @@ class InputWRF(GriddedInput):
 
         Args:
             file_with_grid_info: netCDF4.Dataset holding every variable listed
-                in :attr:`InputWRF.GRID_VARIABLES`
+                in :attr:`InputWRF.Schema.GRID_VARIABLES`
 
         Raises:
-            ValueError: a variable from :attr:`InputWRF.GRID_VARIABLES` is
+            ValueError: a variable from :attr:`InputWRF.Schema.GRID_VARIABLES` is
                 missing from the dataset
 
         Returns:
             tuple: XLAT, XLONG and HGT as float64 arrays
         """
         missing = [
-            v for v in InputWRF.GRID_VARIABLES if v not in file_with_grid_info.variables
+            v
+            for v in InputWRF.Schema.GRID_VARIABLES
+            if v not in file_with_grid_info.variables
         ]
         if missing:
             raise ValueError(
@@ -236,7 +243,8 @@ class InputWRF(GriddedInput):
             Path of the file, or None if it is missing.
         """
         name = (
-            f"{self.config[self.ConfigKey.PREFIX]}_{time.strftime(WRF_TIME_FORMAT)}.nc"
+            f"{self.config[self.ConfigKey.PREFIX]}_"
+            f"{time.strftime(self.Schema.TIME_FORMAT)}.nc"
         )
         path = os.path.join(self.config[self.ConfigKey.PATH], name)
         if os.path.exists(path):
@@ -321,7 +329,7 @@ class InputWRF(GriddedInput):
         Parameters
         ----------
         variable : str
-            Key of the field in WRF_VARIABLES, such as "air_temp"
+            Key of the field in InputWRF.Schema.VARIABLES, such as "air_temp"
         time_ind : ndarray
             Boolean mask of the times to read
 
@@ -334,7 +342,7 @@ class InputWRF(GriddedInput):
         topo_rows, topo_cols = self._topo_domain()
         rows = self.station_index[:, 0] - topo_rows.start
         cols = self.station_index[:, 1] - topo_cols.start
-        field = self.file.variables[self.WRF_VARIABLES[variable]]
+        field = self.file.variables[self.Schema.VARIABLES[variable]]
         if variable == "cloud_factor":
             # CLDFRA has a vertical dimension, which is kept in full
             topo_values = field[time_ind, :, topo_rows, topo_cols]
@@ -353,7 +361,7 @@ class InputWRF(GriddedInput):
             dict: station arrays keyed by variable name
         """
         raw = {}
-        for variable, wrf_variable in self.WRF_VARIABLES.items():
+        for variable, wrf_variable in self.Schema.VARIABLES.items():
             self._logger.debug(
                 f"Loading variable {variable} from WRF field {wrf_variable}"
             )
