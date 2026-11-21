@@ -49,6 +49,33 @@ def cf_cloud(
     return c_grad, c_drad
 
 
+def cloud_factor(solar_ratio: pd.DataFrame, clear_sky: pd.DataFrame) -> pd.DataFrame:
+    """
+    Cloud factor from the ratio of incoming to clear-sky shortwave.
+
+    Low-sun times are masked on clear-sky shortwave, interpolated in time, and
+    clipped to [0, 1].
+
+    Parameters
+    ----------
+    solar_ratio : pd.DataFrame
+        Ratio of incoming to clear-sky shortwave.
+    clear_sky : pd.DataFrame
+        Clear-sky shortwave, same shape as solar_ratio.
+
+    Returns
+    -------
+    pd.DataFrame
+        Cloud factor, same shape as solar_ratio.
+    """
+    solar_ratio = solar_ratio.mask(clear_sky < LOW_SOLAR_THRESHOLD)
+
+    # Fill gaps in time; edge gaps take the first or last valid value
+    filled = solar_ratio.interpolate(method="linear").ffill().bfill()
+
+    return filled.clip(0.0, 1.0)
+
+
 def get_hrrr_cloud(
     incoming_solar: pd.DataFrame,
     lat: float,
@@ -84,15 +111,5 @@ def get_hrrr_cloud(
         columns=incoming_solar.columns,
     )
 
-    # Mask low-sun values in both arrays so the ratio is not computed there
-    low_sun = basin_solar < LOW_SOLAR_THRESHOLD
-    basin_solar = basin_solar.mask(low_sun, 0)
-    incoming_solar = incoming_solar.mask(low_sun, 0)
-
-    # Calculate
-    cloud_factor = incoming_solar / basin_solar
-
-    # Fill gaps in time; edge gaps take the first or last valid value
-    cloud_factor = cloud_factor.interpolate(method="linear").ffill().bfill()
-
-    return cloud_factor.clip(0.0, 1.0)
+    solar_ratio = incoming_solar / basin_solar
+    return cloud_factor(solar_ratio, basin_solar)

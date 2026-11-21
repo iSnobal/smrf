@@ -109,7 +109,7 @@ class TestGriddedInput(unittest.TestCase):
         data_source = TestDataSource(**self.VALID_ARGS)
 
         self.assertEqual(
-            data_source.__class__.__name__,
+            GriddedInput.__module__,
             data_source._logger.name
         )
 
