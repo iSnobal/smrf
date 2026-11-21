@@ -587,6 +587,8 @@ class TestProcessWUS_D3(unittest.TestCase):
             "v10": np.array([[4.0]]),
             "humidity": np.array([[0.01]]),
             "surface_pressure": np.array([[90000.0]]),
+            "shortwave": np.array([[300.0]]),
+            "clear_shortwave": np.array([[400.0]]),
         }
         cls.wrf = InputWRF(START_DATE, START_DATE, BBOX, TOPO, make_config("wrf.nc"))
         cls.wrf.input_type = wrf_schema.WUS_D3
@@ -612,3 +614,6 @@ class TestProcessWUS_D3(unittest.TestCase):
 
     def test_precip(self):
         np.testing.assert_allclose(self.wrf.precip[CENTER_NAME], 2.0, atol=1e-3)
+
+    def test_cloud_factor(self):
+        np.testing.assert_allclose(self.wrf.cloud_factor[CENTER_NAME], 0.75, atol=1e-3)

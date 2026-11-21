@@ -9,6 +9,7 @@ import pytz
 from smrf.data.helper import add_utm_columns, grid_station_names
 from smrf.data.input import wrf_schema
 from smrf.data.input.gridded_input import GriddedInput
+from smrf.envphys.solar.cloud import cloud_factor
 from smrf.envphys.vapor_pressure import (
     svp_for_celsius,
     vapor_pressure_from_mixing_ratio,
@@ -392,6 +393,14 @@ class InputWRF(GriddedInput):
             frames["vapor_pressure"] = vapor_pressure_from_mixing_ratio(
                 raw_data["humidity"], raw_data["surface_pressure"]
             )
+            shortwave = pd.DataFrame(
+                raw_data["shortwave"], index=time, columns=self.primary_id
+            )
+            clear_sky = pd.DataFrame(
+                raw_data["clear_shortwave"], index=time, columns=self.primary_id
+            )
+            cloud = cloud_factor(shortwave / clear_sky, clear_sky)
+            frames["cloud_factor"] = cloud.to_numpy()
         for name, values in frames.items():
             frame = pd.DataFrame(values, index=time, columns=self.primary_id)
             setattr(self, name, frame)
