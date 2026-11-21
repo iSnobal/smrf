@@ -408,9 +408,54 @@ class TestInputWRFFolder(unittest.TestCase):
         self.assertIsNone(wrf._file_for_time(HOUR_02))
 
 
+class TestProcessWRF(unittest.TestCase):
+    """
+    Tests for the standard WRF outputs of InputWRF.process.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        raw = {
+            "air_temp": np.array([[275.15]]),
+            "precip": np.array([[1.0], [3.0]]),
+            "u10": np.array([[3.0]]),
+            "v10": np.array([[4.0]]),
+            "dew_point": np.array([[0.0]]),
+            "cloud_factor": np.array([[[0.2], [0.6]]]),
+        }
+        cls.wrf = InputWRF(START_DATE, START_DATE, BBOX, TOPO, make_config("wrf.nc"))
+        cls.wrf.input_type = wrf_schema.WRF
+        cls.wrf.hours = pd.DatetimeIndex([START_DATE])
+        cls.wrf.primary_id = [CENTER_NAME]
+        cls.wrf.process(raw, cls.wrf.hours)
+
+    def test_vapor_pressure(self):
+        np.testing.assert_allclose(
+            self.wrf.vapor_pressure[CENTER_NAME], 611.0, rtol=1e-2
+        )
+
+    def test_air_temp(self):
+        np.testing.assert_allclose(self.wrf.air_temp[CENTER_NAME], 2.0, atol=1e-3)
+
+    def test_wind_speed(self):
+        np.testing.assert_allclose(self.wrf.wind_speed[CENTER_NAME], 5.0, atol=1e-3)
+
+    def test_wind_direction(self):
+        np.testing.assert_allclose(
+            self.wrf.wind_direction[CENTER_NAME], 53.13, atol=1e-2
+        )
+
+    def test_precip(self):
+        np.testing.assert_allclose(self.wrf.precip[CENTER_NAME], 2.0, atol=1e-3)
+
+    def test_cloud_factor(self):
+        # Cloud fraction is the mean of its two levels, 0.4, so the factor is 0.6
+        np.testing.assert_allclose(self.wrf.cloud_factor[CENTER_NAME], 0.6, atol=1e-3)
+
+
 class TestInputWRF_WUS_D3(unittest.TestCase):
     """
-    Tests for InputWRF using the WUS-D3 Lakes data.
+    Tests for InputWRF loading the WUS-D3 Lakes data.
     """
 
     def test_get_metadata_reads_static_file(self):
@@ -486,14 +531,6 @@ class TestInputWRF_WUS_D3(unittest.TestCase):
         self.assertIsNone(wrf.file)
         self.assertIsNone(wrf.hours)
 
-    def test_process_raises_not_implemented(self):
-        config = make_config(lakes_file("00"))
-        wrf = InputWRF(LAKES_START, LAKES_START, LAKES_BBOX, TOPO, config)
-        wrf.input_type = "wus_d3"
-
-        with self.assertRaisesRegex(NotImplementedError, "wus_d3 input"):
-            wrf.process({}, pd.DatetimeIndex([LAKES_START]))
-
     @staticmethod
     def read_lakes(path: Path, name: str, rows, cols) -> np.ndarray:
         """
@@ -534,3 +571,44 @@ class TestInputWRF_WUS_D3(unittest.TestCase):
         for hour in hours:
             shutil.copy(lakes_file(hour), folder)
         return folder
+
+
+class TestProcessWUS_D3(unittest.TestCase):
+    """
+    Tests for the WUS-D3 outputs of InputWRF.process.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        raw = {
+            "air_temp": np.array([[275.15]]),
+            "precip": np.array([[1.0], [3.0]]),
+            "u10": np.array([[3.0]]),
+            "v10": np.array([[4.0]]),
+            "humidity": np.array([[0.01]]),
+            "surface_pressure": np.array([[90000.0]]),
+        }
+        cls.wrf = InputWRF(START_DATE, START_DATE, BBOX, TOPO, make_config("wrf.nc"))
+        cls.wrf.input_type = wrf_schema.WUS_D3
+        cls.wrf.hours = pd.DatetimeIndex([START_DATE])
+        cls.wrf.primary_id = [CENTER_NAME]
+        cls.wrf.process(raw, cls.wrf.hours)
+
+    def test_vapor_pressure(self):
+        np.testing.assert_allclose(
+            self.wrf.vapor_pressure[CENTER_NAME], 1424.0, rtol=1e-3
+        )
+
+    def test_air_temp(self):
+        np.testing.assert_allclose(self.wrf.air_temp[CENTER_NAME], 2.0, atol=1e-3)
+
+    def test_wind_speed(self):
+        np.testing.assert_allclose(self.wrf.wind_speed[CENTER_NAME], 5.0, atol=1e-3)
+
+    def test_wind_direction(self):
+        np.testing.assert_allclose(
+            self.wrf.wind_direction[CENTER_NAME], 53.13, atol=1e-2
+        )
+
+    def test_precip(self):
+        np.testing.assert_allclose(self.wrf.precip[CENTER_NAME], 2.0, atol=1e-3)

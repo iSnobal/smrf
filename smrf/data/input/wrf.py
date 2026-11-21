@@ -9,7 +9,10 @@ import pytz
 from smrf.data.helper import add_utm_columns, grid_station_names
 from smrf.data.input import wrf_schema
 from smrf.data.input.gridded_input import GriddedInput
-from smrf.envphys.vapor_pressure import svp_for_celsius
+from smrf.envphys.vapor_pressure import (
+    svp_for_celsius,
+    vapor_pressure_from_mixing_ratio,
+)
 
 
 class InputWRF(GriddedInput):
@@ -361,10 +364,7 @@ class InputWRF(GriddedInput):
 
         Raises:
             ValueError: a requested hour is missing from time
-            NotImplementedError: the input type has no processing yet
         """
-        if self.input_type != wrf_schema.WRF:
-            raise NotImplementedError(f"{self.input_type} input is not supported yet")
         missing = self.hours.difference(time)
         if len(missing) > 0:
             raise ValueError(f"WRF data has no time step for {missing}")
@@ -379,12 +379,19 @@ class InputWRF(GriddedInput):
 
         frames = {
             "air_temp": raw_data["air_temp"] - 273.15,
-            "vapor_pressure": svp_for_celsius(raw_data["dew_point"]),
-            "cloud_factor": 1 - np.mean(raw_data["cloud_factor"], axis=1),
             "wind_speed": np.sqrt(raw_data["u10"] ** 2 + raw_data["v10"] ** 2),
             "wind_direction": direction,
             "precip": precip,
         }
+        if self.input_type == wrf_schema.WRF:
+            frames["vapor_pressure"] = svp_for_celsius(raw_data["dew_point"])
+            frames["cloud_factor"] = 1 - np.mean(raw_data["cloud_factor"], axis=1)
+        else:
+            # The WUS-D3 humidity field (Q2) is misnamed. It is the water vapor
+            # mixing ratio, not specific humidity, as the dataset authors confirmed.
+            frames["vapor_pressure"] = vapor_pressure_from_mixing_ratio(
+                raw_data["humidity"], raw_data["surface_pressure"]
+            )
         for name, values in frames.items():
             frame = pd.DataFrame(values, index=time, columns=self.primary_id)
             setattr(self, name, frame)
