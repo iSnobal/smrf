@@ -34,7 +34,7 @@ from inicheck.tools import check_config, get_user_config
 from topocalc.illumination_angle import illumination_angle
 
 from smrf.data import InputData, Topo
-from smrf.data.input import GriddedInput, InputGribHRRR
+from smrf.data.input import GriddedInput, InputGribHRRR, InputWRF
 from smrf.distribute import (
     AirTemperature,
     Albedo,
@@ -45,6 +45,7 @@ from smrf.distribute import (
     SolarHRRR,
     Thermal,
     ThermalHRRR,
+    ThermalWRF,
     VaporPressure,
     Wind,
 )
@@ -342,7 +343,11 @@ class SMRF:
                 ThermalHRRR.GRIB_NAME
             )
 
-            self.distribute[ThermalHRRR.DISTRIBUTION_KEY] = ThermalHRRR(**init_args)
+            if self.config[GriddedInput.TYPE]["data_type"] == InputWRF.DATA_TYPE:
+                thermal_class = ThermalWRF
+            else:
+                thermal_class = ThermalHRRR
+            self.distribute[ThermalHRRR.DISTRIBUTION_KEY] = thermal_class(**init_args)
 
             # Also swap out the ini variable to treat running HRRR as the standard
             # 'thermal' variable
@@ -563,9 +568,12 @@ class SMRF:
                     cloud_factor,
                 )
             elif isinstance(self.distribute[ThermalHRRR.DISTRIBUTION_KEY], ThermalHRRR):
+                thermal = self.data.thermal
+                if self.data.DATA_TYPE == InputWRF.DATA_TYPE:
+                    thermal = thermal.loc[timestep]
                 self.distribute[ThermalHRRR.DISTRIBUTION_KEY].distribute(
                     timestep,
-                    self.data.thermal,
+                    thermal,
                     self.distribute[AirTemperature.DISTRIBUTION_KEY].air_temp,
                 )
 

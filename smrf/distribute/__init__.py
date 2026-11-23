@@ -8,6 +8,7 @@ from .solar import Solar
 from .solar_hrrr import SolarHRRR
 from .thermal import Thermal
 from .thermal_hrrr import ThermalHRRR
+from .thermal_wrf import ThermalWRF
 from .vapor_pressure import VaporPressure
 from .wind import Wind
 
@@ -22,6 +23,7 @@ __all__ = [
     "SolarHRRR",
     "Thermal",
     "ThermalHRRR",
+    "ThermalWRF",
     "VaporPressure",
     "Wind",
 ]
