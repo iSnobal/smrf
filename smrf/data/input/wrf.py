@@ -356,12 +356,14 @@ class InputWRF(GriddedInput):
 
     def process(self, raw_data: dict[str, npt.NDArray], time: pd.DatetimeIndex) -> None:
         """
-        Calculate variables from loaded WRF data.
-        Converts all instance variables to pandas DataFrames.
+        Calculate the output variables from the WRF data for the requested hours.
 
-        Args:
-            raw_data: Read WRF values from read_raw, keyed by variable name
-            time: timestamps of the selected times
+        Parameters
+        ----------
+        raw_data : dict of str to ndarray
+            Values from read_raw, keyed by variable name
+        time : pd.DatetimeIndex
+            Timestamps of the selected times
 
         Raises:
             ValueError: a requested hour is missing from time
@@ -384,23 +386,71 @@ class InputWRF(GriddedInput):
             "wind_direction": direction,
             "precip": precip,
         }
+
         if self.input_type == wrf_schema.WRF:
-            frames["vapor_pressure"] = svp_for_celsius(raw_data["dew_point"])
-            frames["cloud_factor"] = 1 - np.mean(raw_data["cloud_factor"], axis=1)
+            frames.update(self._process_wrf(raw_data))
         else:
-            # The WUS-D3 humidity field (Q2) is misnamed. It is the water vapor
-            # mixing ratio, not specific humidity, as the dataset authors confirmed.
-            frames["vapor_pressure"] = vapor_pressure_from_mixing_ratio(
-                raw_data["humidity"], raw_data["surface_pressure"]
-            )
-            shortwave = pd.DataFrame(
-                raw_data["shortwave"], index=time, columns=self.primary_id
-            )
-            clear_sky = pd.DataFrame(
-                raw_data["clear_shortwave"], index=time, columns=self.primary_id
-            )
-            cloud = cloud_factor(shortwave / clear_sky, clear_sky)
-            frames["cloud_factor"] = cloud.to_numpy()
+            frames.update(self._process_wus_d3(raw_data, time))
+
         for name, values in frames.items():
             frame = pd.DataFrame(values, index=time, columns=self.primary_id)
             setattr(self, name, frame)
+
+    def _process_wrf(self, raw_data: dict[str, npt.NDArray]) -> dict[str, npt.NDArray]:
+        """
+        Calculate variables from standard WRF output.
+
+        Vapor pressure and cloud factor are specific calculations.
+
+        Parameters
+        ----------
+        raw_data : dict
+            Values from read_raw, keyed by variable name
+
+        Returns
+        -------
+        dict of str to ndarray
+            Each value with shape (hours, grid cells)
+        """
+        return {
+            "vapor_pressure": svp_for_celsius(raw_data["dew_point"]),
+            "cloud_factor": 1 - np.mean(raw_data["cloud_factor"], axis=1),
+        }
+
+    def _process_wus_d3(
+        self, raw_data: dict[str, npt.NDArray], time: pd.DatetimeIndex
+    ) -> dict[str, npt.NDArray]:
+        """
+        Calculate variables for WUS-D3 output.
+
+        Parameters
+        ----------
+        raw_data : dict
+            Values from read_raw, keyed by variable name
+        time : pd.DatetimeIndex
+            Timestamps of the selected times
+
+        Returns
+        -------
+        dict of str to ndarray
+            Each value with shape (hours, grid cells)
+        """
+        # The WUS-D3 humidity field (Q2) is misnamed. It is the water vapor
+        # mixing ratio, not specific humidity, as the dataset authors confirmed.
+        vapor_pressure = vapor_pressure_from_mixing_ratio(
+            raw_data["humidity"], raw_data["surface_pressure"]
+        )
+
+        shortwave = pd.DataFrame(
+            raw_data["shortwave"], index=time, columns=self.primary_id
+        )
+        clear_sky = pd.DataFrame(
+            raw_data["clear_shortwave"], index=time, columns=self.primary_id
+        )
+        cloud = cloud_factor(shortwave / clear_sky, clear_sky)
+
+        return {
+            "vapor_pressure": vapor_pressure,
+            "cloud_factor": cloud.to_numpy(),
+            "thermal": raw_data["longwave"],
+        }
