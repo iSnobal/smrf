@@ -240,12 +240,13 @@ class InputWRF(GriddedInput):
 
     def _read_previous_precip(self) -> npt.NDArray | None:
         """
-        Read the RAINNC of the hour before start_date from the input.
+        Read the accumulated precip of the hour before start_date from the input.
 
         Returns
         -------
         ndarray or None
-            RAINNC for each grid cell at the previous hour, shape (1, grid cells).
+            Accumulated precip for each grid cell at the previous hour,
+            shape (1, grid cells).
             None if the hour is not in the input.
         """
         previous = self.hours[0] - pd.Timedelta(hours=1)
@@ -261,29 +262,32 @@ class InputWRF(GriddedInput):
             previous_index = time == previous
             if not previous_index.any():
                 return None
-            return self._read_field("precip", previous_index)
+            return self._read_precip(previous_index)
 
     def _add_previous_precip(
         self, rain: npt.NDArray, previous_rain: npt.NDArray | None
     ) -> npt.NDArray:
         """
-        Put the previous hour's RAINNC in front of the requested hours.
+        Put the previous hour's accumulated precip in front of the requested hours.
 
-        RAINNC is accumulated, so the differences between rows give the precip for
+        Precip is accumulated, so the differences between rows give the precip for
         each hour. If the previous hour is missing, the extra row repeats the first
         requested hour, so the first precip value is 0.
 
         Parameters
         ----------
         rain : ndarray
-            RAINNC for each requested hour and grid cell, shape (hours, grid cells)
+            Accumulated precip for each requested hour and grid cell,
+            shape (hours, grid cells)
         previous_rain : ndarray or None
-            RAINNC for the previous hour, shape (1, grid cells), or None if missing
+            Accumulated precip for the previous hour, shape (1, grid cells),
+            or None if missing
 
         Returns
         -------
         ndarray
-            RAINNC with one extra row in front, shape (hours + 1, grid cells)
+            Accumulated precip with one extra row in front,
+            shape (hours + 1, grid cells)
         """
         if previous_rain is None:
             previous = self.hours[0] - pd.Timedelta(hours=1)
@@ -308,33 +312,67 @@ class InputWRF(GriddedInput):
             slice(cols.min(), cols.max() + 1),
         )
 
-    def _read_field(self, variable: str, time_ind: npt.NDArray) -> npt.NDArray:
+    def _read_field(
+        self, wrf_name: str, time_ind: npt.NDArray, has_levels: bool = False
+    ) -> npt.NDArray:
         """
-        Read one WRF field for the selected times over the grid cells.
+        Read one WRF variable by its file name for the selected times over the grid
+        cells.
 
         Parameters
         ----------
-        variable : str
-            Key of the field in the data set's field names, such as "air_temp"
+        wrf_name : str
+            Name of the variable in the WRF file, such as "T2"
+        time_ind : ndarray
+            Boolean mask of the times to read
+        has_levels : bool
+            True for variables with a vertical dimension, kept in full
+
+        Returns
+        -------
+        ndarray
+            Values for each selected time and grid cell, shape (times, grid cells).
+            Variables with levels keep them, shape (times, levels, grid cells).
+        """
+        topo_rows, topo_cols = self._topo_domain()
+        rows = self.station_index[:, 0] - topo_rows.start
+        cols = self.station_index[:, 1] - topo_cols.start
+        field = self.file.variables[wrf_name]
+
+        if has_levels:
+            # Fields with a vertical dimension are kept in full
+            topo_values = field[time_ind, :, topo_rows, topo_cols]
+            return topo_values[:, :, rows, cols]
+
+        topo_values = field[time_ind, topo_rows, topo_cols]
+        return topo_values[:, rows, cols]
+
+    def _read_precip(self, time_ind: npt.NDArray) -> npt.NDArray:
+        """
+        Read the accumulated precip for the selected times over the grid cells.
+
+        When present in WUS-D3,  RAINC is added to RAINNC. Other files use RAINNC alone.
+
+        Parameters
+        ----------
         time_ind : ndarray
             Boolean mask of the times to read
 
         Returns
         -------
         ndarray
-            Values for each selected time and grid cell, shape (times, grid cells).
-            Cloud fraction keeps its vertical levels, shape (times, levels, grid cells).
+            Accumulated precip for each selected time and grid cell,
+            shape (times, grid cells)
         """
-        topo_rows, topo_cols = self._topo_domain()
-        rows = self.station_index[:, 0] - topo_rows.start
-        cols = self.station_index[:, 1] - topo_cols.start
-        field = self.file.variables[wrf_schema.FIELDS[self.input_type][variable]]
-        if variable in wrf_schema.LEVEL_FIELDS:
-            # Fields with a vertical dimension are kept in full
-            topo_values = field[time_ind, :, topo_rows, topo_cols]
-            return topo_values[:, :, rows, cols]
-        topo_values = field[time_ind, topo_rows, topo_cols]
-        return topo_values[:, rows, cols]
+        precip = self._read_field(
+            wrf_schema.FIELDS[self.input_type]["precip"], time_ind
+        )
+
+        if self.input_type == wrf_schema.WUS_D3 and "RAINC" in self.file.variables:
+            self._logger.debug("Adding RAINC to precip")
+            precip = precip + self._read_field("RAINC", time_ind)
+
+        return precip
 
     def read_raw(self, time_ind: npt.NDArray) -> dict[str, npt.NDArray]:
         """
@@ -347,11 +385,21 @@ class InputWRF(GriddedInput):
             dict: station arrays keyed by variable name
         """
         raw = {}
+
         for variable, wrf_variable in wrf_schema.FIELDS[self.input_type].items():
             self._logger.debug(
                 f"Loading variable {variable} from WRF field {wrf_variable}"
             )
-            raw[variable] = self._read_field(variable, time_ind)
+
+            if variable == "precip":
+                raw[variable] = self._read_precip(time_ind)
+            else:
+                raw[variable] = self._read_field(
+                    wrf_variable,
+                    time_ind,
+                    has_levels=variable in wrf_schema.LEVEL_FIELDS,
+                )
+        raw["precip"] = self._read_precip(time_ind)
         return raw
 
     def process(self, raw_data: dict[str, npt.NDArray], time: pd.DatetimeIndex) -> None:
@@ -369,10 +417,11 @@ class InputWRF(GriddedInput):
             ValueError: a requested hour is missing from time
         """
         missing = self.hours.difference(time)
+
         if len(missing) > 0:
             raise ValueError(f"WRF data has no time step for {missing}")
 
-        # RAINNC is accumulated, so the differences are the precip per hour
+        # Precip is accumulated, so the differences are the precip per hour
         precip = np.diff(raw_data["precip"], axis=0)
 
         # arctan2 returns -180 to 180, so wrap the angles into 0 to 360

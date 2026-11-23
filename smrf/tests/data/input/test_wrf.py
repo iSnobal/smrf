@@ -62,7 +62,6 @@ TOPO.zone_number = ZONE_NUMBER
 # Error raised when grid fields are missing from the data file and no wrf_metadata
 MISSING_GRID_ERROR = r"XLAT.*wrf_metadata .ini file option"
 
-
 def lakes_file(hour: str) -> Path:
     """
     Get the path of a Lakes hourly file for 2022-11-08.
@@ -248,7 +247,6 @@ class TestInputWRFFile(unittest.TestCase):
 
         self.assertEqual(wrf.air_temp.columns.tolist(), [CENTER_NAME])
         np.testing.assert_allclose(wrf.air_temp[CENTER_NAME], 2.0, atol=1e-3)
-        np.testing.assert_allclose(wrf.precip[CENTER_NAME], [0.0, 1.0], atol=1e-3)
         np.testing.assert_allclose(wrf.cloud_factor[CENTER_NAME], 0.5, atol=1e-3)
         np.testing.assert_allclose(wrf.wind_speed[CENTER_NAME], 1.0, atol=1e-3)
         np.testing.assert_allclose(wrf.wind_direction[CENTER_NAME], 270.0, atol=1e-3)
@@ -280,6 +278,19 @@ class TestInputWRFFile(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, MISSING_GRID_ERROR):
             wrf.load()
+
+    def test_load_standard_wrf_ignores_rainc(self):
+        folder = self.enterContext(tempfile.TemporaryDirectory())
+        path = f"{folder}/wrf.nc"
+        write_wrf_file(path)
+        with nc.Dataset(path, "a") as f:
+            conv = f.createVariable("RAINC", "f4", ("Time", "south_north", "west_east"))
+            conv[:] = np.full((len(TIME_STAMPS), *XLAT.shape), 3.0)
+        wrf = InputWRF(START_DATE, HOUR_01, BBOX, TOPO, make_config(path))
+
+        wrf.load()
+
+        np.testing.assert_allclose(wrf.precip[CENTER_NAME], [0.0, 1.0], atol=1e-3)
 
 
 class TestInputWRFFolder(unittest.TestCase):
@@ -523,13 +534,27 @@ class TestInputWRF_WUS_D3(unittest.TestCase):
             raw["air_temp"],
             [self.read_lakes(lakes_file(h), "T2", rows, cols) for h in hours],
         )
+        files = [LAKES_DIR / previous] + [lakes_file(h) for h in hours]
         np.testing.assert_allclose(
             raw["precip"],
-            [self.read_lakes(LAKES_DIR / previous, "RAINNC", rows, cols)]
-            + [self.read_lakes(lakes_file(h), "RAINNC", rows, cols) for h in hours],
+            [
+                self.read_lakes(f, "RAINNC", rows, cols)
+                + self.read_lakes(f, "RAINC", rows, cols)
+                for f in files
+            ],
         )
         self.assertIsNone(wrf.file)
         self.assertIsNone(wrf.hours)
+
+    def test_read_precip_without_rainc(self):
+        wrf = InputWRF(START_DATE, END_DATE, BBOX, TOPO, make_config("unused.nc"))
+        wrf.input_type = wrf_schema.WUS_D3
+        wrf.file = MagicMock(variables={"RAINNC": None})
+
+        with patch.object(InputWRF, "_read_field", return_value=np.array([[1.0]])):
+            precip = wrf._read_precip(np.array([True]))
+
+        np.testing.assert_allclose(precip, [[1.0]])
 
     @staticmethod
     def read_lakes(path: Path, name: str, rows, cols) -> np.ndarray:
