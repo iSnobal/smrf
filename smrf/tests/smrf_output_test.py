@@ -19,13 +19,12 @@ class CheckSMRFOutputs(object):
     def test_precip_temp(self):
         self.compare_netcdf_files("precip_temp.nc")
 
-        # Check mask of temperature to match precipitation
+        # Every saved precip amount has a precip temperature
         with nc.Dataset(self.output_dir.joinpath("precip_temp.nc")) as temperature:
             with netCDF4.Dataset(self.output_dir.joinpath("precip.nc")) as precip:
-                npt.assert_equal(
-                    precip.variables["precip"] == np.nan,
-                    temperature.variables["precip_temp"] == np.nan,
-                )
+                wet = np.ma.getdata(precip.variables["precip"][:]) > 0
+                temp = np.ma.getdata(temperature.variables["precip_temp"][:])
+                npt.assert_equal(np.isnan(temp[wet]), False)
 
     def test_net_solar(self):
         self.compare_netcdf_files('net_solar.nc')
