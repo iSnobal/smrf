@@ -22,11 +22,13 @@ class OutputNetcdf:
     fmt = "%Y-%m-%d %H:%M:%S"
     COMPRESSION = MappingProxyType(
         {
-            "compression": "zstd",
+            "compression": "blosc_zstd",
             "shuffle": True,
-            "quantize_mode": "BitRound",
-            "complevel": 6,
+            "complevel": 5,
         }
+    )
+    COORD_COMPRESSION = MappingProxyType(
+        {"compression": "zlib", "complevel": 4}
     )
     DIMENSIONS = ("time", "y", "x")
     LEAST_SIGNIFICANT_DIGITS = 4
@@ -125,13 +127,13 @@ class OutputNetcdf:
 
             # Variables
             time_var = new_file.createVariable(
-                "time", "f4", (self.DIMENSIONS[0]), **self.COMPRESSION
+                "time", "f4", (self.DIMENSIONS[0]), **self.COORD_COMPRESSION
             )  # type: ignore
             y_var = new_file.createVariable(
-                "y", "f", self.DIMENSIONS[1], **self.COMPRESSION
+                "y", "f", self.DIMENSIONS[1], **self.COORD_COMPRESSION
             )  # type: ignore
             x_var = new_file.createVariable(
-                "x", "f", self.DIMENSIONS[2], **self.COMPRESSION
+                "x", "f", self.DIMENSIONS[2], **self.COORD_COMPRESSION
             )  # type: ignore
             variable = new_file.createVariable(
                 nc_variable,
