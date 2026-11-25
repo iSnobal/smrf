@@ -9,6 +9,7 @@ from inicheck.config import UserConfig
 from inicheck.tools import get_user_config
 
 import smrf
+from smrf.tests.tolerances import GOLD_DEFAULT_RTOL, GOLD_RTOL, GOLD_WIND_DIRECTION_ATOL
 
 
 class SMRFTestCase(unittest.TestCase):
@@ -19,10 +20,6 @@ class SMRFTestCase(unittest.TestCase):
 
     Runs the short simulation over Reynolds Mountain East (RME)
     """
-
-    # This matches the significant digits set in output files.
-    # See :attr:`smrf.output.output_netcdf.OutputNetcdf.LEAST_SIGNIFICANT_DIGITS`
-    VARIABLE_TOLERANCE = 0.0001
 
     DISTRIBUTION_VARIABLES = frozenset(
         [
@@ -115,9 +112,9 @@ class SMRFTestCase(unittest.TestCase):
         """
         with nc.Dataset(self.gold_dir.joinpath(output_file)) as gold:
             with nc.Dataset(self.output_dir.joinpath(output_file)) as test:
-                self.compare_file_variables(gold, test, self.VARIABLE_TOLERANCE)
+                self.compare_file_variables(gold, test, GOLD_RTOL)
 
-    def compare_file_variables(self, gold, test, tolerance=1e-10):
+    def compare_file_variables(self, gold, test, tolerance=GOLD_DEFAULT_RTOL):
         try:
             npt.assert_equal(
                 gold.variables["time"][:],
@@ -134,9 +131,7 @@ class SMRFTestCase(unittest.TestCase):
                     self.assertEqual(
                         getattr(gold.variables[variable], attribute),
                         getattr(test.variables[variable], attribute),
-                        msg="Variable `{0}` attribute `{1}` did not match gold standard".format(
-                            variable, attribute
-                        ),
+                        msg=f"Variable `{variable}` attribute `{attribute}` did not match gold standard",
                     )
 
                 if variable in ["x", "y"]:
@@ -152,11 +147,19 @@ class SMRFTestCase(unittest.TestCase):
                         msg="Spatial reference did not match gold standard",
                     )
                 else:
+                    # wind_direction is stored in degrees with 2**-14 deg steps.
+                    # Allow two steps for float differences between machines.
+                    if variable == "wind_direction":
+                        atol = GOLD_WIND_DIRECTION_ATOL
+                    else:
+                        atol = 0
+
                     for time_slice in range(len(gold.variables[variable])):
                         npt.assert_allclose(
                             gold.variables[variable][time_slice, ...],
                             test.variables[variable][time_slice, ...],
                             rtol=tolerance,
+                            atol=atol,
                             err_msg=f"Variable: {variable} at time slice {time_slice} did not match gold standard",
                         )
         except AssertionError:

@@ -12,11 +12,12 @@ import utm
 from smrf.data.helper import grid_station_names
 from smrf.data.input import InputWRF, wrf_schema
 from smrf.data.load_topo import Topo
+from smrf.envphys.constants import EPS
 from smrf.tests.smrf_test_case_lakes import SMRFTestCaseLakes
+from smrf.tests.tolerances import UTM_PLACES, WRF_ATOL
 
 # Synthetic grid: a 3 x 3 grid whose center cell is inside BBOX
 ZONE_NUMBER = 11
-UTM_PLACES = 3
 ELEVATION = 1500.0
 HEIGHT_LEVEL = 2
 
@@ -246,10 +247,10 @@ class TestInputWRFFile(unittest.TestCase):
         wrf.load()
 
         self.assertEqual(wrf.air_temp.columns.tolist(), [CENTER_NAME])
-        np.testing.assert_allclose(wrf.air_temp[CENTER_NAME], 2.0, atol=1e-3)
-        np.testing.assert_allclose(wrf.cloud_factor[CENTER_NAME], 0.5, atol=1e-3)
-        np.testing.assert_allclose(wrf.wind_speed[CENTER_NAME], 1.0, atol=1e-3)
-        np.testing.assert_allclose(wrf.wind_direction[CENTER_NAME], 270.0, atol=1e-3)
+        np.testing.assert_allclose(wrf.air_temp[CENTER_NAME], 2.0, atol=WRF_ATOL)
+        np.testing.assert_allclose(wrf.cloud_factor[CENTER_NAME], 0.5, atol=WRF_ATOL)
+        np.testing.assert_allclose(wrf.wind_speed[CENTER_NAME], 1.0, atol=WRF_ATOL)
+        np.testing.assert_allclose(wrf.wind_direction[CENTER_NAME], 270.0, atol=WRF_ATOL)
 
     def test_load_file_warns_when_previous_hour_missing(self):
         # The file starts at 01:00, so the 00:00 precip is missing and set to 0
@@ -261,7 +262,7 @@ class TestInputWRFFile(unittest.TestCase):
         with self.assertLogs(wrf._logger, level="WARNING") as logs:
             wrf.load()
 
-        np.testing.assert_allclose(wrf.precip[CENTER_NAME], [0.0, 1.0], atol=1e-3)
+        np.testing.assert_allclose(wrf.precip[CENTER_NAME], [0.0, 1.0], atol=WRF_ATOL)
         self.assertIn("Previous hour", logs.output[0])
 
     def test_load_file_raises_when_hour_missing(self):
@@ -290,7 +291,7 @@ class TestInputWRFFile(unittest.TestCase):
 
         wrf.load()
 
-        np.testing.assert_allclose(wrf.precip[CENTER_NAME], [0.0, 1.0], atol=1e-3)
+        np.testing.assert_allclose(wrf.precip[CENTER_NAME], [0.0, 1.0], atol=WRF_ATOL)
 
 
 class TestInputWRFFolder(unittest.TestCase):
@@ -399,7 +400,7 @@ class TestInputWRFFolder(unittest.TestCase):
 
         self.assertTrue(any("Previous hour" in line for line in logs.output))
         # The first precip step is 0, then the file values for each later hour
-        np.testing.assert_allclose(wrf.precip[CENTER_NAME], [0.0, 1.0, 1.0], atol=1e-3)
+        np.testing.assert_allclose(wrf.precip[CENTER_NAME], [0.0, 1.0, 1.0], atol=WRF_ATOL)
 
     def test_file_for_time_returns_existing_file(self):
         folder = self.make_hourly_folder(["01"])
@@ -441,27 +442,26 @@ class TestProcessWRF(unittest.TestCase):
         cls.wrf.process(raw, cls.wrf.hours)
 
     def test_vapor_pressure(self):
-        np.testing.assert_allclose(
-            self.wrf.vapor_pressure[CENTER_NAME], 611.0, rtol=1e-2
-        )
+        # From the vapor pressure math at 0 C
+        np.testing.assert_allclose(self.wrf.vapor_pressure[CENTER_NAME], 610.207270)
 
     def test_air_temp(self):
-        np.testing.assert_allclose(self.wrf.air_temp[CENTER_NAME], 2.0, atol=1e-3)
+        np.testing.assert_allclose(self.wrf.air_temp[CENTER_NAME], 2.0)
 
     def test_wind_speed(self):
-        np.testing.assert_allclose(self.wrf.wind_speed[CENTER_NAME], 5.0, atol=1e-3)
+        np.testing.assert_allclose(self.wrf.wind_speed[CENTER_NAME], 5.0)
 
     def test_wind_direction(self):
         np.testing.assert_allclose(
-            self.wrf.wind_direction[CENTER_NAME], 53.13, atol=1e-2
+            self.wrf.wind_direction[CENTER_NAME], np.degrees(np.arctan2(4.0, 3.0))
         )
 
     def test_precip(self):
-        np.testing.assert_allclose(self.wrf.precip[CENTER_NAME], 2.0, atol=1e-3)
+        np.testing.assert_allclose(self.wrf.precip[CENTER_NAME], 2.0)
 
     def test_cloud_factor(self):
         # Cloud fraction is the mean of its two levels, 0.4, so the factor is 0.6
-        np.testing.assert_allclose(self.wrf.cloud_factor[CENTER_NAME], 0.6, atol=1e-3)
+        np.testing.assert_allclose(self.wrf.cloud_factor[CENTER_NAME], 0.6)
 
 
 class TestInputWRF_WUS_D3(unittest.TestCase):
@@ -623,26 +623,27 @@ class TestProcessWUS_D3(unittest.TestCase):
         cls.wrf.process(raw, cls.wrf.hours)
 
     def test_vapor_pressure(self):
+        # Dalton's law from the mixing ratio, as in vapor_pressure_from_mixing_ratio
         np.testing.assert_allclose(
-            self.wrf.vapor_pressure[CENTER_NAME], 1424.0, rtol=1e-3
+            self.wrf.vapor_pressure[CENTER_NAME], 0.01 * 90000.0 / (EPS + 0.01)
         )
 
     def test_air_temp(self):
-        np.testing.assert_allclose(self.wrf.air_temp[CENTER_NAME], 2.0, atol=1e-3)
+        np.testing.assert_allclose(self.wrf.air_temp[CENTER_NAME], 2.0)
 
     def test_wind_speed(self):
-        np.testing.assert_allclose(self.wrf.wind_speed[CENTER_NAME], 5.0, atol=1e-3)
+        np.testing.assert_allclose(self.wrf.wind_speed[CENTER_NAME], 5.0)
 
     def test_wind_direction(self):
         np.testing.assert_allclose(
-            self.wrf.wind_direction[CENTER_NAME], 53.13, atol=1e-2
+            self.wrf.wind_direction[CENTER_NAME], np.degrees(np.arctan2(4.0, 3.0))
         )
 
     def test_precip(self):
-        np.testing.assert_allclose(self.wrf.precip[CENTER_NAME], 2.0, atol=1e-3)
+        np.testing.assert_allclose(self.wrf.precip[CENTER_NAME], 2.0)
 
     def test_cloud_factor(self):
-        np.testing.assert_allclose(self.wrf.cloud_factor[CENTER_NAME], 0.75, atol=1e-3)
+        np.testing.assert_allclose(self.wrf.cloud_factor[CENTER_NAME], 0.75)
 
     def test_thermal(self) -> None:
-        np.testing.assert_allclose(self.wrf.thermal[CENTER_NAME], 350.0, atol=1e-3)
+        np.testing.assert_allclose(self.wrf.thermal[CENTER_NAME], 350.0)

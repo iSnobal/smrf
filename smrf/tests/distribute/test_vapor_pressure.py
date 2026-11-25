@@ -6,6 +6,7 @@ import numpy.testing as npt
 
 from smrf.distribute import VaporPressure
 from smrf.tests.distribute import topo_mock
+from smrf.tests.tolerances import WET_BULB_DECIMAL
 
 RAW_DATA_MOCK = np.ones((1, 1))
 # Temperatures in C: 25, nan, 0, -10
@@ -51,5 +52,5 @@ class TestVaporPressure(unittest.TestCase):
         npt.assert_array_almost_equal(
             expected_vp,
             self.subject.precip_temp,
-            decimal=2,
+            decimal=WET_BULB_DECIMAL,
         )

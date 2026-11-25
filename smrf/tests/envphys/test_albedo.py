@@ -87,8 +87,8 @@ class TestDecayAlbPower(unittest.TestCase):
             ALBEDO_IR.copy(),
         )
 
-        npt.assert_array_almost_equal(expected_v, alb_v_d, decimal=5)
-        npt.assert_array_almost_equal(expected_ir, alb_ir_d, decimal=5)
+        npt.assert_array_almost_equal(expected_v, alb_v_d)
+        npt.assert_array_almost_equal(expected_ir, alb_ir_d)
 
     def test_partial_coverage_during_decay(self):
         """Test decay for mixed vegetation types."""
@@ -121,8 +121,8 @@ class TestDecayAlbPower(unittest.TestCase):
             ALBEDO_IR.copy(),
         )
 
-        npt.assert_array_almost_equal(expected_v, alb_v_d, decimal=5)
-        npt.assert_array_almost_equal(expected_ir, alb_ir_d, decimal=5)
+        npt.assert_array_almost_equal(expected_v, alb_v_d)
+        npt.assert_array_almost_equal(expected_ir, alb_ir_d)
 
 
 class TestDecayBurned(unittest.TestCase):
@@ -141,12 +141,10 @@ class TestDecayBurned(unittest.TestCase):
         npt.assert_array_almost_equal(
             np.array([[0.753412, ALBEDO_VIS[0][1]], [ALBEDO_VIS[1][0], 0.44346]]),
             alb_vis,
-            decimal=6,
         )
         npt.assert_array_almost_equal(
             np.array([[0.659235, ALBEDO_IR[0][1]], [ALBEDO_IR[1][0], 0.354768]]),
             alb_ir,
-            decimal=6,
         )
 
     def test_decay_burned_all_burned(self):
@@ -159,10 +157,10 @@ class TestDecayBurned(unittest.TestCase):
         )
 
         npt.assert_array_almost_equal(
-            np.array([[0.753412, 0.548359], [0.7, 0.44346]]), alb_vis, decimal=6
+            np.array([[0.753412, 0.548359], [0.7, 0.44346]]), alb_vis
         )
         npt.assert_array_almost_equal(
-            np.array([[0.659235, 0.456966], [0.6, 0.354768]]), alb_ir, decimal=6
+            np.array([[0.659235, 0.456966], [0.6, 0.354768]]), alb_ir
         )
 
     def test_decay_burned_all_unburned(self):
@@ -206,5 +204,5 @@ class TestDecayBurned(unittest.TestCase):
             last_snow, burn_mask, k_burned
         )
 
-        npt.assert_array_almost_equal(expected_v, alb_v_out, decimal=6)
-        npt.assert_array_almost_equal(expected_ir, alb_ir_out, decimal=6)
+        npt.assert_array_almost_equal(expected_v, alb_v_out)
+        npt.assert_array_almost_equal(expected_ir, alb_ir_out)

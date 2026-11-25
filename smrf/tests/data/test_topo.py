@@ -1,5 +1,4 @@
 import unittest
-from sys import platform
 from unittest import mock
 
 import netCDF4 as nc
@@ -10,6 +9,13 @@ from topocalc.viewf import viewf
 
 from smrf.data.load_topo import Topo
 from smrf.tests.smrf_test_case import SMRFTestCase
+from smrf.tests.tolerances import (
+    TOPO_FACTOR_ATOL,
+    TOPO_LATLON_DECIMAL,
+    TOPO_RTOL,
+    TOPO_SLOPE_ATOL,
+    UTM_PLACES,
+)
 
 TOPO_CONFIG = {
     "filename": SMRFTestCase.topo_nc(),
@@ -78,8 +84,8 @@ class TestLoadTopo(unittest.TestCase):
         """
         cx, cy = self.topo.get_center(self.ds, mask_name="mask")
         # Equal up to decimeter scale
-        np.testing.assert_almost_equal(cx, 520033.66, 2)
-        np.testing.assert_almost_equal(cy, 4768035.0, 2)
+        np.testing.assert_almost_equal(cx, 520033.6666667, UTM_PLACES)
+        np.testing.assert_almost_equal(cy, 4768035.0, UTM_PLACES)
 
     def test_center_calc_domain(self):
         """
@@ -87,8 +93,8 @@ class TestLoadTopo(unittest.TestCase):
         """
         cx, cy = self.topo.get_center(self.ds, mask_name=None)
         # Equal up to decimeter scale
-        np.testing.assert_almost_equal(cx, 520050.0, 2)
-        np.testing.assert_almost_equal(cy, 4768055.0, 2)
+        np.testing.assert_almost_equal(cx, 520050.0, UTM_PLACES)
+        np.testing.assert_almost_equal(cy, 4768055.0, UTM_PLACES)
 
     def test_auto_calc_lat_lon(self):
         """
@@ -98,8 +104,12 @@ class TestLoadTopo(unittest.TestCase):
         # basin_lon:                     -116.7547
         # basin_lat:                     43.067
         # Equal up to decimeter scale
-        np.testing.assert_almost_equal(self.topo.basin_lat, 43.0647537, 6)
-        np.testing.assert_almost_equal(self.topo.basin_long, -116.7539542, 6)
+        np.testing.assert_almost_equal(
+            self.topo.basin_lat, 43.0647537, TOPO_LATLON_DECIMAL
+        )
+        np.testing.assert_almost_equal(
+            self.topo.basin_long, -116.7539542, TOPO_LATLON_DECIMAL
+        )
 
     def test_projection_attributes(self):
         """
@@ -154,18 +164,18 @@ class TestMissingSkyViewFactor(SMRFTestCase):
                 self.assertEqual(test.variables[var].dtype, np.float64)
 
             npt.assert_allclose(
-                test.variables["sky_view_factor"][:], sky_view_factor, rtol=1e-7
+                test.variables["sky_view_factor"][:], sky_view_factor, rtol=TOPO_RTOL
             )
             npt.assert_allclose(
                 test.variables["terrain_config_factor"][:],
                 terrain_config_factor,
-                rtol=1e-7,
+                rtol=TOPO_RTOL,
             )
 
             npt.assert_allclose(
                 test.variables["slope"][:],
                 np.degrees(self.subject.slope_radians),
-                rtol=1e-7,
+                rtol=TOPO_RTOL,
             )
 
             self.assertEqual(
@@ -184,27 +194,18 @@ class TestMissingSkyViewFactor(SMRFTestCase):
                 self.assertIn("sky_view_factor", test.variables)
                 self.assertIn("terrain_config_factor", test.variables)
 
-                # OSX test fails on slope check while linux does not
-                if platform == "darwin":
-                    npt.assert_allclose(
-                        test.variables["slope"][:],
-                        gold.variables["slope"][:],
-                        atol=1e-6,
-                    )
-                else:
-                    npt.assert_allclose(
-                        test.variables["slope"][:],
-                        gold.variables["slope"][:],
-                        atol=1e-12,
-                    )
-
+                npt.assert_allclose(
+                    test.variables["slope"][:],
+                    gold.variables["slope"][:],
+                    atol=TOPO_SLOPE_ATOL,
+                )
                 npt.assert_allclose(
                     test.variables["sky_view_factor"][:],
                     gold.variables["sky_view_factor"][:],
-                    atol=0.025,
+                    atol=TOPO_FACTOR_ATOL,
                 )
                 npt.assert_allclose(
                     test.variables["terrain_config_factor"][:],
                     gold.variables["terrain_config_factor"][:],
-                    atol=0.025,
+                    atol=TOPO_FACTOR_ATOL,
                 )

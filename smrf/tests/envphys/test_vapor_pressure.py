@@ -8,6 +8,7 @@ from smrf.envphys.vapor_pressure import (
     saturation_vapor_pressure,
     vapor_pressure_from_mixing_ratio,
 )
+from smrf.tests.tolerances import EXACT_RTOL, PERCENT_RTOL
 
 
 class TestVaporPressure(unittest.TestCase):
@@ -21,8 +22,8 @@ class TestVaporPressure(unittest.TestCase):
 
 class TestVaporPressureFromMixingRatio(unittest.TestCase):
     def test_epsilon_is_ratio_of_molecular_weights(self):
-        # Water vapor and dry air molecular weights give about 0.622
-        self.assertAlmostEqual(EPS, 0.622, places=3)
+        # Ratio of the molecular weights of water vapor and dry air, 18.0153 / 28.9644
+        self.assertAlmostEqual(EPS, 18.0153 / 28.9644)
 
     def test_zero_mixing_ratio_gives_zero_vapor_pressure(self):
         mixing_ratio = np.array([0.0])
@@ -40,7 +41,7 @@ class TestVaporPressureFromMixingRatio(unittest.TestCase):
 
         result = vapor_pressure_from_mixing_ratio(mixing_ratio, pressure)
 
-        npt.assert_allclose(result, vapor, rtol=1e-12)
+        npt.assert_allclose(result, vapor, rtol=EXACT_RTOL)
 
     def test_saturation_at_20_c_round_trip(self):
         # Saturation vapor pressure at 20 C gives a mixing ratio near 14.7 g/kg
@@ -50,8 +51,8 @@ class TestVaporPressureFromMixingRatio(unittest.TestCase):
 
         result = vapor_pressure_from_mixing_ratio(mixing_ratio, pressure)
 
-        npt.assert_allclose(result, saturation, rtol=1e-12)
-        npt.assert_allclose(mixing_ratio, [[0.0147]], rtol=1e-2)
+        npt.assert_allclose(result, saturation, rtol=EXACT_RTOL)
+        npt.assert_allclose(mixing_ratio, [[0.0147]], rtol=PERCENT_RTOL)
 
     def test_keeps_array_shape(self):
         mixing_ratio = np.full((2, 3), 0.005)
