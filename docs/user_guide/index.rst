@@ -12,5 +12,6 @@ has detailed information on all of the SMRF configuration options.
     configuration
     core_config
     input_data
+    wrf_input
     dist_methods
     wind_models
