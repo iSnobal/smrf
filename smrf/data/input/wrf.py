@@ -404,7 +404,6 @@ class InputWRF(GriddedInput):
             # them in float64. Rounding them to float32 first changes the direction.
             if variable in ("u10", "v10"):
                 raw[variable] = raw[variable].astype(np.float64)
-        raw["precip"] = self._read_precip(time_ind)
         return raw
 
     def process(self, raw_data: dict[str, npt.NDArray], time: pd.DatetimeIndex) -> None:
