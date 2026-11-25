@@ -1,6 +1,9 @@
 # Version management
 smrf/version.py
 
+# Test ouputs
+smrf/tests/basins/Lakes/output
+
 # Cython compiled extensions
 *.so
 ## List of Cython generated code to create extensions

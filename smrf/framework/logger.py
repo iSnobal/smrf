@@ -1,60 +1,38 @@
-import logging.config
+import logging
 import os
+import sys
 
 import coloredlogs
 
 
-class SMRFLogger():
-    """Setup the root logger for SMRF to either the console or
-    to a file
+FMT = '%(levelname)s:%(name)s:%(message)s'
+
+# Logger that SMRF sets up when it is run on its own
+SMRF_LOGGER = 'smrf'
+
+
+def setup_logging(config: dict, logger_names: tuple[str, ...] = (SMRF_LOGGER,)) -> None:
     """
+    Send the given loggers to log_file when it is set, otherwise to the console.
+    Only these loggers are changed. Their records still propagate to the root logger.
 
-    FMT = '%(levelname)s:%(name)s:%(message)s'
+    Args:
+        config: the system section of the user config
+        logger_names: names of the loggers to set up, which share one handler
+    """
+    log_file = config.get('log_file', None)
+    if log_file is None:
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setFormatter(coloredlogs.ColoredFormatter(fmt=FMT))
+    else:
+        os.makedirs(os.path.dirname(log_file), exist_ok=True)
+        handler = logging.FileHandler(log_file, mode='a')
+        handler.setFormatter(logging.Formatter(FMT))
 
-    def __init__(self, config):
-
-        self.log_level = config.get('log_level', 'info').upper()
-        self.log_file = config.get('log_file', None)
-
-        # https://docs.python.org/3/library/logging.config.html#configuration-dictionary-schema
-        log_config = {
-            'version': 1,
-            'formatters': {
-                'standard': {
-                    'format': self.FMT
-                }
-            },
-            'handlers': {
-                'default': {
-                    'level': self.log_level,
-                    'formatter': 'standard',
-                    'class': 'logging.StreamHandler',
-                    'stream': 'ext://sys.stdout',  # Default is stderr
-                }
-            },
-            'loggers': {
-                '': {  # root logger
-                    'handlers': ['default'],
-                    'level': self.log_level,
-                    'propagate': False
-                }
-            }
-        }
-
-        if self.log_file is not None:
-            os.makedirs(os.path.dirname(self.log_file), exist_ok=True)
-
-            log_config['handlers']['log_file'] = {
-                'level': self.log_level,
-                'formatter': 'standard',
-                'class': 'logging.FileHandler',
-                'filename': self.log_file,
-                'mode': 'a'
-            }
-
-            log_config['loggers']['']['handlers'] = ['log_file']
-
-        logging.config.dictConfig(log_config)
-
-        if self.log_file is None:
-            coloredlogs.install(level=self.log_level, fmt=self.FMT)
+    for name in logger_names:
+        named_logger = logging.getLogger(name)
+        for previous in named_logger.handlers[:]:
+            named_logger.removeHandler(previous)
+            previous.close()
+        named_logger.addHandler(handler)
+        named_logger.setLevel(config.get('log_level', 'info').upper())

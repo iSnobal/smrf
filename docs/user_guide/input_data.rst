@@ -136,44 +136,7 @@ we recommend using v0.9.X or export the tables to csv format.
 Weather Research and Forecasting (WRF)
 ``````````````````````````````````````
 
-Gridded datasets can come in many forms and the :mod:`smrf.data.loadGrid` module is meant to import
-gridded datasets.  Currently, SMRF can ingest WRF output in the standard wrf_out NetCDF files. SMRF
-looks for specific variables with the WRF output file and converts them to the related SMRF values.
-The grid cells are imported as if they are a single measurement station with it's own X, Y, and
-elevation. The minimum variables required are:
-
-Times
-   The date time for each timestep
-
-XLAT
-   Latitude of each grid cell
-
-XLONG
-   Longitude of each grid cell
-
-HGT
-   Elevation of each grid cell
-
-T2
-   Air temperature at 2 meters above the surface
-
-DWPT
-   Dew point temperature at 2 meters above the surface, which will be used to calculate vapor pressure
-
-GLW
-   Incoming thermal radiation at the surface
-
-RAINNC
-   Accumulated precipitation
-
-CLDFRA
-   Cloud fraction for all atmospheric layers, the average will be used at the SMRF cloud factor
-
-UGRD
-   Wind vector, u component
-
-VGRD
-   Wind vector, v component
+Weather Research and Forecasting (WRF) input is described in :doc:`wrf_input`.
 
 
 High Resolution Rapid Refresh (HRRR)

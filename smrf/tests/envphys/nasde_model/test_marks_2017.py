@@ -1,4 +1,5 @@
 from smrf.envphys.nasde_model import Marks2017
+from smrf.tests.tolerances import SNOW_DENSITY_DECIMAL
 import unittest
 import numpy as np
 
@@ -11,6 +12,6 @@ class TestMarks2017(unittest.TestCase):
         results = Marks2017.run(self.TEMPERATURES, self.PRECIPITATION)
 
         np.testing.assert_almost_equal(
-            results['rho_s'], [79, 115, 247, 0], decimal=0
+            results['rho_s'], [79, 115, 247, 0], decimal=SNOW_DENSITY_DECIMAL
         )
         assert 'pcs' in results

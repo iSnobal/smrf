@@ -7,11 +7,11 @@ from smrf.data import Topo
 SKY_VIEW_FACTOR_MOCK = np.array([[1.0, 1.0]])
 
 
-def topo_mock():
+def topo_mock(sky_view_factor=SKY_VIEW_FACTOR_MOCK):
     return MagicMock(
         spec=Topo,
         dem=np.array([[200.0, 150.0], [300.0, 225.0]]),
-        sky_view_factor=SKY_VIEW_FACTOR_MOCK,
+        sky_view_factor=sky_view_factor,
         veg_height=np.array([[5.0, 10.0]]),
         veg_type=np.array([[1.0, 1.0], [1.0, 1.0]]),
         veg_k=np.array([[0.8, 0.1]]),

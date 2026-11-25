@@ -316,8 +316,10 @@ class Precipitation(VariableBase):
                     self.config,
                 )
 
-        # Mask the precip temperature to where we have any precipitation amounts.
-        # This reduces the amount of data saved on disk.
+        # Mask precip temperature where precip is zero. Some interpolated values
+        # from precip are below the precision set by LEAST_SIGNIFICANT_DIGITS in
+        # smrf/output/output_netcdf.py. Since precip_temp is stored separate from
+        # precip, it is possible to have a precip_temp value where precip is zero.
         precip_temp[self.precip == 0] = np.nan
 
     def distribute_for_marks2017(self, data, precip_temp, ta, time):

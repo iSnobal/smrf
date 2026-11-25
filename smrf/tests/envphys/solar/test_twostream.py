@@ -4,6 +4,7 @@ import numpy as np
 import numpy.testing as npt
 
 from smrf.envphys.solar.twostream import twostream
+from smrf.tests.tolerances import TWOSTREAM_RTOL
 
 OUTPUT_KEYS = [
     "reflectance",
@@ -31,7 +32,7 @@ class TestTwoStream(unittest.TestCase):
         npt.assert_allclose(
             [result[key][0] for key in OUTPUT_KEYS],
             [0.472814, 0.912634, 0.745189, 51.1207, 98.674, 118.485],
-            rtol=1e-5,
+            rtol=TWOSTREAM_RTOL,
         )
 
     def test_ipw_example_low_sun(self):
@@ -44,7 +45,7 @@ class TestTwoStream(unittest.TestCase):
         npt.assert_allclose(
             [result[key][0] for key in OUTPUT_KEYS],
             [0.577519, 0.365645, 0.00247875, 1.73256, 1.09694, 0.148725],
-            rtol=1e-5,
+            rtol=TWOSTREAM_RTOL,
         )
 
     def test_sun_up_bounds(self):

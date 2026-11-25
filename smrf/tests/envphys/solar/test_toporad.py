@@ -9,6 +9,7 @@ from smrf.envphys.albedo import albedo
 from smrf.envphys.solar import irradiance, toporad
 from smrf.envphys.sunang import sunang
 from smrf.tests.smrf_test_case_lakes import SMRFTestCaseLakes
+from smrf.tests.tolerances import TOPORAD_ATOL
 from topocalc.illumination_angle import illumination_angle
 
 
@@ -50,13 +51,13 @@ class TestToporad(SMRFTestCaseLakes):
     def test_elevrad(self):
         rad = toporad.Elevrad(self.dem, self.solar_irradiance, cos_z=0.45)
 
-        npt.assert_allclose(965, np.mean(rad.beam), atol=1)
-        npt.assert_allclose(943, np.min(rad.beam), atol=1)
-        npt.assert_allclose(989, np.max(rad.beam), atol=1)
+        npt.assert_allclose(965, np.mean(rad.beam), atol=TOPORAD_ATOL)
+        npt.assert_allclose(943, np.min(rad.beam), atol=TOPORAD_ATOL)
+        npt.assert_allclose(989, np.max(rad.beam), atol=TOPORAD_ATOL)
 
-        npt.assert_allclose(93, np.mean(rad.diffuse), atol=1)
-        npt.assert_allclose(87, np.min(rad.diffuse), atol=1)
-        npt.assert_allclose(99, np.max(rad.diffuse), atol=1)
+        npt.assert_allclose(93, np.mean(rad.diffuse), atol=TOPORAD_ATOL)
+        npt.assert_allclose(87, np.min(rad.diffuse), atol=TOPORAD_ATOL)
+        npt.assert_allclose(99, np.max(rad.diffuse), atol=TOPORAD_ATOL)
 
     def test_elevrad_options(self):
         rad = toporad.Elevrad(
@@ -70,13 +71,13 @@ class TestToporad(SMRFTestCaseLakes):
             surface_albedo=0.3,
         )
 
-        npt.assert_allclose(866, np.mean(rad.beam), atol=1)
-        npt.assert_allclose(839, np.min(rad.beam), atol=1)
-        npt.assert_allclose(895, np.max(rad.beam), atol=1)
+        npt.assert_allclose(866, np.mean(rad.beam), atol=TOPORAD_ATOL)
+        npt.assert_allclose(839, np.min(rad.beam), atol=TOPORAD_ATOL)
+        npt.assert_allclose(895, np.max(rad.beam), atol=TOPORAD_ATOL)
 
-        npt.assert_allclose(76, np.mean(rad.diffuse), atol=1)
-        npt.assert_allclose(71, np.min(rad.diffuse), atol=1)
-        npt.assert_allclose(79, np.max(rad.diffuse), atol=1)
+        npt.assert_allclose(76, np.mean(rad.diffuse), atol=TOPORAD_ATOL)
+        npt.assert_allclose(71, np.min(rad.diffuse), atol=TOPORAD_ATOL)
+        npt.assert_allclose(79, np.max(rad.diffuse), atol=TOPORAD_ATOL)
 
     def test_toporad(self):
         trad_beam, trad_diffuse = toporad.toporad(
@@ -89,13 +90,13 @@ class TestToporad(SMRFTestCaseLakes):
             surface_albedo=0.5,
         )
 
-        npt.assert_allclose(706, np.mean(trad_beam), atol=1)
-        npt.assert_allclose(83, np.min(trad_beam), atol=1)
-        npt.assert_allclose(1158, np.max(trad_beam), atol=1)
+        npt.assert_allclose(706, np.mean(trad_beam), atol=TOPORAD_ATOL)
+        npt.assert_allclose(83, np.min(trad_beam), atol=TOPORAD_ATOL)
+        npt.assert_allclose(1158, np.max(trad_beam), atol=TOPORAD_ATOL)
 
-        npt.assert_allclose(112, np.mean(trad_diffuse), atol=1)
-        npt.assert_allclose(82, np.min(trad_diffuse), atol=1)
-        npt.assert_allclose(148, np.max(trad_diffuse), atol=1)
+        npt.assert_allclose(112, np.mean(trad_diffuse), atol=TOPORAD_ATOL)
+        npt.assert_allclose(82, np.min(trad_diffuse), atol=TOPORAD_ATOL)
+        npt.assert_allclose(148, np.max(trad_diffuse), atol=TOPORAD_ATOL)
 
     def test_stoporad_visible(self):
         alb_vis, alb_ir = albedo(20 * np.ones_like(self.dem), self.illum_ang, 500, 2000)
@@ -116,13 +117,13 @@ class TestToporad(SMRFTestCaseLakes):
 
         self.assertIsNotNone(horizon_angles)
 
-        npt.assert_allclose(350, np.mean(srad_beam), atol=1)
-        npt.assert_allclose(47, np.min(srad_beam), atol=1)
-        npt.assert_allclose(565, np.max(srad_beam), atol=1)
+        npt.assert_allclose(350, np.mean(srad_beam), atol=TOPORAD_ATOL)
+        npt.assert_allclose(47, np.min(srad_beam), atol=TOPORAD_ATOL)
+        npt.assert_allclose(565, np.max(srad_beam), atol=TOPORAD_ATOL)
 
-        npt.assert_allclose(66, np.mean(srad_diffuse), atol=1)
-        npt.assert_allclose(47, np.min(srad_diffuse), atol=1)
-        npt.assert_allclose(102, np.max(srad_diffuse), atol=1)
+        npt.assert_allclose(66, np.mean(srad_diffuse), atol=TOPORAD_ATOL)
+        npt.assert_allclose(47, np.min(srad_diffuse), atol=TOPORAD_ATOL)
+        npt.assert_allclose(102, np.max(srad_diffuse), atol=TOPORAD_ATOL)
 
     def test_stoporad_ir(self):
         alb_vis, alb_ir = albedo(20 * np.ones_like(self.dem), self.illum_ang, 500, 2000)
@@ -141,13 +142,13 @@ class TestToporad(SMRFTestCaseLakes):
             scattering_factor=self.scattering_factor,
         )
 
-        npt.assert_allclose(365, np.mean(srad_beam), atol=1)
-        npt.assert_allclose(41, np.min(srad_beam), atol=1)
-        npt.assert_allclose(600, np.max(srad_beam), atol=1)
+        npt.assert_allclose(365, np.mean(srad_beam), atol=TOPORAD_ATOL)
+        npt.assert_allclose(41, np.min(srad_beam), atol=TOPORAD_ATOL)
+        npt.assert_allclose(600, np.max(srad_beam), atol=TOPORAD_ATOL)
 
-        npt.assert_allclose(56, np.mean(srad_diffuse), atol=1)
-        npt.assert_allclose(41, np.min(srad_diffuse), atol=1)
-        npt.assert_allclose(71, np.max(srad_diffuse), atol=1)
+        npt.assert_allclose(56, np.mean(srad_diffuse), atol=TOPORAD_ATOL)
+        npt.assert_allclose(41, np.min(srad_diffuse), atol=TOPORAD_ATOL)
+        npt.assert_allclose(71, np.max(srad_diffuse), atol=TOPORAD_ATOL)
 
     def test_sun_is_down(self):
         cos_z = -1.0

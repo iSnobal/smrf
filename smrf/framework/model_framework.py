@@ -20,6 +20,7 @@ Example:
 
 import logging
 import os
+import random
 import sys
 from datetime import datetime
 from os.path import abspath, join
@@ -33,7 +34,7 @@ from inicheck.tools import check_config, get_user_config
 from topocalc.illumination_angle import illumination_angle
 
 from smrf.data import InputData, Topo
-from smrf.data.input import GriddedInput, InputGribHRRR
+from smrf.data.input import GriddedInput, InputGribHRRR, InputWRF
 from smrf.distribute import (
     AirTemperature,
     Albedo,
@@ -44,13 +45,14 @@ from smrf.distribute import (
     SolarHRRR,
     Thermal,
     ThermalHRRR,
+    ThermalWRF,
     VaporPressure,
     Wind,
 )
 from smrf.envphys import sunang
 from smrf.framework import ascii_art, logger
 from smrf.output import output_netcdf
-from smrf.utils.utils import backup_input, date_range, getqotw, water_day
+from smrf.utils.utils import backup_input, date_range, water_day
 
 
 class SMRF:
@@ -80,7 +82,7 @@ class SMRF:
             )
         # start logging
         if external_logger is None:
-            self.smrf_logger = logger.SMRFLogger(ucfg.cfg["system"])
+            logger.setup_logging(ucfg.cfg["system"])
             self._logger = logging.getLogger(__name__)
         else:
             self._logger = external_logger
@@ -153,7 +155,9 @@ class SMRF:
 
         self.output_variables = set(self.config["output"]["variables"])
         self._logger.info(
-            "Configured output variables: \n {}".format(", ".join(self.output_variables))
+            "Configured output variables: \n {}".format(
+                ", ".join(self.output_variables)
+            )
         )
         self.output_writer = None
 
@@ -164,12 +168,24 @@ class SMRF:
         self.data = None
 
         if self.config["system"]["qotw"]:
-            self._logger.info(getqotw())
+            self._logger.info(self.getqotw())
 
-        self._logger.info(
-            f"Started SMRF --> {datetime.now(tz=self.time_zone)}"
-        )
+        self._logger.info(f"Started SMRF --> {datetime.now(tz=self.time_zone)}")
         self._logger.info(f"Number of time steps: {self.time_steps}")
+
+    @staticmethod
+    def getqotw() -> str:
+        """
+        Get a random quote of the week from the .qotw file.
+
+        Returns:
+            str: one line from the .qotw file
+        """
+        q_f = os.path.join(os.path.dirname(__file__), ".qotw")
+        with open(q_f) as f:
+            qs = f.readlines()
+        i = random.randrange(0, len(qs))
+        return qs[i]
 
     def _setup_date_and_time(self):
         self.time_zone = pytz.timezone(self.config["time"]["time_zone"])
@@ -200,10 +216,7 @@ class SMRF:
         Provide some logging info about when SMRF was closed
         """
 
-        self._logger.info(
-            f"SMRF closed --> {datetime.now(tz=self.time_zone)}"
-        )
-        logging.shutdown()
+        self._logger.info(f"SMRF closed --> {datetime.now(tz=self.time_zone)}")
 
     def load_topo(self):
         """
@@ -330,7 +343,11 @@ class SMRF:
                 ThermalHRRR.GRIB_NAME
             )
 
-            self.distribute[ThermalHRRR.DISTRIBUTION_KEY] = ThermalHRRR(**init_args)
+            if self.config[GriddedInput.TYPE]["data_type"] == InputWRF.DATA_TYPE:
+                thermal_class = ThermalWRF
+            else:
+                thermal_class = ThermalHRRR
+            self.distribute[ThermalHRRR.DISTRIBUTION_KEY] = thermal_class(**init_args)
 
             # Also swap out the ini variable to treat running HRRR as the standard
             # 'thermal' variable
@@ -393,9 +410,7 @@ class SMRF:
             self.output(t)
 
             telapsed = datetime.now(tz=self.time_zone) - startTime
-            self._logger.debug(
-                f"{telapsed.total_seconds():.2f} seconds for time step"
-            )
+            self._logger.debug(f"{telapsed.total_seconds():.2f} seconds for time step")
 
         # Close all opened source files
         for v in self.distribute:
@@ -553,9 +568,12 @@ class SMRF:
                     cloud_factor,
                 )
             elif isinstance(self.distribute[ThermalHRRR.DISTRIBUTION_KEY], ThermalHRRR):
+                thermal = self.data.thermal
+                if self.data.DATA_TYPE == InputWRF.DATA_TYPE:
+                    thermal = thermal.loc[timestep]
                 self.distribute[ThermalHRRR.DISTRIBUTION_KEY].distribute(
                     timestep,
-                    self.data.thermal,
+                    thermal,
                     self.distribute[AirTemperature.DISTRIBUTION_KEY].air_temp,
                 )
 
