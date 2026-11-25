@@ -16,11 +16,6 @@ GOLD_RTOL = 1e-4
 # Default for gold checks that pass no tolerance
 GOLD_DEFAULT_RTOL = 1e-10
 
-# The saved file rounds wind direction to multiples of 2**-14 degrees,
-# about 0.000061. Two machines can round the same value to two neighboring
-# saved values that differ by 0.000061. Allow 0.00012 to cover that.
-GOLD_WIND_DIRECTION_ATOL = 2 * 2**-14
-
 # Topo (test_topo.py)
 TOPO_RTOL = 1e-7
 TOPO_FACTOR_ATOL = 0.025

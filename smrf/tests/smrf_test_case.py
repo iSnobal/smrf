@@ -9,7 +9,7 @@ from inicheck.config import UserConfig
 from inicheck.tools import get_user_config
 
 import smrf
-from smrf.tests.tolerances import GOLD_DEFAULT_RTOL, GOLD_RTOL, GOLD_WIND_DIRECTION_ATOL
+from smrf.tests.tolerances import GOLD_DEFAULT_RTOL, GOLD_RTOL
 
 
 class SMRFTestCase(unittest.TestCase):
@@ -147,19 +147,11 @@ class SMRFTestCase(unittest.TestCase):
                         msg="Spatial reference did not match gold standard",
                     )
                 else:
-                    # wind_direction is stored in degrees with 2**-14 deg steps.
-                    # Allow two steps for float differences between machines.
-                    if variable == "wind_direction":
-                        atol = GOLD_WIND_DIRECTION_ATOL
-                    else:
-                        atol = 0
-
                     for time_slice in range(len(gold.variables[variable])):
                         npt.assert_allclose(
                             gold.variables[variable][time_slice, ...],
                             test.variables[variable][time_slice, ...],
                             rtol=tolerance,
-                            atol=atol,
                             err_msg=f"Variable: {variable} at time slice {time_slice} did not match gold standard",
                         )
         except AssertionError:

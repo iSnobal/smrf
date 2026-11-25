@@ -399,6 +399,11 @@ class InputWRF(GriddedInput):
                     time_ind,
                     has_levels=variable in wrf_schema.LEVEL_FIELDS,
                 )
+
+            # Wind direction is computed with trig on these components, so keep
+            # them in float64. Rounding them to float32 first changes the direction.
+            if variable in ("u10", "v10"):
+                raw[variable] = raw[variable].astype(np.float64)
         raw["precip"] = self._read_precip(time_ind)
         return raw
 
