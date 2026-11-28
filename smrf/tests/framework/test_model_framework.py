@@ -77,11 +77,13 @@ class TestModelFramework(SMRFTestCase):
         self.smrf.distribute["Variable"] = mock_variable
         self.smrf.distribute["Variable_2"] = mock_variable_2
         self.smrf.data = mock_data
+        self.smrf.output_writer = MagicMock()
 
         self.smrf.distribute_data()
 
         self.assertEqual(mock_single_timestep.call_count, self.smrf.time_steps)
         self.assertEqual(mock_output.call_count, self.smrf.time_steps)
+        self.smrf.output_writer.flush.assert_called_once()
 
         mock_variable_2.source_files.close.assert_called()
 

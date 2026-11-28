@@ -8,13 +8,14 @@ import netCDF4 as nc
 import numpy as np
 
 from smrf.data import load_topo
+from smrf.output.buffered_netcdf_writer import BufferedNetcdfWriter
 from smrf.utils.spatialnc import add_proj, add_proj_from_file
 from smrf.version import __version__ as SMRF_VERSION
 
 
 class OutputNetcdf:
     """
-    Class OutputNetcdf() to output values to a netCDF file
+    Class to write output data to NetCDF files.
     """
 
     type = "netcdf"
@@ -68,6 +69,13 @@ class OutputNetcdf:
                 self.append_to_existing_file(file_name)
             else:
                 self.create_new_file(file_name, nc_variable, module, time)
+
+        self.writer = BufferedNetcdfWriter(
+            {
+                self.file_name(nc_variable): [nc_variable]
+                for nc_variable in self.output_variables
+            }
+        )
 
     @property
     def out_location(self):
@@ -180,42 +188,33 @@ class OutputNetcdf:
 
             new_file.setncattr_string("SMRF_version", SMRF_VERSION)
 
-    def output(self, date_time):
+    def output(self, date_time: datetime) -> None:
         """
-        Output a time step
+        Buffer a time step for all output variables
 
         Args:
             date_time: the date time object for the time step to be saved
         """
+        data = {}
         for nc_variable, module in self.output_variables.items():
             # Get the data from the distribution class
-            data = getattr(module, nc_variable)
+            array = getattr(module, nc_variable)
             self._logger.debug(
-                f"{date_time} Writing variable {nc_variable} to from module {module!s} netCDF"
+                f"{date_time} Buffering variable {nc_variable} from module {module!s}"
             )
 
-            if data is None:
-                data = np.zeros((self.topo.ny, self.topo.nx))
+            if array is None:
+                array = np.zeros((self.topo.ny, self.topo.nx))
 
-            with nc.Dataset(
-                self.file_name(nc_variable), mode="a", format="NETCDF4"
-            ) as file:
-                # the current time integer
-                times = file.variables["time"]
-                t = nc.date2num(
-                    date_time.replace(tzinfo=None), times.units, times.calendar
-                )
+            if self.out_config["mask_output"]:
+                array = array * self.topo.mask
 
-                existing_times = np.where(times[:] == t)[0]
-                if existing_times.size > 0:
-                    index = existing_times[0]
-                else:
-                    index = len(times)
+            data[nc_variable] = array
 
-                # insert the time and data
-                file.variables["time"][index] = t
+        self.writer.add(date_time, data)
 
-                if self.out_config["mask_output"]:
-                    data = data * self.topo.mask
-
-                file.variables[nc_variable][index, :] = data
+    def flush(self) -> None:
+        """
+        Write all buffered time steps to the output files
+        """
+        self.writer.flush()

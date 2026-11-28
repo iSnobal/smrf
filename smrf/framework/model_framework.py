@@ -398,14 +398,18 @@ class SMRF:
                 self.distribute[v].initialize(self.data.metadata)
 
         # Distribute the data
-        for output_count, t in enumerate(self.date_time):
-            startTime = datetime.now(tz=self.time_zone)
+        try:
+            for output_count, t in enumerate(self.date_time):
+                startTime = datetime.now(tz=self.time_zone)
 
-            self.distribute_single_timestep(t)
-            self.output(t)
+                self.distribute_single_timestep(t)
+                self.output(t)
 
-            telapsed = datetime.now(tz=self.time_zone) - startTime
-            self._logger.debug(f"{telapsed.total_seconds():.2f} seconds for time step")
+                telapsed = datetime.now(tz=self.time_zone) - startTime
+                self._logger.debug(f"{telapsed.total_seconds():.2f} seconds for time step")
+        finally:
+            # Write the time steps still in the output buffer
+            self.output_writer.flush()
 
         # Close all opened source files
         for v in self.distribute:
