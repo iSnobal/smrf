@@ -1,6 +1,5 @@
 import copy
 import os
-import random
 import sys
 from datetime import datetime
 from shutil import copyfile
@@ -9,55 +8,10 @@ import numpy as np
 import pandas as pd
 import pytz
 import utm
-from inicheck.checkers import CheckType
 from inicheck.output import generate_config
 from inicheck.utilities import mk_lst
-from scipy.interpolate import (CloughTocher2DInterpolator,
-                               LinearNDInterpolator)
+from scipy.interpolate import CloughTocher2DInterpolator, LinearNDInterpolator
 from scipy.spatial import Delaunay
-
-from smrf import __core_config__
-
-
-class CheckStation(CheckType):
-    """
-    Custom check for ensuring our stations are always capitalized
-    """
-
-    def __init__(self, **kwargs):
-        super(CheckStation, self).__init__(**kwargs)
-
-    def type_func(self, value):
-        """
-        Attempt to convert all the values to upper case.
-
-        Args:
-            value: A single string in config entry representing a station name
-        Returns:
-            value: A single station name all upper case
-        """
-
-        return value.upper()
-
-
-class CheckRawString(CheckType):
-    """
-    Custom `inicheck` checker that will not change the input string
-    """
-
-    def __init__(self, **kwargs):
-        super(CheckRawString, self).__init__(**kwargs)
-
-    def type_func(self, value):
-        """
-        Do not change the passed value at all
-        Args:
-            value: A single string
-        Returns:
-            value: A single string unchanged
-        """
-
-        return value
 
 
 def find_configs(directory):
@@ -95,8 +49,8 @@ def handle_run_script_options(config_option):
         configs = find_configs(config_option)
 
         if len(configs) > 1:
-            print("\nError: Multiple config files detected in {0} please"
-                  " ensure only one is in the folder.\n".format(config_option))
+            print(f"\nError: Multiple config files detected in {config_option} please"
+                  " ensure only one is in the folder.\n")
             sys.exit()
 
         else:
@@ -320,10 +274,10 @@ def get_config_doc_section_hdr():
             sec = d
 
         # If distributed module link api
-        intro = ("The {0} section controls all the available parameters that"
-                 " effect the distribution of the {0} module, espcially  the"
+        intro = (f"The {sec} section controls all the available parameters that"
+                 f" effect the distribution of the {sec} module, espcially  the"
                  " associated models. For more detailed information please see"
-                 " :mod:`smrf.distribute.{0}`\n").format(sec)
+                 f" :mod:`smrf.distribute.{sec}`\n")
 
         hdr_dict[d] = intro
 
@@ -362,16 +316,6 @@ def get_asc_stats(fp):
     ts['y'] = ts['y'] + ts['du']/2
 
     return ts
-
-
-def getqotw():
-    p = os.path.dirname(__core_config__)
-    q_f = os.path.abspath(os.path.join('{0}'.format(p), '.qotw'))
-    with open(q_f) as f:
-        qs = f.readlines()
-        f.close()
-    i = random.randrange(0, len(qs))
-    return qs[i]
 
 
 def interp_weights(xy, uv, d=2):
@@ -478,6 +422,6 @@ def date_range(start_date, end_date, increment, timezone):
     return list(pd.date_range(
         start_date,
         end_date,
-        freq="{}min".format(increment),
+        freq=f"{increment}min",
         tz=timezone
     ))

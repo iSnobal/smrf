@@ -1,9 +1,9 @@
 import os
 
-from smrf import __version__
 from smrf.framework.model_framework import SMRF
 from smrf.tests.smrf_test_case import SMRFTestCase
 from smrf.utils.utils import backup_input
+from smrf.version import __version__ as SMRF_VERSION
 
 
 class TestBackupInput(SMRFTestCase):
@@ -26,4 +26,4 @@ class TestBackupInput(SMRFTestCase):
 
         with open(backup_config) as f:
             lines = f.readlines()
-            self.assertTrue(__version__ in lines[1])
+            self.assertTrue(SMRF_VERSION in lines[1])

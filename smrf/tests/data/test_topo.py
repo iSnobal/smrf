@@ -173,6 +173,12 @@ class TestMissingSkyViewFactor(SMRFTestCase):
                 f"Sky view factor for {self.config['sky_view_factor_angles']} angles",
             )
 
+            # Metadata
+            for var in ["sky_view_factor", "terrain_config_factor", "slope"]:
+                self.assertEqual(
+                    test.variables[var].getncattr("grid_mapping"), "projection"
+                )
+
     def test_topo_gold(self):
         """
         This test acts as a warning system to any changes to the TopoCalc sky_view_factor
